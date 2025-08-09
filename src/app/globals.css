@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Import Leaflet CSS */
+@import "leaflet/dist/leaflet.css";
+
+/* Import PhotoSphere Viewer CSS */
+@import "@photo-sphere-viewer/core/index.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
