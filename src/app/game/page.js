@@ -3,18 +3,21 @@
 import { Suspense } from 'react';
 import GameClient from '../components/GameClient';
 
-function GameClientWithSuspense() {
+function GameLoadingFallback() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-black text-2xl">Loading game...</div>
+    <div className="min-h-screen flex items-center justify-center vn-gradient-bg">
+      <div className="text-center space-y-4 animate-fade-in-up">
+        <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+        <p className="text-white/80 text-lg font-medium">Loading game...</p>
       </div>
-    }>
-      <GameClient />
-    </Suspense>
+    </div>
   );
 }
 
 export default function GamePage() {
-  return <GameClientWithSuspense />;
+  return (
+    <Suspense fallback={<GameLoadingFallback />}>
+      <GameClient />
+    </Suspense>
+  );
 }

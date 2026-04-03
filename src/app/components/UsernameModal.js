@@ -19,31 +19,30 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     const trimmedUsername = username.trim();
-    
+
     if (!trimmedUsername) {
       setError('Please enter a username');
       return;
     }
-    
+
     if (trimmedUsername.length < 2) {
       setError('Username must be at least 2 characters');
       return;
     }
-    
+
     if (trimmedUsername.length > 20) {
       setError('Username must be less than 20 characters');
       return;
     }
-    
-    // Basic validation - only letters, numbers, and common symbols
+
     const validUsername = /^[a-zA-Z0-9_-]+$/.test(trimmedUsername);
     if (!validUsername) {
       setError('Username can only contain letters, numbers, hyphens, and underscores');
       return;
     }
-    
+
     onSubmit(trimmedUsername);
     setError('');
     setUsername('');
@@ -51,36 +50,37 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Welcome to VNGeoGuessr!</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Welcome to VNGeoGuessr</DialogTitle>
           <DialogDescription>
-            Enter your username to join the leaderboard
+            Enter a username for the leaderboard
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username" className="text-sm font-medium">Username</Label>
             <Input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Your username"
               maxLength={20}
               autoFocus
+              className="h-10"
             />
             {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+              <Alert variant="destructive" className="py-2">
+                <AlertDescription className="text-xs">{error}</AlertDescription>
               </Alert>
             )}
           </div>
-          
-          <div className="flex gap-3">
+
+          <div className="flex gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={onClose}
               className="flex-1"
             >
@@ -88,15 +88,15 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
             </Button>
             <Button
               type="submit"
-              className="flex-1"
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
             >
               Start Playing
             </Button>
           </div>
         </form>
-        
-        <p className="text-xs text-muted-foreground text-center">
-          Your username will be displayed on the leaderboard
+
+        <p className="text-xs text-gray-400 text-center">
+          Displayed on the leaderboard
         </p>
       </DialogContent>
     </Dialog>

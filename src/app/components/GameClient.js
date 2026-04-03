@@ -8,13 +8,12 @@ import DonateQRModal from './DonateQRModal';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
-  loading: () => <div className="w-full h-full min-h-[400px] bg-gray-100 flex items-center justify-center">Loading map...</div>
+  loading: () => <div className="w-full h-full min-h-[400px] bg-gray-100 flex items-center justify-center text-gray-400">Loading map...</div>
 });
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   CITIES,
   cityCenters,
@@ -29,7 +28,6 @@ export default function GameClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // State declarations
   const [location, setLocation] = useState('TPHCM');
   const [imageData, setImageData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
@@ -49,17 +47,14 @@ export default function GameClient() {
   const [globalDistanceRank, setGlobalDistanceRank] = useState(null);
   const [cityDistanceRank, setCityDistanceRank] = useState(null);
   const [leaderboardMessage, setLeaderboardMessage] = useState('');
-  const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]); // Default to Ho Chi Minh
+  const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]);
 
-  // Refs
   const resultMapRef = useRef(null);
   const resultLeafletMapRef = useRef(null);
   const initializingRef = useRef(false);
 
-  // Core functions first (no dependencies)
   const getRandomImage = useCallback(async (locationCode, currentSessionId = null) => {
     try {
-      console.log('Fetching random image for city:', locationCode);
       const url = currentSessionId ?
         `/api/new-game?city=${locationCode}&sessionId=${currentSessionId}` :
         `/api/new-game?city=${locationCode}`;
@@ -68,52 +63,33 @@ export default function GameClient() {
       const data = await response.json();
 
       if (data.success) {
-        console.log('API response data:', data);
         setSessionId(data.sessionId);
-        const newImageData = {
+        setImageData({
           id: data.imageData.id,
           url: data.imageData.url,
           isPano: data.imageData.isPano
-        };
-        console.log('Setting imageData:', newImageData);
-        setImageData(newImageData);
-        console.log('Setting loading to false');
+        });
         setLoading(false);
-
-        console.log(`Image loaded from city bbox`);
       } else {
         throw new Error(data.error || 'No images found');
       }
     } catch (error) {
-      console.error('Error fetching image after all retries:', error);
-      console.error('Error details:', error.message);
-
+      console.error('Error fetching image:', error);
       setImageData(null);
       setSessionId(null);
       setLoading(false);
-
-      alert(`Failed to load street view image after trying different search areas: ${error.message || 'No images found'}`);
+      alert(`Failed to load street view image: ${error.message || 'No images found'}`);
     }
-  }, []); // No dependencies to prevent re-creation
+  }, []);
 
-  // Functions that depend on other functions
   const loadLibrariesAndInitialize = useCallback(async (locationCode) => {
-    // Prevent multiple simultaneous initializations
-    if (initializingRef.current) {
-      console.log('Already initializing, skipping...');
-      return;
-    }
-
+    if (initializingRef.current) return;
     initializingRef.current = true;
     setLoading(true);
 
     try {
-      // Set map center based on location
       const center = cityCenters[locationCode];
-      if (center) {
-        setMapCenter(center);
-      }
-
+      if (center) setMapCenter(center);
       await getRandomImage(locationCode);
       setInitialized(true);
     } catch (error) {
@@ -125,34 +101,22 @@ export default function GameClient() {
   }, [getRandomImage]);
 
   useEffect(() => {
-    // Only initialize once
     if (initialized) return;
-
     const locationParam = searchParams.get('location') || 'TPHCM';
     setLocation(locationParam);
-
-    // Get existing username (should be set from home page)
     const existingUsername = getUsername();
     setUsernameState(existingUsername || '');
-
-    // Initialize the game
     loadLibrariesAndInitialize(locationParam);
   }, [searchParams, loadLibrariesAndInitialize, initialized]);
 
-
-
   const submitGameResult = async (guessCoords) => {
     if (!guessCoords || !sessionId) return null;
-
-    // Use username or default to 'Anonymous' if not set
     const playerName = username || 'Anonymous';
 
     try {
       const response = await fetch('/api/guess', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: playerName,
           guessLat: guessCoords[0],
@@ -163,11 +127,7 @@ export default function GameClient() {
 
       const data = await response.json();
       if (data.success) {
-        console.log(`Game result processed. Distance: ${data.gameResult.distance}m, Score: ${data.gameResult.score}, Rank: ${data.gameResult.rank}`);
-        return {
-          ...data.gameResult,
-          leaderboard: data.leaderboard
-        };
+        return { ...data.gameResult, leaderboard: data.leaderboard };
       } else {
         console.error('Failed to submit game result:', data.error);
         return null;
@@ -180,7 +140,6 @@ export default function GameClient() {
 
   const handlePanoramaReady = useCallback(() => {
     setLoading(false);
-    console.log('Panorama viewer ready');
   }, []);
 
   const handlePanoramaError = useCallback((error) => {
@@ -190,21 +149,16 @@ export default function GameClient() {
 
   const handleMapClick = (coordinates) => {
     setGuessCoordinates([coordinates.lat, coordinates.lng]);
-    console.log('Map clicked at:', coordinates);
   };
-
 
   const handleSubmitGuess = async () => {
     if (!guessCoordinates || !imageData) return;
-
     setLoading(true);
 
     try {
-      // Submit to server for processing
       const result = await submitGameResult(guessCoordinates);
 
       if (result) {
-        // Use server-calculated values
         setDistance(result.distance);
         setScore(result.score);
         setExactLocation(result.exactLocation);
@@ -213,18 +167,12 @@ export default function GameClient() {
         setGlobalDistanceRank(result.globalDistanceRank);
         setCityDistanceRank(result.cityDistanceRank);
 
-        // Set accumulated score information
         if (result.leaderboard) {
-          if (result.leaderboard.global) {
-            setGlobalScore(result.leaderboard.global.score);
-          }
-          if (result.leaderboard.city) {
-            setCityScore(result.leaderboard.city.score);
-          }
+          if (result.leaderboard.global) setGlobalScore(result.leaderboard.global.score);
+          if (result.leaderboard.city) setCityScore(result.leaderboard.city.score);
           setLeaderboardMessage(result.leaderboard.message);
         }
       } else {
-        // Fallback: no calculation possible without exact location
         setDistance(99999);
         setScore(0);
         setExactLocation(null);
@@ -233,8 +181,6 @@ export default function GameClient() {
       }
     } catch (error) {
       console.error('Error submitting guess:', error);
-
-      // Fallback: no calculation possible
       setDistance(99999);
       setScore(0);
       setExactLocation(null);
@@ -248,8 +194,7 @@ export default function GameClient() {
     setShowResult(true);
   };
 
-  const handleNextRound = () => {
-    setShowResult(false);
+  const resetRoundState = () => {
     setGuessCoordinates(null);
     setGlobalRank(null);
     setCityRank(null);
@@ -258,6 +203,11 @@ export default function GameClient() {
     setGlobalDistanceRank(null);
     setCityDistanceRank(null);
     setExactLocation(null);
+  };
+
+  const handleNextRound = () => {
+    setShowResult(false);
+    resetRoundState();
     const currentSession = sessionId;
     setSessionId(null);
     getRandomImage(location, currentSession);
@@ -267,31 +217,18 @@ export default function GameClient() {
     if (!imageData) return;
 
     try {
-      // Clean up the current session in the background
       if (sessionId) {
         fetch('/api/skip', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId })
-        }).catch(error => {
-          console.error('Error cleaning up session:', error);
-        });
+        }).catch(error => console.error('Error cleaning up session:', error));
       }
     } catch (error) {
       console.error('Error cleaning up session:', error);
     }
 
-    // Reset state and load next image directly without loading screen
-    setGuessCoordinates(null);
-    setGlobalRank(null);
-    setCityRank(null);
-    setGlobalScore(null);
-    setCityScore(null);
-    setGlobalDistanceRank(null);
-    setCityDistanceRank(null);
-    setExactLocation(null);
+    resetRoundState();
     const currentSession = sessionId;
     setSessionId(null);
     getRandomImage(location, currentSession);
@@ -303,30 +240,24 @@ export default function GameClient() {
 
   // Create result map when dialog opens
   useEffect(() => {
-    console.log('Result map effect triggered:', { showResult, exactLocation, guessCoordinates, hasRef: !!resultMapRef.current });
-
     if (showResult && guessCoordinates) {
-      // Clean up existing map
       if (resultLeafletMapRef.current) {
         resultLeafletMapRef.current.remove();
         resultLeafletMapRef.current = null;
       }
 
-      // Use a more aggressive approach to wait for DOM
+      let retryCount = 0;
       const initializeMap = async () => {
         if (!resultMapRef.current) {
-          console.log('Map ref not available, retrying...');
+          if (retryCount++ >= 10) return;
           setTimeout(initializeMap, 100);
           return;
         }
 
-        console.log('Map ref found, initializing map...');
         try {
-          // Dynamically import Leaflet only on client side
           const L = (await import('leaflet')).default;
           await import('leaflet/dist/leaflet.css');
 
-          // Fix default marker icons issue (same as in LeafletMap component)
           delete L.Icon.Default.prototype._getIconUrl;
           L.Icon.Default.mergeOptions({
             iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -334,13 +265,11 @@ export default function GameClient() {
             shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
           });
 
-          // Create map with explicit size settings
           const map = L.map(resultMapRef.current, {
             preferCanvas: true,
             attributionControl: true
           });
 
-          // Add tile layer
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
@@ -348,7 +277,6 @@ export default function GameClient() {
 
           const markers = [];
 
-          // Guess marker (red circle) - always show this
           const redIcon = L.divIcon({
             className: 'custom-div-icon',
             html: '<div style="background-color: #ef4444; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
@@ -361,7 +289,6 @@ export default function GameClient() {
           }).addTo(map).bindPopup("Your Guess");
           markers.push(guessMarker);
 
-          // True location marker (green circle) - only if exactLocation exists
           if (exactLocation) {
             const greenIcon = L.divIcon({
               className: 'custom-div-icon',
@@ -375,34 +302,21 @@ export default function GameClient() {
             }).addTo(map).bindPopup("Actual Location");
             markers.push(trueLocationMarker);
 
-            // Draw line between markers
             L.polyline([
               [exactLocation.lat, exactLocation.lng],
               [guessCoordinates[0], guessCoordinates[1]]
-            ], { color: 'blue', weight: 3 }).addTo(map);
+            ], { color: '#da251d', weight: 3, dashArray: '8 4' }).addTo(map);
           }
 
-          // Fit bounds to show all markers
           if (markers.length > 1) {
             const featureGroup = new L.featureGroup(markers);
-            map.fitBounds(featureGroup.getBounds(), {
-              padding: [20, 20],
-              maxZoom: 16
-            });
+            map.fitBounds(featureGroup.getBounds(), { padding: [20, 20], maxZoom: 16 });
           } else {
-            // Only guess marker, center on it
             map.setView([guessCoordinates[0], guessCoordinates[1]], 13);
           }
 
-          // Force map to recognize its size after a delay
-          setTimeout(() => {
-            map.invalidateSize();
-          }, 100);
-
-          // Additional invalidation after longer delay to ensure tiles load
-          setTimeout(() => {
-            map.invalidateSize();
-          }, 500);
+          setTimeout(() => map.invalidateSize(), 100);
+          setTimeout(() => map.invalidateSize(), 500);
 
           resultLeafletMapRef.current = map;
         } catch (error) {
@@ -410,12 +324,10 @@ export default function GameClient() {
         }
       };
 
-      // Start trying to initialize the map
       setTimeout(initializeMap, 300);
     }
   }, [showResult, exactLocation, guessCoordinates]);
 
-  // Clean up result map when dialog closes
   useEffect(() => {
     if (!showResult && resultLeafletMapRef.current) {
       resultLeafletMapRef.current.remove();
@@ -423,239 +335,219 @@ export default function GameClient() {
     }
   }, [showResult]);
 
-  console.log('GameClient render - loading state:', loading);
+  const getScoreBg = (s) => {
+    if (s >= 5) return 'bg-green-500';
+    if (s >= 4) return 'bg-emerald-500';
+    if (s >= 3) return 'bg-amber-500';
+    if (s >= 2) return 'bg-orange-500';
+    if (s >= 1) return 'bg-red-400';
+    return 'bg-gray-400';
+  };
 
   if (loading) {
-    console.log('Showing main loading screen');
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-400 via-blue-500 to-purple-600">
-        <Card className="w-80">
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <Skeleton className="h-12 w-12 rounded-full mx-auto" />
-              <Skeleton className="h-4 w-48 mx-auto" />
-              <p className="text-muted-foreground">Loading panoramic image...</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center vn-gradient-bg">
+        <div className="text-center space-y-4 animate-fade-in-up">
+          <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+          <p className="text-white/80 text-lg font-medium">Loading panoramic image...</p>
+          <p className="text-white/50 text-sm">{cityNames[location] || location}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="min-h-screen">
-        {/* Header */}
-        <header className="flex justify-between items-center p-4 bg-gray-100 border-b border-gray-200">
-          <Button
-            onClick={handleGoBack}
-            variant="destructive"
-            className="flex items-center gap-2"
-          >
-            <span>←</span>
-            <span>Back</span>
-          </Button>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Compact Header */}
+      <header className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
+        <Button
+          onClick={handleGoBack}
+          variant="ghost"
+          size="sm"
+          className="text-gray-600 hover:text-gray-900"
+        >
+          ← Back
+        </Button>
 
-          <div className="text-center">
-            <div className="text-black text-2xl font-bold">VNGEOGUESSR</div>
-            <Badge variant="secondary" className="text-lg bg-gray-700 text-white">
-              {cityNames[location] || location}
-            </Badge>
-          </div>
-
-          <Button
-            onClick={() => setShowDonate(true)}
-            className="flex items-center gap-2 bg-white hover:bg-gray-100 text-black border border-gray-300"
-          >
-            <span>☕</span>
-            <span>BUY ME A COFFEE</span>
-          </Button>
-        </header>
-
-        {/* Game Content */}
-        <div className="p-4 grid lg:grid-cols-2 gap-4 h-[calc(100vh-100px)]">
-          {/* Panorama Viewer */}
-          <div className="bg-black rounded-lg overflow-hidden">
-            {imageData ? (
-              <PanoramaViewer
-                key={imageData.id}
-                imageUrl={imageData.url}
-                onReady={handlePanoramaReady}
-                onError={handlePanoramaError}
-              />
-            ) : (
-              <div className="w-full h-full min-h-[400px] flex items-center justify-center">
-                <div className="text-black">Loading panorama...</div>
-              </div>
-            )}
-          </div>
-
-          {/* Map and Submit */}
-          <div className="flex flex-col gap-4">
-            <div className="bg-white rounded-lg overflow-hidden flex-1">
-              <LeafletMap
-                center={mapCenter}
-                bbox={CITIES[location]?.bbox}
-                zoom={10}
-                onMapClick={handleMapClick}
-                className="w-full h-full min-h-[400px]"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSubmitGuess}
-                disabled={!guessCoordinates || loading}
-                className="flex-1 py-4 text-lg font-bold"
-                size="lg"
-              >
-                {loading ? 'PROCESSING...' : 'SUBMIT GUESS'}
-              </Button>
-              <Button
-                onClick={handleSkipGuess}
-                disabled={loading}
-                variant="outline"
-                className="py-4 px-6 text-lg font-bold"
-                size="lg"
-              >
-                SKIP
-              </Button>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-gray-800 hidden sm:inline">VNGeoGuessr</span>
+          <Badge className="bg-red-600 text-white text-xs">
+            {cityNames[location] || location}
+          </Badge>
         </div>
 
-        {/* Result Modal */}
-        <Dialog open={showResult} onOpenChange={() => setShowResult(false)}>
-          <DialogContent className="sm:max-w-2xl" key={showResult ? 'open' : 'closed'}>
-            <DialogHeader>
-              <DialogTitle className="text-3xl text-center">RESULT</DialogTitle>
-            </DialogHeader>
+        <Button
+          onClick={() => setShowDonate(true)}
+          variant="ghost"
+          size="sm"
+          className="text-gray-600 hover:text-gray-900"
+        >
+          Buy me a coffee
+        </Button>
+      </header>
 
-            <div className="text-center space-y-4">
-              <Badge variant="secondary" className="text-2xl font-bold text-blue-600 px-4 py-2">
+      {/* Game Content */}
+      <div className="flex-1 p-3 grid lg:grid-cols-2 gap-3" style={{ height: 'calc(100vh - 52px)' }}>
+        {/* Panorama Viewer */}
+        <div className="bg-gray-900 rounded-lg overflow-hidden">
+          {imageData ? (
+            <PanoramaViewer
+              key={imageData.id}
+              imageUrl={imageData.url}
+              onReady={handlePanoramaReady}
+              onError={handlePanoramaError}
+            />
+          ) : (
+            <div className="w-full h-full min-h-[400px] flex items-center justify-center">
+              <p className="text-gray-400">Loading panorama...</p>
+            </div>
+          )}
+        </div>
+
+        {/* Map and Controls */}
+        <div className="flex flex-col gap-3">
+          <div className="bg-white rounded-lg overflow-hidden flex-1 shadow-sm border border-gray-200">
+            <LeafletMap
+              center={mapCenter}
+              bbox={CITIES[location]?.bbox}
+              zoom={10}
+              onMapClick={handleMapClick}
+              className="w-full h-full min-h-[400px]"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSubmitGuess}
+              disabled={!guessCoordinates || loading}
+              className="flex-1 py-4 text-base font-bold bg-red-600 hover:bg-red-700 text-white"
+              size="lg"
+            >
+              {loading ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Click the map first'}
+            </Button>
+            <Button
+              onClick={handleSkipGuess}
+              disabled={loading}
+              variant="outline"
+              className="py-4 px-5 text-base font-medium"
+              size="lg"
+            >
+              Skip
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Result Modal */}
+      <Dialog open={showResult} onOpenChange={() => setShowResult(false)}>
+        <DialogContent className="sm:max-w-xl" key={showResult ? 'open' : 'closed'}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-bold">Round Result</DialogTitle>
+          </DialogHeader>
+
+          <div className="text-center space-y-4 animate-fade-in-up">
+            {/* Score circle */}
+            <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)} animate-pulse-glow`}>
+              {score}
+            </div>
+
+            <div>
+              <Badge variant="outline" className="text-lg font-semibold text-blue-600 px-3 py-1">
                 {formatDistance(distance)} away
               </Badge>
-
-              <div className="text-xl">
-                Round Score: <Badge className="text-lg font-bold bg-black text-white">{score}/5 points</Badge>
-              </div>
-
-              {(globalScore !== null || cityScore !== null) && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {cityScore !== null && (
-                      <div className="text-center">
-                        <Badge variant="outline" className="text-lg text-blue-600 font-semibold">
-                          {cityNames[location]} Total: {cityScore}
-                        </Badge>
-                        {cityRank && (
-                          <p className="text-sm text-gray-600 mt-1">Rank #{cityRank}</p>
-                        )}
-                      </div>
-                    )}
-                    {globalScore !== null && (
-                      <div className="text-center">
-                        <Badge variant="outline" className="text-lg text-purple-600 font-semibold">
-                          Global Total: {globalScore}
-                        </Badge>
-                        {globalRank && (
-                          <p className="text-sm text-gray-600 mt-1">Rank #{globalRank}</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {leaderboardMessage && (
-                    <p className="text-sm text-green-600 font-medium text-center">
-                      {leaderboardMessage}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {(globalDistanceRank !== null || cityDistanceRank !== null) && (
-                <div className="space-y-2">
-                  <h4 className="text-lg font-semibold text-center text-purple-700">Distance Leaderboard Rankings</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {cityDistanceRank !== null && (
-                      <div className="text-center">
-                        <Badge variant="outline" className="text-sm text-blue-600 font-semibold">
-                          {cityNames[location]} Distance Rank #{cityDistanceRank}
-                        </Badge>
-                        <p className="text-xs text-gray-600 mt-1">{formatDistance(distance)}</p>
-                      </div>
-                    )}
-                    {globalDistanceRank !== null && (
-                      <div className="text-center">
-                        <Badge variant="outline" className="text-sm text-purple-600 font-semibold">
-                          Global Distance Rank #{globalDistanceRank}
-                        </Badge>
-                        <p className="text-xs text-gray-600 mt-1">{formatDistance(distance)}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <p className="text-sm text-muted-foreground">
-                Playing as: {username || 'Anonymous'} • City: {cityNames[location] || location}
-              </p>
             </div>
 
-            <Card className="my-6">
-              <CardContent className="p-6">
-                <div className="text-center text-lg mb-4">📍 Actual Location vs Your Guess</div>
-                <div
-                  ref={resultMapRef}
-                  key={`map-${sessionId}`}
-                  className="h-64 w-full bg-gray-100 rounded-lg overflow-hidden"
-                  style={{ minHeight: '256px' }}
-                ></div>
-                <div className="text-center text-muted-foreground space-y-2 mt-4">
-                  {exactLocation && (
-                    <p className="text-sm">
-                      Actual: {exactLocation.lat.toFixed(4)}, {exactLocation.lng.toFixed(4)}
-                    </p>
-                  )}
-                  {guessCoordinates && (
-                    <p className="text-sm">
-                      Guess: {guessCoordinates[0].toFixed(4)}, {guessCoordinates[1].toFixed(4)}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <p className="text-gray-600 text-sm">{getResultMessage(score, distance)}</p>
 
-            <div className="text-center space-y-4">
-              <p className="text-lg">
-                {getResultMessage(score, distance)}
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button
-                  onClick={handleNextRound}
-                  size="lg"
-                  className="px-8 py-3"
-                >
-                  NEXT ROUND
-                </Button>
-                <Button
-                  onClick={handleGoBack}
-                  variant="secondary"
-                  size="lg"
-                  className="px-8 py-3"
-                >
-                  MENU
-                </Button>
+            {/* Leaderboard ranks */}
+            {(globalScore !== null || cityScore !== null) && (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {cityScore !== null && (
+                  <div className="bg-blue-50 rounded-lg p-2">
+                    <p className="font-semibold text-blue-700">{cityNames[location]}</p>
+                    <p className="text-blue-600">Total: {cityScore}</p>
+                    {cityRank && <p className="text-blue-400 text-xs">Rank #{cityRank}</p>}
+                  </div>
+                )}
+                {globalScore !== null && (
+                  <div className="bg-purple-50 rounded-lg p-2">
+                    <p className="font-semibold text-purple-700">Global</p>
+                    <p className="text-purple-600">Total: {globalScore}</p>
+                    {globalRank && <p className="text-purple-400 text-xs">Rank #{globalRank}</p>}
+                  </div>
+                )}
               </div>
+            )}
+
+            {(globalDistanceRank !== null || cityDistanceRank !== null) && (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {cityDistanceRank !== null && (
+                  <div className="bg-gray-50 rounded-lg p-2">
+                    <p className="font-medium text-gray-700">{cityNames[location]} Distance</p>
+                    <p className="text-gray-500">Rank #{cityDistanceRank}</p>
+                  </div>
+                )}
+                {globalDistanceRank !== null && (
+                  <div className="bg-gray-50 rounded-lg p-2">
+                    <p className="font-medium text-gray-700">Global Distance</p>
+                    <p className="text-gray-500">Rank #{globalDistanceRank}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {leaderboardMessage && (
+              <p className="text-sm text-green-600 font-medium">{leaderboardMessage}</p>
+            )}
+
+            <p className="text-xs text-gray-400">
+              {username || 'Anonymous'} • {cityNames[location] || location}
+            </p>
+          </div>
+
+          {/* Result Map */}
+          <div className="rounded-lg overflow-hidden border border-gray-200">
+            <div
+              ref={resultMapRef}
+              key={`map-${sessionId}`}
+              className="h-52 w-full bg-gray-100"
+              style={{ minHeight: '208px' }}
+            />
+            <div className="flex justify-between text-xs text-gray-400 px-3 py-1.5 bg-gray-50">
+              {exactLocation && (
+                <span>Actual: {exactLocation.lat.toFixed(4)}, {exactLocation.lng.toFixed(4)}</span>
+              )}
+              {guessCoordinates && (
+                <span>Guess: {guessCoordinates[0].toFixed(4)}, {guessCoordinates[1].toFixed(4)}</span>
+              )}
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
 
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={handleNextRound}
+              size="lg"
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              Next Round
+            </Button>
+            <Button
+              onClick={handleGoBack}
+              variant="outline"
+              size="lg"
+              className="flex-1"
+            >
+              Menu
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* Donate Modal */}
-        <DonateQRModal
-          isOpen={showDonate}
-          onClose={() => setShowDonate(false)}
-        />
-      </div>
+      {/* Donate Modal */}
+      <DonateQRModal
+        isOpen={showDonate}
+        onClose={() => setShowDonate(false)}
+      />
     </div>
   );
 }
