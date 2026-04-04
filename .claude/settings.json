@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "vercel@claude-plugins-official": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits"
+  }
+}
