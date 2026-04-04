@@ -144,26 +144,9 @@
   --vn-gold: #ffd700;
 }
 
-/* Vietnamese-inspired animated gradient background */
+/* Soft clean background */
 .vn-gradient-bg {
-  background: linear-gradient(135deg, var(--vn-red) 0%, var(--vn-red-dark) 25%, #1a1a2e 50%, #16213e 75%, #0f3460 100%);
-  background-size: 400% 400%;
-  animation: gradientShift 12s ease infinite;
-}
-
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Gold accent gradient for cards */
-.vn-card-glow {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.vn-card-glow:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(218, 37, 29, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #f8f9fb;
 }
 
 /* Spinner animation for loading */
@@ -189,15 +172,6 @@
   animation: fadeInUp 0.5s ease forwards;
 }
 
-/* Pulse glow for score display */
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(218, 37, 29, 0.4); /* vn-red glow */ }
-  50% { box-shadow: 0 0 20px 4px rgba(218, 37, 29, 0.2); /* vn-red glow */ }
-}
-.animate-pulse-glow {
-  animation: pulseGlow 2s ease-in-out infinite;
-}
-
 /* City card accent bar */
 .city-card-accent {
   position: relative;
@@ -209,9 +183,9 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
-  background: linear-gradient(to bottom, var(--vn-red), var(--vn-gold));
-  border-radius: 4px 0 0 4px;
+  width: 3px;
+  background: var(--vn-red);
+  border-radius: 3px 0 0 3px;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -221,22 +195,12 @@
 
 /* Accessibility: respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  .vn-gradient-bg {
-    animation: none;
-    background-size: 100% 100%;
-  }
   .animate-spin {
     animation: none;
   }
   .animate-fade-in-up {
     animation: none;
     opacity: 1;
-  }
-  .animate-pulse-glow {
-    animation: none;
-  }
-  .vn-card-glow:hover {
-    transform: none;
   }
   .city-card-accent::before {
     transition: none;

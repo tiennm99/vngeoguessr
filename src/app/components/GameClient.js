@@ -348,9 +348,9 @@ export default function GameClient() {
     return (
       <div className="min-h-screen flex items-center justify-center vn-gradient-bg">
         <div className="text-center space-y-4 animate-fade-in-up">
-          <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-          <p className="text-white/80 text-lg font-medium">Loading panoramic image...</p>
-          <p className="text-white/50 text-sm">{cityNames[location] || location}</p>
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-red-600 rounded-full animate-spin mx-auto" />
+          <p className="text-gray-700 text-lg font-medium">Loading panoramic image...</p>
+          <p className="text-gray-400 text-sm">{cityNames[location] || location}</p>
         </div>
       </div>
     );
@@ -446,7 +446,7 @@ export default function GameClient() {
 
           <div className="text-center space-y-4 animate-fade-in-up">
             {/* Score circle */}
-            <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)} animate-pulse-glow`}>
+            <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)}`}>
               {score}
             </div>
 

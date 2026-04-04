@@ -129,26 +129,25 @@ export default function Home() {
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           {/* Header */}
           <header className="flex justify-between items-center mb-10">
-            <Link href="/" className="text-2xl font-bold text-white tracking-wider drop-shadow-lg">
+            <Link href="/" className="text-2xl font-bold text-gray-900 tracking-wider">
               VNGeoGuessr
             </Link>
             <div className="flex items-center gap-3">
               {username && (
-                <span className="text-white/80 text-sm hidden sm:inline">
-                  Playing as <span className="font-semibold text-amber-300">{username}</span>
+                <span className="text-gray-500 text-sm hidden sm:inline">
+                  Playing as <span className="font-semibold text-red-600">{username}</span>
                 </span>
               )}
               <Button
                 onClick={handleLeaderboardClick}
-                variant="secondary"
-                className="bg-white/15 hover:bg-white/25 text-white border border-white/20 backdrop-blur-sm transition-all"
+                variant="outline"
+                className="transition-all"
               >
                 Leaderboard
               </Button>
               <Button
                 onClick={() => setShowDonateModal(true)}
-                variant="secondary"
-                className="bg-amber-500/80 hover:bg-amber-500 text-white border-0 transition-all"
+                className="bg-red-600 hover:bg-red-700 text-white transition-all"
               >
                 Buy me a coffee
               </Button>
@@ -157,34 +156,34 @@ export default function Home() {
 
           {/* Hero */}
           <div className="text-center mb-12 animate-fade-in-up">
-            <h1 className="text-5xl sm:text-6xl font-extrabold text-white mb-3 drop-shadow-lg tracking-tight">
+            <h1 className="text-5xl sm:text-6xl font-extrabold text-gray-900 mb-3 tracking-tight">
               Guess the Location
             </h1>
-            <p className="text-lg text-white/70 max-w-lg mx-auto">
+            <p className="text-lg text-gray-500 max-w-lg mx-auto">
               Explore Vietnamese streets and test your geography skills across iconic cities.
             </p>
           </div>
 
           <div className="grid lg:grid-cols-5 gap-6 max-w-5xl mx-auto">
             {/* How to Play */}
-            <Card className="lg:col-span-2 bg-white/10 backdrop-blur-md border-white/15 shadow-xl vn-card-glow">
+            <Card className="lg:col-span-2 bg-white border border-gray-200 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-bold text-white">How to Play</CardTitle>
+                <CardTitle className="text-xl font-bold text-gray-900">How to Play</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {STEP_LABELS.map((label, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-sm font-bold shrink-0">
                         {i + 1}
                       </div>
-                      <p className="text-white/90 text-sm leading-relaxed pt-1">{label}</p>
+                      <p className="text-gray-600 text-sm leading-relaxed pt-1">{label}</p>
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 pt-4 border-t border-white/10">
-                  <p className="text-white/50 text-xs mb-2 uppercase tracking-wider font-medium">Scoring</p>
-                  <div className="grid grid-cols-2 gap-1 text-xs text-white/70">
+                <div className="mt-6 pt-4 border-t border-gray-100">
+                  <p className="text-gray-400 text-xs mb-2 uppercase tracking-wider font-medium">Scoring</p>
+                  <div className="grid grid-cols-2 gap-1 text-xs text-gray-500">
                     <span>0-50m = 5 pts</span>
                     <span>50-100m = 4 pts</span>
                     <span>100-200m = 3 pts</span>
@@ -197,9 +196,9 @@ export default function Home() {
             </Card>
 
             {/* City Selection */}
-            <Card className="lg:col-span-3 bg-white/10 backdrop-blur-md border-white/15 shadow-xl">
+            <Card className="lg:col-span-3 bg-white border border-gray-200 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-bold text-white text-center">Select a City</CardTitle>
+                <CardTitle className="text-xl font-bold text-gray-900 text-center">Select a City</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3">
@@ -207,13 +206,13 @@ export default function Home() {
                     <Link
                       key={city.code}
                       href={`/game?location=${city.code}`}
-                      className="city-card-accent block p-4 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/30 transition-all duration-200 group"
+                      className="city-card-accent block p-4 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition-all duration-200 group"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-white font-semibold text-lg group-hover:text-amber-300 transition-colors">
+                        <span className="text-gray-800 font-semibold text-lg group-hover:text-red-600 transition-colors">
                           {city.name}
                         </span>
-                        <span className="text-white/40 group-hover:text-white/80 transition-colors text-xl">
+                        <span className="text-gray-300 group-hover:text-gray-500 transition-colors text-xl">
                           →
                         </span>
                       </div>
@@ -256,7 +255,7 @@ export default function Home() {
         {/* Debug Button */}
         <Button
           asChild
-          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white border border-white/20 backdrop-blur-sm shadow-lg transition-all duration-200 transform hover:scale-110 z-50"
+          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-white hover:bg-gray-100 text-gray-500 border border-gray-200 shadow-sm transition-all duration-200 z-50"
         >
           <Link href="/debug" className="flex items-center justify-center">
             <span className="text-lg">🔧</span>
