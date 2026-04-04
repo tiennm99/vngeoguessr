@@ -1,4 +1,6 @@
 .idea
+.claude/session-state
+.claude/settings.local.json
 
 
 
