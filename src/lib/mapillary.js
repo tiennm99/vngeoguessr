@@ -4,7 +4,7 @@
 // Mapillary returns 500 'reduce data' / 'unknown error' on dense urban bboxes,
 // so we keep each query small (~1km square) and rely on the retry loop to
 // re-roll a new random sub-bbox if one query fails or returns empty.
-const MAX_BBOX_AREA = 0.0005;
+const MAX_BBOX_AREA = 0.002;
 
 // Pick a random sub-bbox within the city bbox that fits Mapillary's area limit.
 function getRandomSubBbox(bbox) {
