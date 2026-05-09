@@ -17,10 +17,12 @@
 - **Server-side Calculations**: All geographic processing on backend
 
 ## Data Storage & Session Management
-- **Redis**: Complete session and leaderboard storage
-- **Redis Sorted Sets**: Leaderboard ranking with automatic trimming
+- **Upstash Redis (REST)**: Session and leaderboard storage via `@upstash/redis` SDK
+- **Vercel Marketplace integration**: credentials provided as `KV_REST_API_URL`/`KV_REST_API_TOKEN` (or vanilla `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`)
+- **Project key prefix**: all physical keys carry `KEY_PREFIX` (default `vngeoguessr:`) so the same Upstash DB can be safely shared with other Vercel projects without collisions. Prefix is applied centrally in `src/lib/upstash.js`; callers pass logical keys only.
+- **Sorted Sets**: Leaderboard ranking with automatic trimming (top 200)
 - **UUID v4**: Session identifier generation
-- **30-minute Session Expiry**: Automatic Redis-based cleanup
+- **30-minute Session Expiry**: Automatic TTL-based cleanup
 
 ## UI Components & Styling
 - **shadcn/ui**: Complete component library with "new-york" style
@@ -41,7 +43,7 @@
 - **@vercel/speed-insights**: Performance monitoring
 
 ## Key Dependencies
-- **uuid**: v11.1.0 for unique session identifier generation
-- **redis**: v5.8.0 for data persistence
+- **uuid**: unique session identifier generation
+- **@upstash/redis**: REST-based Upstash client (replaces node-redis); fluid-compute friendly, no socket pooling required
 - **JavaScript Only**: No TypeScript - pure JavaScript implementation
 - **Individual Parameters**: Functions use separate parameters instead of object destructuring

@@ -1,23 +1,20 @@
-import { getRedis } from './redis.js';
+import { getUpstash, getJson, putJson, del } from './upstash.js';
 
 // Game session constants
 const SESSION_KEY_PREFIX = 'session:';
 const SESSION_EXPIRY = 30 * 60; // 30 minutes in seconds
 
 /**
- * Store a game session in Redis
- * @param {string} sessionId - Unique session identifier
- * @param {Object} sessionData - Session data to store
- * @returns {Promise<boolean>} Success status
+ * Store a game session in Upstash.
+ * @param {string} sessionId Unique session identifier.
+ * @param {Object} sessionData Session data to store.
+ * @returns {Promise<boolean>} Success status.
  */
 export async function storeGameSession(sessionId, sessionData) {
   try {
-    const redis = await getRedis();
+    const h = getUpstash();
     const key = SESSION_KEY_PREFIX + sessionId;
-    
-    // Store session data with expiry
-    await redis.setEx(key, SESSION_EXPIRY, JSON.stringify(sessionData));
-    
+    await putJson(h, key, sessionData, SESSION_EXPIRY);
     return true;
   } catch (error) {
     console.error('Error storing game session:', error);
@@ -26,18 +23,15 @@ export async function storeGameSession(sessionId, sessionData) {
 }
 
 /**
- * Retrieve a game session from Redis
- * @param {string} sessionId - Session identifier
- * @returns {Promise<Object|null>} Session data or null if not found
+ * Retrieve a game session from Upstash.
+ * @param {string} sessionId Session identifier.
+ * @returns {Promise<Object|null>} Session data or null if not found.
  */
 export async function getGameSession(sessionId) {
   try {
-    const redis = await getRedis();
+    const h = getUpstash();
     const key = SESSION_KEY_PREFIX + sessionId;
-    
-    const sessionData = await redis.get(key);
-    
-    return sessionData ? JSON.parse(sessionData) : null;
+    return await getJson(h, key);
   } catch (error) {
     console.error('Error retrieving game session:', error);
     throw error;
@@ -45,17 +39,15 @@ export async function getGameSession(sessionId) {
 }
 
 /**
- * Delete a game session from Redis
- * @param {string} sessionId - Session identifier
- * @returns {Promise<boolean>} Success status
+ * Delete a game session from Upstash.
+ * @param {string} sessionId Session identifier.
+ * @returns {Promise<boolean>} Success status.
  */
 export async function deleteGameSession(sessionId) {
   try {
-    const redis = await getRedis();
+    const h = getUpstash();
     const key = SESSION_KEY_PREFIX + sessionId;
-    
-    await redis.del(key);
-    
+    await del(h, key);
     return true;
   } catch (error) {
     console.error('Error deleting game session:', error);
