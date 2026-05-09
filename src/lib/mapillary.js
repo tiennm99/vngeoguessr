@@ -1,7 +1,8 @@
 // Mapillary API utilities
 
-// Maximum bbox area allowed by Mapillary API (square degrees)
-const MAX_BBOX_AREA = 0.01;
+// Maximum bbox area allowed by Mapillary API (square degrees).
+// Mapillary tightened limits: keep area small enough to avoid 500 'reduce data' errors.
+const MAX_BBOX_AREA = 0.001;
 
 // Pick a random sub-bbox within the city bbox that fits Mapillary's area limit
 function getRandomSubBbox(bbox) {
@@ -28,7 +29,7 @@ function getRandomSubBbox(bbox) {
 // Fetch images from a single bbox query
 async function queryMapillary(accessToken, queryBbox) {
   const bboxString = queryBbox.join(',');
-  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,geometry,is_pano&limit=20&bbox=${bboxString}&is_pano=true`;
+  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,geometry,is_pano&limit=5&bbox=${bboxString}`;
 
   if (process.env.NODE_ENV === 'development') {
     console.log('Mapillary query bbox:', bboxString);
