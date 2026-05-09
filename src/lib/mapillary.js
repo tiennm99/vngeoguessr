@@ -6,7 +6,7 @@
 // results or transient 5xx. The fixed small size keeps Mapillary query cost
 // below their cap; the dart-throw eventually lands on a pano-rich window.
 
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 20;
 
 export async function fetchMapillaryImages(bbox, delta) {
   const accessToken = process.env.MAPILLARY_ACCESS_TOKEN;
