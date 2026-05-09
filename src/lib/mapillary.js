@@ -4,7 +4,7 @@
 // Mapillary returns 500 'reduce data' / 'unknown error' on dense urban bboxes,
 // so we keep each query small (~1km square) and rely on the retry loop to
 // re-roll a new random sub-bbox if one query fails or returns empty.
-const MAX_BBOX_AREA = 0.001;
+const MAX_BBOX_AREA = 0.0005;
 
 // Pick a random sub-bbox within the city bbox that fits Mapillary's area limit.
 function getRandomSubBbox(bbox) {
@@ -27,7 +27,7 @@ function getRandomSubBbox(bbox) {
 // Fetch images from a single bbox query.
 async function queryMapillary(accessToken, queryBbox) {
   const bboxString = queryBbox.join(',');
-  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,geometry,is_pano&limit=5&bbox=${bboxString}&is_pano=true`;
+  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,geometry&limit=1&bbox=${bboxString}&is_pano=true`;
 
   const response = await fetch(apiUrl, {
     headers: { 'Accept': 'application/json' },
