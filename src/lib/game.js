@@ -7,6 +7,7 @@ export const CITIES = {
     name: 'Ha Noi',
     center: [21.0285, 105.8542],
     bbox: [105.77, 20.96, 105.88, 21.05],
+    mapillaryDelta: 0.003,
     enabled: true
   },
   DN: {
@@ -14,6 +15,7 @@ export const CITIES = {
     name: 'Da Nang',
     center: [16.0544, 108.2022],
     bbox: [108.17, 16, 108.25, 16.1],
+    mapillaryDelta: 0.005,
     enabled: false
   },
   TPHCM: {
@@ -21,6 +23,7 @@ export const CITIES = {
     name: 'Ho Chi Minh',
     center: [10.8231, 106.6297],
     bbox: [106.62, 10.71, 106.75, 10.83],
+    mapillaryDelta: 0.005,
     enabled: true
   },
   DL: {
@@ -28,6 +31,7 @@ export const CITIES = {
     name: 'Da Lat',
     center: [11.9404, 108.4583],
     bbox: [108.38, 11.89, 108.50, 12.00],
+    mapillaryDelta: 0.005,
     enabled: true
   },
   DH: {
@@ -35,6 +39,7 @@ export const CITIES = {
     name: 'Duc Hoa (Long An)',
     center: [10.8888, 106.3825],
     bbox: [106.35, 10.85, 106.45, 10.95],
+    mapillaryDelta: 0.005,
     enabled: true
   }
 };
@@ -51,6 +56,12 @@ export const cityNames = Object.fromEntries(
 
 export const cityBboxes = Object.fromEntries(
   Object.values(CITIES).map(city => [city.code, city.bbox])
+);
+
+// Per-city Mapillary query bbox half-side (degrees). Smaller for dense urban
+// areas to keep Mapillary query cost under their 'reduce data' cap.
+export const cityDeltas = Object.fromEntries(
+  Object.values(CITIES).map(city => [city.code, city.mapillaryDelta])
 );
 
 // Cities list for UI components (only enabled cities)

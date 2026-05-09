@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { cityNames, cityBboxes } from '../../../lib/game.js';
+import { cityNames, cityBboxes, cityDeltas } from '../../../lib/game.js';
 import { fetchMapillaryImages } from '../../../lib/mapillary.js';
 import { storeGameSession } from '../../../lib/session.js';
 
@@ -30,17 +30,24 @@ export async function GET(request) {
   try {
     console.log('Getting images for city:', cityName);
 
-    // Get city bbox
+    // Get city bbox + per-city Mapillary delta (half-side of query window)
     const bbox = cityBboxes[cityCode];
+    const delta = cityDeltas[cityCode];
     if (!bbox) {
       return NextResponse.json({
         success: false,
         error: `No bbox found for city: ${cityCode}`
       }, { status: 400 });
     }
+    if (!delta) {
+      return NextResponse.json({
+        success: false,
+        error: `No Mapillary delta configured for city: ${cityCode}`
+      }, { status: 400 });
+    }
 
-    // Fetch images from city bbox
-    const imageResult = await fetchMapillaryImages(bbox);
+    // Fetch images from city bbox via random-point dart-throw
+    const imageResult = await fetchMapillaryImages(bbox, delta);
 
     if (!imageResult.success) {
       return NextResponse.json({
@@ -60,8 +67,8 @@ export async function GET(request) {
       lng: selectedImage.geometry.coordinates[0]
     };
 
-    // Use the thumbnail URL for now - Mapillary requires special handling for full panoramas
-    const imageUrl = selectedImage.thumb_2048_url;
+    // Use original-resolution panorama URL for PhotoSphere viewer
+    const imageUrl = selectedImage.thumb_original_url;
 
     // Create or update game session
     const currentSessionId = sessionId || generateSessionId();
