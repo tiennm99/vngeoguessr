@@ -40,6 +40,9 @@ async function queryMapillary(accessToken, queryBbox) {
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => '<unreadable>');
+    console.error(`Mapillary ${response.status} body:`, body.slice(0, 500));
+    console.error('Mapillary URL (token redacted):', apiUrl.replace(accessToken, '<TOKEN>'));
     if (response.status === 401) {
       throw new Error('Mapillary authentication failed');
     }
