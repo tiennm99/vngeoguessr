@@ -1,20 +1,20 @@
 // Mapillary API utilities
 
-// Maximum bbox area allowed per Mapillary query (square degrees).
-// Mapillary returns 500 'reduce data' / 'unknown error' on dense urban bboxes,
-// so we keep each query small (~1km square) and rely on the retry loop to
-// re-roll a new random sub-bbox if one query fails or returns empty.
-const MAX_BBOX_AREA = 0.002;
+// Bounding-box area range (square degrees) used by the adaptive query loop.
+// - Too big in dense urban regions → Mapillary returns 500 'reduce data'.
+// - Too small in sparse regions → no panoramic images returned.
+// Loop shrinks on 500 errors and grows on empty results to converge on a
+// workable size per city.
+const MIN_BBOX_AREA = 0.00005;  // ~250m square
+const MAX_BBOX_AREA = 0.003;    // ~5.5km square
 
-// Pick a random sub-bbox within the city bbox that fits Mapillary's area limit.
-function getRandomSubBbox(bbox) {
+// Pick a random sub-bbox of the requested area within the parent bbox.
+function getRandomSubBbox(bbox, area) {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   const width = maxLng - minLng;
   const height = maxLat - minLat;
 
-  // Always sub-sample even if the parent bbox is smaller than the cap — a
-  // smaller window keeps Mapillary happy in dense regions like central Hanoi.
-  const side = Math.sqrt(MAX_BBOX_AREA) * 0.9; // 10% safety margin
+  const side = Math.sqrt(area) * 0.9; // 10% safety margin
   const subWidth = Math.min(side, width);
   const subHeight = Math.min(side, height);
 
@@ -24,7 +24,8 @@ function getRandomSubBbox(bbox) {
   return [startLng, startLat, startLng + subWidth, startLat + subHeight];
 }
 
-// Fetch images from a single bbox query.
+// Fetch panoramic images from a single bbox query.
+// Returns { ok, images, retryable, error } so the loop can decide adaptive action.
 async function queryMapillary(accessToken, queryBbox) {
   const bboxString = queryBbox.join(',');
   const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,geometry&limit=1&bbox=${bboxString}&is_pano=true`;
@@ -36,21 +37,19 @@ async function queryMapillary(accessToken, queryBbox) {
 
   if (!response.ok) {
     const body = await response.text().catch(() => '<unreadable>');
-    console.error(`Mapillary ${response.status} body:`, body.slice(0, 500));
-    console.error('Mapillary URL (token redacted):', apiUrl.replace(accessToken, '<TOKEN>'));
     if (response.status === 401) {
       throw new Error('Mapillary authentication failed');
     }
-    throw new Error(`Mapillary API error: ${response.status}`);
+    return { ok: false, retryable: true, error: `${response.status}: ${body.slice(0, 200)}` };
   }
 
   const data = await response.json();
-  return data.data || [];
+  return { ok: true, images: data.data || [] };
 }
 
-// Fetch panoramic images, retrying with a fresh sub-bbox on failure or empty
-// result. Auth failures still abort early.
-const MAX_RETRIES = 8;
+const MAX_RETRIES = 15;
+const GROW_FACTOR = 1.6;
+const SHRINK_FACTOR = 0.5;
 
 export async function fetchMapillaryImages(bbox) {
   const accessToken = process.env.MAPILLARY_ACCESS_TOKEN;
@@ -58,29 +57,41 @@ export async function fetchMapillaryImages(bbox) {
     throw new Error('MAPILLARY_ACCESS_TOKEN environment variable is not set');
   }
 
+  // Start at the geometric mean of the size range — a reasonable middle ground.
+  let area = Math.sqrt(MIN_BBOX_AREA * MAX_BBOX_AREA);
   let lastError = null;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const queryBbox = getRandomSubBbox(bbox);
+    const queryBbox = getRandomSubBbox(bbox, area);
+    let result;
     try {
-      const images = await queryMapillary(accessToken, queryBbox);
-      if (images.length > 0) {
-        console.log(`Found ${images.length} images on attempt ${attempt}`);
-        return { success: true, data: images };
-      }
-      console.log(`Attempt ${attempt}/${MAX_RETRIES}: no images, retrying with new sub-bbox`);
+      result = await queryMapillary(accessToken, queryBbox);
     } catch (error) {
-      // Auth issues are not transient — abort fast.
-      if (error.message === 'Mapillary authentication failed') throw error;
-      lastError = error;
-      console.error(`Attempt ${attempt}/${MAX_RETRIES} failed: ${error.message}; retrying with new sub-bbox`);
+      // Auth failures are not transient — abort fast.
+      throw error;
+    }
+
+    if (result.ok && result.images.length > 0) {
+      console.log(`Found ${result.images.length} images on attempt ${attempt} (area=${area.toFixed(5)})`);
+      return { success: true, data: result.images };
+    }
+
+    if (!result.ok) {
+      // 'reduce data' / 'unknown error' — shrink and retry.
+      console.error(`Attempt ${attempt}/${MAX_RETRIES} 500 (area=${area.toFixed(5)}): ${result.error}`);
+      lastError = result.error;
+      area = Math.max(MIN_BBOX_AREA, area * SHRINK_FACTOR);
+    } else {
+      // OK but empty — grow and retry to widen the search area.
+      console.log(`Attempt ${attempt}/${MAX_RETRIES} no panos (area=${area.toFixed(5)})`);
+      area = Math.min(MAX_BBOX_AREA, area * GROW_FACTOR);
     }
   }
 
   return {
     success: false,
     error: lastError
-      ? `No street view images found after ${MAX_RETRIES} attempts (last: ${lastError.message})`
+      ? `No street view images found after ${MAX_RETRIES} attempts (last: ${lastError})`
       : 'No street view images found in city bbox',
   };
 }
