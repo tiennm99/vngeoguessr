@@ -29,7 +29,7 @@ function getRandomSubBbox(bbox) {
 // Fetch images from a single bbox query
 async function queryMapillary(accessToken, queryBbox) {
   const bboxString = queryBbox.join(',');
-  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,geometry,is_pano&limit=5&bbox=${bboxString}`;
+  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,geometry,is_pano&limit=5&bbox=${bboxString}&is_pano=true`;
 
   if (process.env.NODE_ENV === 'development') {
     console.log('Mapillary query bbox:', bboxString);
