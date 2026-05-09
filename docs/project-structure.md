@@ -62,11 +62,11 @@ Next.js 15 App Router structure:
 
 ### Utility Libraries (`src/lib/`)
 - `utils.js` - Utility functions including `cn()` for class name merging
-- `game.js` - Game logic, scoring, distance calculations, and city definitions
+- `game.js` - Game logic, scoring, distance calculations, city definitions, Mapillary delta config
 - `leaderboard.js` - Leaderboard operations with Redis sorted sets
-- `mapillary.js` - Mapillary API integration for street view images
-- `session.js` - Redis-based session management with expiry
-- `redis.js` - Redis client connection and configuration
+- `mapillary.js` - Mapillary API integration (dart-throw strategy, per-city delta)
+- `session.js` - Redis-based session management with 30-min expiry
+- `upstash.js` - Upstash Redis REST client adapter with multi-tenant key prefix support
 
 ## Documentation (`/docs/`)
 - `project-overview.md` - Project overview and key characteristics

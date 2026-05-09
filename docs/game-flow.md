@@ -22,10 +22,12 @@
 
 ### 4. Location Display Process
 - **Bbox Location Generation**: Server uses pre-defined city bounding boxes for random coordinate generation
-- **Image Search**: Mapillary API searches within city bbox:
-  - Direct bbox filtering with is_pano=true preference
-  - Random selection from available panoramic images
-  - Fallback to non-panoramic images if needed
+- **Image Search**: Mapillary API dart-throw strategy (ported from viguessr):
+  - Pick random point in city bbox
+  - Query small fixed-size sub-bbox (side = 2×delta) centered on point
+  - Retry up to 20 times if empty or error (re-roll position)
+  - Per-city delta tuned to keep query cost below Mapillary cap (HN: 0.003°, others: 0.005°)
+  - Filter for is_pano=true panoramic images, limit 3 results
 - **Image Display**: Thumbnail images displayed (thumb_original_url)
 - **Security**: Client never receives exact target coordinates
 

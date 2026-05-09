@@ -7,9 +7,12 @@
 
 ## Street View System
 - **Mapillary Integration**: Panoramic street-level images via Mapillary API
-- **Bbox Filtering**: Direct city bbox filtering for image search (no fallback tiers)
-- **Panoramic Image Priority**: Filters for is_pano=true images when available
-- **Thumbnail Display**: Currently uses thumb_original_url for image display
+- **Dart-throw Strategy**: Pick random point in city bbox, query small fixed-size sub-bbox, retry on empty/error (20 attempts max)
+- **Per-city Optimization**: Delta tuned per city to balance coverage and Mapillary query cost
+  - Ha Noi: 0.003° (~333m square)
+  - Ho Chi Minh, Da Lat, Da Nang, Duc Hoa: 0.005° (~556m square)
+- **Panoramic Image Priority**: Filters for is_pano=true images (limit 3 per query)
+- **Thumbnail Display**: Uses thumb_original_url for image display
 
 ## Interactive Maps
 - **Leaflet Integration**: OpenStreetMap-based interactive mapping

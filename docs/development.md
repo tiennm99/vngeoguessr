@@ -26,9 +26,19 @@
 
 ### Security Best Practices
 - Never expose or commit secret keys and sensitive information
-- Server-side session management prevents client-side coordinate access
+- Server-side session management prevents client-side coordinate access (Redis TTL 30 min)
 - All geographic calculations must be performed server-side
-- Session cleanup after 30 minutes for security
+- Session cleanup after guess submission for security
+
+### Environment Variables
+
+**Redis (required)**:
+- Either `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (vanilla Upstash)
+- Or `KV_REST_API_URL` + `KV_REST_API_TOKEN` (Vercel Marketplace)
+- Optional: `KEY_PREFIX` (default: `vngeoguessr:`) for multi-tenant DB sharing
+
+**Mapillary (required)**:
+- `MAPILLARY_ACCESS_TOKEN` - Mapillary API token for image fetching
 
 ### Testing & Completion
 - After completing implementation tasks, inform the user that work is complete
