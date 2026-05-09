@@ -61,7 +61,7 @@ export async function GET(request) {
     };
 
     // Use the thumbnail URL for now - Mapillary requires special handling for full panoramas
-    const imageUrl = selectedImage.thumb_original_url;
+    const imageUrl = selectedImage.thumb_2048_url;
 
     // Create or update game session
     const currentSessionId = sessionId || generateSessionId();
