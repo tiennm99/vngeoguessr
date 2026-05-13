@@ -26,26 +26,26 @@ For detailed information about this project, see the documentation in `/docs/`:
 
 ### Prerequisites
 - Node.js 18+ 
-- npm or yarn
+- pnpm 11+
 - Redis server (for leaderboards)
 
 ### Development
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Start development server
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm build
 
 # Start production server
-npm start
+pnpm start
 
 # Run linting
-npm run lint
+pnpm lint
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to play the game.
