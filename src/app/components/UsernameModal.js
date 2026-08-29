@@ -60,7 +60,9 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+            <Label htmlFor="username" className="text-sm font-medium">
+              Username <span className="text-destructive" aria-hidden="true">*</span>
+            </Label>
             <Input
               id="username"
               value={username}
@@ -68,10 +70,17 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
               placeholder="Your username"
               maxLength={20}
               autoFocus
-              className="h-10"
+              required
+              autoComplete="username"
+              aria-describedby="username-help"
+              aria-invalid={error ? true : undefined}
+              className="h-11"
             />
+            <p id="username-help" className="text-xs text-muted-foreground">
+              2-20 characters. Letters, numbers, hyphens and underscores.
+            </p>
             {error && (
-              <Alert variant="destructive" className="py-2">
+              <Alert variant="destructive" className="py-2" role="alert" aria-live="assertive">
                 <AlertDescription className="text-xs">{error}</AlertDescription>
               </Alert>
             )}
@@ -82,20 +91,20 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
               type="button"
               variant="ghost"
               onClick={onClose}
-              className="flex-1"
+              className="flex-1 min-h-11"
             >
               Skip
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              className="flex-1 min-h-11 bg-brand text-brand-foreground hover:bg-brand-hover"
             >
               Start Playing
             </Button>
           </div>
         </form>
 
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-muted-foreground text-center">
           Displayed on the leaderboard
         </p>
       </DialogContent>

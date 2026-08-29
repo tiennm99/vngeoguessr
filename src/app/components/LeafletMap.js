@@ -124,7 +124,7 @@ export default function LeafletMap({
   return (
     <div 
       ref={mapRef} 
-      className={`bg-gray-200 rounded-lg overflow-hidden ${className}`}
+      className={`bg-muted rounded-lg overflow-hidden ${className}`}
     />
   );
 }

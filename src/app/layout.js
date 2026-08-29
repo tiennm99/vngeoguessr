@@ -18,6 +18,16 @@ export const metadata = {
   description: "GeoGuessr for VietNam",
 };
 
+// light dark lets the OS preference drive native controls, scrollbars and form
+// widgets, matching the token palette in globals.css.
+export const viewport = {
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8f9fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0d0d" },
+  ],
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">

@@ -5,10 +5,10 @@ import GameClient from '../components/GameClient';
 
 function GameLoadingFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center vn-gradient-bg">
-      <div className="text-center space-y-4 animate-fade-in-up">
-        <div className="w-12 h-12 border-4 border-gray-200 border-t-red-600 rounded-full animate-spin mx-auto" />
-        <p className="text-gray-700 text-lg font-medium">Loading game...</p>
+    <div className="min-h-dvh flex items-center justify-center vn-gradient-bg">
+      <div role="status" aria-live="polite" className="text-center space-y-4 animate-fade-in-up">
+        <div className="w-12 h-12 border-4 border-border border-t-brand rounded-full animate-spin mx-auto" aria-hidden="true" />
+        <p className="text-foreground text-lg font-medium">Loading game...</p>
       </div>
     </div>
   );

@@ -3,12 +3,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { ArrowLeft, Coffee } from 'lucide-react';
 import PanoramaViewer from './PanoramaViewer';
 import DonateQRModal from './DonateQRModal';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
-  loading: () => <div className="w-full h-full min-h-[400px] bg-gray-100 flex items-center justify-center text-gray-400">Loading map...</div>
+  loading: () => <div role="status" aria-live="polite" className="w-full h-full min-h-[400px] bg-muted flex items-center justify-center text-muted-foreground">Loading map...</div>
 });
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -336,42 +337,53 @@ export default function GameClient() {
   }, [showResult]);
 
   const getScoreBg = (s) => {
-    if (s >= 5) return 'bg-green-500';
-    if (s >= 4) return 'bg-emerald-500';
-    if (s >= 3) return 'bg-amber-500';
-    if (s >= 2) return 'bg-orange-500';
-    if (s >= 1) return 'bg-red-400';
-    return 'bg-gray-400';
+    if (s >= 5) return 'bg-green-600';
+    if (s >= 4) return 'bg-emerald-600';
+    if (s >= 3) return 'bg-amber-600';
+    if (s >= 2) return 'bg-orange-600';
+    if (s >= 1) return 'bg-red-500';
+    return 'bg-neutral-500';
+  };
+
+  // Colour alone must not carry the result; every band also gets a word.
+  const getScoreLabel = (s) => {
+    if (s >= 5) return 'Pinpoint';
+    if (s >= 4) return 'Excellent';
+    if (s >= 3) return 'Good';
+    if (s >= 2) return 'Fair';
+    if (s >= 1) return 'Far';
+    return 'Missed';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center vn-gradient-bg">
-        <div className="text-center space-y-4 animate-fade-in-up">
-          <div className="w-12 h-12 border-4 border-gray-200 border-t-red-600 rounded-full animate-spin mx-auto" />
-          <p className="text-gray-700 text-lg font-medium">Loading panoramic image...</p>
-          <p className="text-gray-400 text-sm">{cityNames[location] || location}</p>
+      <div className="min-h-dvh flex items-center justify-center vn-gradient-bg">
+        <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
+          <div className="w-12 h-12 border-4 border-border border-t-brand rounded-full animate-spin mx-auto" aria-hidden="true" />
+          <p className="text-foreground text-lg font-medium">Loading panoramic image...</p>
+          <p className="text-muted-foreground text-sm">{cityNames[location] || location}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-dvh vn-gradient-bg flex flex-col">
       {/* Compact Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 shadow-sm">
+      <header className="flex items-center justify-between px-4 py-2 bg-card border-b border-border shadow-sm">
         <Button
           onClick={handleGoBack}
           variant="ghost"
           size="sm"
-          className="text-gray-600 hover:text-gray-900"
+          className="min-h-11 text-muted-foreground hover:text-foreground"
         >
-          ← Back
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back
         </Button>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-gray-800 hidden sm:inline">VNGeoGuessr</span>
-          <Badge className="bg-red-600 text-white text-xs">
+          <span className="text-sm font-bold text-foreground hidden sm:inline">VNGeoGuessr</span>
+          <Badge className="bg-brand text-brand-foreground text-xs">
             {cityNames[location] || location}
           </Badge>
         </div>
@@ -380,16 +392,18 @@ export default function GameClient() {
           onClick={() => setShowDonate(true)}
           variant="ghost"
           size="sm"
-          className="text-gray-600 hover:text-gray-900"
+          aria-label="Buy me a coffee"
+          className="min-h-11 text-muted-foreground hover:text-foreground"
         >
-          Buy me a coffee
+          <Coffee className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Buy me a coffee</span>
         </Button>
       </header>
 
       {/* Game Content */}
-      <div className="flex-1 p-3 grid lg:grid-cols-2 gap-3" style={{ height: 'calc(100vh - 52px)' }}>
+      <div className="flex-1 p-3 grid lg:grid-cols-2 gap-3 lg:h-[calc(100dvh-52px)]">
         {/* Panorama Viewer */}
-        <div className="bg-gray-900 rounded-lg overflow-hidden">
+        <div className="bg-neutral-900 rounded-lg overflow-hidden min-h-[45dvh] lg:min-h-0">
           {imageData ? (
             <PanoramaViewer
               key={imageData.id}
@@ -398,15 +412,15 @@ export default function GameClient() {
               onError={handlePanoramaError}
             />
           ) : (
-            <div className="w-full h-full min-h-[400px] flex items-center justify-center">
-              <p className="text-gray-400">Loading panorama...</p>
+            <div className="w-full h-full min-h-[400px] flex items-center justify-center" role="status" aria-live="polite">
+              <p className="text-neutral-300">Loading panorama...</p>
             </div>
           )}
         </div>
 
         {/* Map and Controls */}
         <div className="flex flex-col gap-3">
-          <div className="bg-white rounded-lg overflow-hidden flex-1 shadow-sm border border-gray-200">
+          <div className="bg-card rounded-lg overflow-hidden flex-1 shadow-sm border border-border">
             <LeafletMap
               center={mapCenter}
               bbox={CITIES[location]?.bbox}
@@ -419,7 +433,7 @@ export default function GameClient() {
             <Button
               onClick={handleSubmitGuess}
               disabled={!guessCoordinates || loading}
-              className="flex-1 py-4 text-base font-bold bg-red-600 hover:bg-red-700 text-white"
+              className="flex-1 min-h-12 py-4 text-base font-bold bg-brand text-brand-foreground hover:bg-brand-hover"
               size="lg"
             >
               {loading ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Click the map first'}
@@ -428,7 +442,7 @@ export default function GameClient() {
               onClick={handleSkipGuess}
               disabled={loading}
               variant="outline"
-              className="py-4 px-5 text-base font-medium"
+              className="min-h-12 py-4 px-5 text-base font-medium"
               size="lg"
             >
               Skip
@@ -444,35 +458,40 @@ export default function GameClient() {
             <DialogTitle className="text-center text-2xl font-bold">Round Result</DialogTitle>
           </DialogHeader>
 
-          <div className="text-center space-y-4 animate-fade-in-up">
+          <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
             {/* Score circle */}
-            <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)}`}>
-              {score}
+            <div className="flex flex-col items-center gap-2">
+              <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)}`}>
+                {score}
+              </div>
+              <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                {getScoreLabel(score)}
+              </span>
             </div>
 
             <div>
-              <Badge variant="outline" className="text-lg font-semibold text-blue-600 px-3 py-1">
+              <Badge variant="outline" className="text-lg font-semibold px-3 py-1 tabular-nums">
                 {formatDistance(distance)} away
               </Badge>
             </div>
 
-            <p className="text-gray-600 text-sm">{getResultMessage(score, distance)}</p>
+            <p className="text-muted-foreground text-sm">{getResultMessage(score, distance)}</p>
 
             {/* Leaderboard ranks */}
             {(globalScore !== null || cityScore !== null) && (
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {cityScore !== null && (
-                  <div className="bg-blue-50 rounded-lg p-2">
-                    <p className="font-semibold text-blue-700">{cityNames[location]}</p>
-                    <p className="text-blue-600">Total: {cityScore}</p>
-                    {cityRank && <p className="text-blue-400 text-xs">Rank #{cityRank}</p>}
+                  <div className="bg-brand-subtle text-brand-subtle-foreground rounded-lg p-2">
+                    <p className="font-semibold">{cityNames[location]}</p>
+                    <p className="tabular-nums">Total: {cityScore}</p>
+                    {cityRank && <p className="text-xs opacity-80 tabular-nums">Rank #{cityRank}</p>}
                   </div>
                 )}
                 {globalScore !== null && (
-                  <div className="bg-purple-50 rounded-lg p-2">
-                    <p className="font-semibold text-purple-700">Global</p>
-                    <p className="text-purple-600">Total: {globalScore}</p>
-                    {globalRank && <p className="text-purple-400 text-xs">Rank #{globalRank}</p>}
+                  <div className="bg-muted text-foreground rounded-lg p-2">
+                    <p className="font-semibold">Global</p>
+                    <p className="tabular-nums">Total: {globalScore}</p>
+                    {globalRank && <p className="text-xs text-muted-foreground tabular-nums">Rank #{globalRank}</p>}
                   </div>
                 )}
               </div>
@@ -481,38 +500,38 @@ export default function GameClient() {
             {(globalDistanceRank !== null || cityDistanceRank !== null) && (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {cityDistanceRank !== null && (
-                  <div className="bg-gray-50 rounded-lg p-2">
-                    <p className="font-medium text-gray-700">{cityNames[location]} Distance</p>
-                    <p className="text-gray-500">Rank #{cityDistanceRank}</p>
+                  <div className="bg-muted rounded-lg p-2">
+                    <p className="font-medium text-foreground">{cityNames[location]} Distance</p>
+                    <p className="text-muted-foreground tabular-nums">Rank #{cityDistanceRank}</p>
                   </div>
                 )}
                 {globalDistanceRank !== null && (
-                  <div className="bg-gray-50 rounded-lg p-2">
-                    <p className="font-medium text-gray-700">Global Distance</p>
-                    <p className="text-gray-500">Rank #{globalDistanceRank}</p>
+                  <div className="bg-muted rounded-lg p-2">
+                    <p className="font-medium text-foreground">Global Distance</p>
+                    <p className="text-muted-foreground tabular-nums">Rank #{globalDistanceRank}</p>
                   </div>
                 )}
               </div>
             )}
 
             {leaderboardMessage && (
-              <p className="text-sm text-green-600 font-medium">{leaderboardMessage}</p>
+              <p className="text-sm text-green-700 dark:text-green-400 font-medium">{leaderboardMessage}</p>
             )}
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-muted-foreground">
               {username || 'Anonymous'} • {cityNames[location] || location}
             </p>
           </div>
 
           {/* Result Map */}
-          <div className="rounded-lg overflow-hidden border border-gray-200">
+          <div className="rounded-lg overflow-hidden border border-border">
             <div
               ref={resultMapRef}
               key={`map-${sessionId}`}
-              className="h-52 w-full bg-gray-100"
+              className="h-52 w-full bg-muted"
               style={{ minHeight: '208px' }}
             />
-            <div className="flex justify-between text-xs text-gray-400 px-3 py-1.5 bg-gray-50">
+            <div className="flex justify-between text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 tabular-nums">
               {exactLocation && (
                 <span>Actual: {exactLocation.lat.toFixed(4)}, {exactLocation.lng.toFixed(4)}</span>
               )}
@@ -527,7 +546,7 @@ export default function GameClient() {
             <Button
               onClick={handleNextRound}
               size="lg"
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+              className="flex-1 min-h-12 bg-brand text-brand-foreground hover:bg-brand-hover font-bold"
             >
               Next Round
             </Button>
@@ -535,7 +554,7 @@ export default function GameClient() {
               onClick={handleGoBack}
               variant="outline"
               size="lg"
-              className="flex-1"
+              className="flex-1 min-h-12"
             >
               Menu
             </Button>

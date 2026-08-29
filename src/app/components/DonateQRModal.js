@@ -1,5 +1,7 @@
 "use client";
 
+import Image from 'next/image';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
@@ -13,19 +15,21 @@ export default function DonateQRModal({ isOpen, onClose }) {
 
         <div className="text-center space-y-4 flex flex-col items-center">
           <div className="w-full max-w-[320px] mx-auto">
-            <img
+            <Image
               src="/qr.png"
-              alt="Donate QR Code"
+              alt="QR code for bank transfer donation"
+              width={320}
+              height={320}
               className="w-full h-auto object-contain rounded-xl shadow-lg"
             />
           </div>
 
-          <p className="text-sm text-gray-500">Scan to support the project</p>
+          <p className="text-sm text-muted-foreground">Scan to support the project</p>
 
           <Button
             onClick={onClose}
             variant="outline"
-            className="px-6"
+            className="min-h-11 px-6"
           >
             Close
           </Button>

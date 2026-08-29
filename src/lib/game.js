@@ -135,11 +135,11 @@ export function getAccumulatedScoreMessage(newScore, totalScore) {
 
 // Get distance color for leaderboard display
 export function getDistanceColor(distance) {
-  if (distance <= 50) return 'text-green-600';
-  if (distance <= 100) return 'text-blue-600';
-  if (distance <= 200) return 'text-yellow-600';
-  if (distance <= 500) return 'text-orange-600';
-  return 'text-red-600';
+  if (distance <= 50) return 'text-green-700 dark:text-green-300';
+  if (distance <= 100) return 'text-blue-700 dark:text-blue-300';
+  if (distance <= 200) return 'text-yellow-700 dark:text-yellow-300';
+  if (distance <= 500) return 'text-orange-700 dark:text-orange-300';
+  return 'text-red-700 dark:text-red-300';
 }
 
 // Get random location within city bbox

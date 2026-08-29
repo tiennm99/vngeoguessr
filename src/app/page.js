@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowRight, Trophy, Coffee, Wrench } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,19 +98,19 @@ export default function Home() {
   const renderTabContent = (locationKey) => (
     <div className="flex gap-3">
       <div className="flex flex-col space-y-2 min-w-[100px]">
-        <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider px-2">Type</div>
+        <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2">Type</div>
         {['score', 'distance'].map(type => (
-          <button
+          <Button
             key={type}
             onClick={() => setActiveTypeTab(type)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-              activeTypeTab === type
-                ? 'bg-red-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            variant={activeTypeTab === type ? 'default' : 'secondary'}
+            aria-pressed={activeTypeTab === type}
+            className={`min-h-11 justify-start capitalize ${
+              activeTypeTab === type ? 'bg-brand text-brand-foreground hover:bg-brand-hover' : ''
             }`}
           >
             {type}
-          </button>
+          </Button>
         ))}
       </div>
       <div className="flex-1">
@@ -124,31 +125,33 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen vn-gradient-bg">
-      <div className="min-h-screen">
+    <div className="min-h-dvh vn-gradient-bg">
+      <div className="min-h-dvh">
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           {/* Header */}
           <header className="flex justify-between items-center mb-10">
-            <Link href="/" className="text-2xl font-bold text-gray-900 tracking-wider">
+            <Link href="/" className="text-2xl font-bold text-foreground tracking-wider">
               VNGeoGuessr
             </Link>
             <div className="flex items-center gap-3">
               {username && (
-                <span className="text-gray-500 text-sm hidden sm:inline">
-                  Playing as <span className="font-semibold text-red-600">{username}</span>
+                <span className="text-muted-foreground text-sm hidden sm:inline">
+                  Playing as <span className="font-semibold text-brand">{username}</span>
                 </span>
               )}
               <Button
                 onClick={handleLeaderboardClick}
                 variant="outline"
-                className="transition-all"
+                className="min-h-11 transition-all"
               >
+                <Trophy className="size-4" aria-hidden="true" />
                 Leaderboard
               </Button>
               <Button
                 onClick={() => setShowDonateModal(true)}
-                className="bg-red-600 hover:bg-red-700 text-white transition-all"
+                className="min-h-11 bg-brand text-brand-foreground hover:bg-brand-hover transition-all"
               >
+                <Coffee className="size-4" aria-hidden="true" />
                 Buy me a coffee
               </Button>
             </div>
@@ -156,34 +159,34 @@ export default function Home() {
 
           {/* Hero */}
           <div className="text-center mb-12 animate-fade-in-up">
-            <h1 className="text-5xl sm:text-6xl font-extrabold text-gray-900 mb-3 tracking-tight">
+            <h1 className="text-5xl sm:text-6xl font-extrabold text-foreground mb-3 tracking-tight">
               Guess the Location
             </h1>
-            <p className="text-lg text-gray-500 max-w-lg mx-auto">
+            <p className="text-lg text-muted-foreground max-w-lg mx-auto">
               Explore Vietnamese streets and test your geography skills across iconic cities.
             </p>
           </div>
 
           <div className="grid lg:grid-cols-5 gap-6 max-w-5xl mx-auto">
             {/* How to Play */}
-            <Card className="lg:col-span-2 bg-white border border-gray-200 shadow-sm">
+            <Card className="lg:col-span-2 bg-card border-border shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-bold text-gray-900">How to Play</CardTitle>
+                <CardTitle className="text-xl font-bold text-card-foreground">How to Play</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {STEP_LABELS.map((label, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-sm font-bold shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-brand-subtle text-brand-subtle-foreground flex items-center justify-center text-sm font-bold shrink-0">
                         {i + 1}
                       </div>
-                      <p className="text-gray-600 text-sm leading-relaxed pt-1">{label}</p>
+                      <p className="text-muted-foreground text-sm leading-relaxed pt-1">{label}</p>
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 pt-4 border-t border-gray-100">
-                  <p className="text-gray-400 text-xs mb-2 uppercase tracking-wider font-medium">Scoring</p>
-                  <div className="grid grid-cols-2 gap-1 text-xs text-gray-500">
+                <div className="mt-6 pt-4 border-t border-border">
+                  <p className="text-muted-foreground text-xs mb-2 uppercase tracking-wider font-medium">Scoring</p>
+                  <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
                     <span>0-50m = 5 pts</span>
                     <span>50-100m = 4 pts</span>
                     <span>100-200m = 3 pts</span>
@@ -196,9 +199,9 @@ export default function Home() {
             </Card>
 
             {/* City Selection */}
-            <Card className="lg:col-span-3 bg-white border border-gray-200 shadow-sm">
+            <Card className="lg:col-span-3 bg-card border-border shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-bold text-gray-900 text-center">Select a City</CardTitle>
+                <CardTitle className="text-xl font-bold text-card-foreground text-center">Select a City</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3">
@@ -206,16 +209,15 @@ export default function Home() {
                     <Link
                       key={city.code}
                       href={`/game?location=${city.code}`}
-                      className="city-card-accent block p-4 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300 transition-all duration-200 group"
+                      className="city-card-accent flex min-h-14 items-center justify-between p-4 rounded-lg bg-muted/40 hover:bg-muted border border-border hover:border-brand/40 transition-colors duration-200 group focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-800 font-semibold text-lg group-hover:text-red-600 transition-colors">
-                          {city.name}
-                        </span>
-                        <span className="text-gray-300 group-hover:text-gray-500 transition-colors text-xl">
-                          →
-                        </span>
-                      </div>
+                      <span className="text-foreground font-semibold text-lg group-hover:text-brand transition-colors">
+                        {city.name}
+                      </span>
+                      <ArrowRight
+                        className="size-5 text-muted-foreground group-hover:text-brand transition-colors"
+                        aria-hidden="true"
+                      />
                     </Link>
                   ))}
                 </div>
@@ -234,7 +236,7 @@ export default function Home() {
               <DialogTitle className="text-2xl text-center font-bold">Leaderboards</DialogTitle>
             </DialogHeader>
             <Tabs value={activeLocationTab} onValueChange={setActiveLocationTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${cities.length + 1}, minmax(0, 1fr))` }}>
                 <TabsTrigger value="global">Global</TabsTrigger>
                 {cities.map(city => (
                   <TabsTrigger key={city.code} value={city.code}>{city.code}</TabsTrigger>
@@ -255,10 +257,11 @@ export default function Home() {
         {/* Debug Button */}
         <Button
           asChild
-          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-white hover:bg-gray-100 text-gray-500 border border-gray-200 shadow-sm transition-all duration-200 z-50"
+          variant="outline"
+          className="fixed bottom-6 right-6 size-12 rounded-full bg-card text-muted-foreground shadow-sm transition-colors duration-200 z-50"
         >
-          <Link href="/debug" className="flex items-center justify-center">
-            <span className="text-lg">🔧</span>
+          <Link href="/debug" aria-label="Open debug tools" className="flex items-center justify-center">
+            <Wrench className="size-5" aria-hidden="true" />
           </Link>
         </Button>
       </div>

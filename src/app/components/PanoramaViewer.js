@@ -32,7 +32,7 @@ function PanoramaViewer({ imageUrl, onReady, onError }) {
       if (!imageUrl) {
         // Show loading or error state
         containerRef.current.innerHTML = `
-          <div style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color: white; text-align: center;">
+          <div role="status" aria-live="polite" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color: white; text-align: center;">
             <div>Loading panoramic image...</div>
           </div>
         `;
@@ -140,7 +140,7 @@ function PanoramaViewer({ imageUrl, onReady, onError }) {
   return (
     <div 
       ref={containerRef} 
-      className="w-full h-full min-h-[400px] bg-gray-900 rounded-lg overflow-hidden"
+      className="w-full h-full min-h-[400px] bg-neutral-900 rounded-lg overflow-hidden"
     />
   );
 }
