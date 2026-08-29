@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { cityNames, cityBboxes, cityDeltas } from '../../../lib/game.js';
 import { fetchMapillaryImages } from '../../../lib/mapillary.js';
-import { storeGameSession } from '../../../lib/session.js';
+import { storeGameSession, getGameSession } from '../../../lib/session.js';
 
 // Generate a unique session ID using uuid
 function generateSessionId() {
@@ -50,6 +50,9 @@ export async function GET(request) {
     const imageResult = await fetchMapillaryImages(bbox, delta);
 
     if (!imageResult.success) {
+      // The user-facing message is generic; keep the real cause in the logs so
+      // an API outage is not silently reported as missing city coverage.
+      console.error(`Mapillary search failed for ${cityName}: ${imageResult.error}`);
       return NextResponse.json({
         success: false,
         error: `No street view images found in ${cityName}. This city may not have sufficient Mapillary coverage.`
@@ -119,25 +122,33 @@ export async function GET(request) {
 
 // Get session data (for debugging)
 export async function POST(request) {
-  const body = await request.json();
-  const { sessionId } = body;
+  const body = await request.json().catch(() => null);
+  const sessionId = body?.sessionId;
 
   if (!sessionId) {
-    return NextResponse.json({ success: false, error: 'Missing sessionId' });
+    return NextResponse.json({ success: false, error: 'Missing sessionId' }, { status: 400 });
   }
 
-  const session = gameSessions.get(sessionId);
-  if (!session) {
-    return NextResponse.json({ success: false, error: 'Session not found' });
-  }
-
-  return NextResponse.json({
-    success: true,
-    session: {
-      sessionId: session.sessionId,
-      cityCode: session.cityCode,
-      createdAt: session.createdAt
-      // Don't expose exact location for security
+  try {
+    const session = await getGameSession(sessionId);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Session not found' }, { status: 404 });
     }
-  });
+
+    return NextResponse.json({
+      success: true,
+      session: {
+        sessionId: session.sessionId,
+        cityCode: session.cityCode,
+        createdAt: session.createdAt
+        // Don't expose exact location for security
+      }
+    });
+  } catch (error) {
+    console.error('Session lookup error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to look up session'
+    }, { status: 500 });
+  }
 }
