@@ -7,7 +7,8 @@
 
 ## Street View & Mapping
 - **Mapillary API**: Panoramic street-level imagery provider (thumb_original_url, is_pano=true filter)
-  - **Dart-throw strategy**: pick random point in city bbox, query small fixed-size sub-bbox (2×delta), re-roll on empty. Keeps query cost under Mapillary cap.
+  - **Dart-throw strategy**: pick random points in city bbox, query small fixed-size sub-bboxes (2×delta), re-roll on empty. Keeps query cost under Mapillary cap.
+  - **Concurrent rounds**: 8 windows raced per round (20 max total). A Mapillary round-trip costs ~1-5s, so racing keeps wall time at one round-trip instead of the sum of every miss.
   - **Per-city delta**: configurable in CITIES enum (`src/lib/game.js`). HN: 0.003° (~333m), others: 0.005° (~556m)
 - **Leaflet**: Interactive mapping library for guess placement
 - **OpenStreetMap**: Map tile provider for base maps

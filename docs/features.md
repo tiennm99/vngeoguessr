@@ -7,7 +7,7 @@
 
 ## Street View System
 - **Mapillary Integration**: Panoramic street-level images via Mapillary API
-- **Dart-throw Strategy**: Pick random point in city bbox, query small fixed-size sub-bbox, retry on empty/error (20 attempts max)
+- **Dart-throw Strategy**: Pick random points in city bbox, query small fixed-size sub-bboxes, 8 raced concurrently per round, re-roll on empty/error (20 windows max)
 - **Per-city Optimization**: Delta tuned per city to balance coverage and Mapillary query cost
   - Ha Noi: 0.003° (~333m square)
   - Ho Chi Minh, Da Lat, Da Nang, Duc Hoa: 0.005° (~556m square)
