@@ -12,13 +12,33 @@
 // of every miss. Throwing a whole round at once makes it the cost of one
 // round-trip: the first window that yields panoramas wins and the losers are
 // aborted.
+//
+// Each query keeps the same small window and limit as before, so the per-query
+// data cost Mapillary caps is unchanged; only the request *rate* went up. A
+// round that loses windows to 5xx or network errors therefore backs off before
+// the next one, and those windows are budgeted separately from genuine misses:
+// a transient Mapillary outage must not be mistaken for a city with no
+// panoramic coverage.
 
-const MAX_ATTEMPTS = 20;
-const ATTEMPTS_PER_ROUND = 8;
+// Budget for windows that answered fine but held nothing — genuine misses.
+const MAX_EMPTY_WINDOWS = 20;
+const WINDOWS_PER_ROUND = 8;
+// Separate, smaller budget for rounds that lost windows to errors.
+const MAX_ERROR_ROUNDS = 3;
+const ERROR_BACKOFF_MS = 750;
 
 // Marker error for a window that answered fine but held no panoramas.
 const EMPTY_WINDOW = 'no panos in window';
 const AUTH_FAILED = 'Mapillary authentication failed';
+
+/**
+ * Pause execution.
+ * @param {number} ms Milliseconds to wait.
+ * @returns {Promise<void>}
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 /**
  * Query one random sub-bbox for panoramas.
@@ -76,41 +96,55 @@ export async function fetchMapillaryImages(bbox, delta) {
     throw new Error('MAPILLARY_ACCESS_TOKEN environment variable is not set');
   }
 
-  let attemptsSpent = 0;
+  let emptyWindows = 0;
+  let errorRounds = 0;
   let lastError = null;
 
-  while (attemptsSpent < MAX_ATTEMPTS) {
-    const roundSize = Math.min(ATTEMPTS_PER_ROUND, MAX_ATTEMPTS - attemptsSpent);
+  while (emptyWindows < MAX_EMPTY_WINDOWS && errorRounds < MAX_ERROR_ROUNDS) {
+    const roundSize = Math.min(WINDOWS_PER_ROUND, MAX_EMPTY_WINDOWS - emptyWindows);
     const controller = new AbortController();
     const windows = Array.from({ length: roundSize }, () =>
       probeRandomWindow(bbox, delta, accessToken, controller.signal)
     );
 
+    let failures;
     try {
       const panos = await Promise.any(windows);
       // Let the losing windows go; their results are no longer needed.
       controller.abort();
-      console.log(`Found ${panos.length} panos after ${attemptsSpent + roundSize} windows`);
+      console.log(`Found ${panos.length} panos in a round of ${roundSize}`);
       return { success: true, data: panos };
     } catch (aggregate) {
-      const errors = aggregate.errors || [aggregate];
-      const authFailure = errors.find(err => err.message === AUTH_FAILED);
-      if (authFailure) {
-        throw authFailure;
-      }
-      const realFailure = errors.find(err => err.message !== EMPTY_WINDOW);
-      if (realFailure) {
-        lastError = realFailure.message;
-      }
-      attemptsSpent += roundSize;
-      console.log(`${attemptsSpent}/${MAX_ATTEMPTS} windows tried; no panos yet`);
+      failures = aggregate.errors || [aggregate];
     }
+
+    const authFailure = failures.find(err => err.message === AUTH_FAILED);
+    if (authFailure) {
+      throw authFailure;
+    }
+
+    const hardErrors = failures.filter(err => err.message !== EMPTY_WINDOW);
+    emptyWindows += failures.length - hardErrors.length;
+
+    if (hardErrors.length === 0) {
+      console.log(`No panos in ${emptyWindows}/${MAX_EMPTY_WINDOWS} windows so far`);
+      continue;
+    }
+
+    errorRounds++;
+    lastError = hardErrors[0].message;
+    console.error(
+      `Mapillary errored on ${hardErrors.length}/${roundSize} windows ` +
+      `(round ${errorRounds}/${MAX_ERROR_ROUNDS}, last: ${lastError}); backing off`
+    );
+    // Widening pause so a burst of 5xx is not answered with another burst.
+    await sleep(ERROR_BACKOFF_MS * errorRounds);
   }
 
   return {
     success: false,
     error: lastError
-      ? `No panos after ${MAX_ATTEMPTS} windows (last: ${lastError})`
-      : 'No panos found',
+      ? `Mapillary unreachable after ${errorRounds} error rounds (last: ${lastError})`
+      : `No panos in ${emptyWindows} windows`,
   };
 }
