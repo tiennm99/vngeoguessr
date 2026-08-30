@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { submitScore, submitDistanceRecord } from '../../../lib/leaderboard.js';
 import { getGameSession, deleteGameSession } from '../../../lib/session.js';
 import { calculateDistance, calculateScore } from '../../../lib/game.js';
+import { publicRegion } from '../../../lib/region-request.js';
 
 export async function POST(request) {
   try {
@@ -61,11 +62,33 @@ export async function POST(request) {
     // Calculate score based on distance (server-side)
     const finalScore = calculateScore(distance);
 
-    // Submit to leaderboard with calculated score (both city and global)
-    const leaderboardResult = await submitScore(username.trim(), finalScore, session.cityCode);
-    
-    // Submit distance record to distance leaderboards (both city and global)
-    const distanceResult = await submitDistanceRecord(username.trim(), distance, session.cityCode);
+    // The region the panorama was actually in, resolved server-side when the
+    // round was created. Never read from the request: a client that could name
+    // its own region could farm any district's board.
+    //
+    // The `?? cityCode` fallback carries sessions created before this deploy.
+    // They have no district, so they credit province and country only. Sessions
+    // live 30 minutes, so this can be dropped a release from now.
+    const scoringRegion = session.regionCode ?? session.cityCode;
+
+    // Claim the session before writing, and score only if this request is the
+    // one that removed it. DEL is atomic, so exactly one of N concurrent
+    // submits wins; reading the session and deleting it without checking the
+    // result lets every one of them through, because they all read it alive.
+    //
+    // Consuming first also closes the sequential case: a failure partway
+    // through the fan-out would otherwise leave the session alive for up to 30
+    // minutes and a retry would re-credit every level that already succeeded.
+    const consumed = await deleteGameSession(sessionId);
+    if (!consumed) {
+      return NextResponse.json({
+        success: false,
+        error: 'Session already submitted or expired'
+      }, { status: 400 });
+    }
+
+    const leaderboardResult = await submitScore(username.trim(), finalScore, scoringRegion);
+    const distanceResult = await submitDistanceRecord(username.trim(), distance, scoringRegion);
 
     // Log the submission for anti-cheat monitoring
     console.log('Game submission:', {
@@ -79,18 +102,22 @@ export async function POST(request) {
       timestamp: new Date().toISOString()
     });
 
-    // Clean up session after successful submission
-    await deleteGameSession(sessionId);
-
     return NextResponse.json({
       success: true,
       gameResult: {
         distance,
         score: finalScore,
-        globalRank: leaderboardResult.global?.rank || null,
-        cityRank: leaderboardResult.city?.rank || null,
-        globalDistanceRank: distanceResult.globalDistance?.rank || null,
-        cityDistanceRank: distanceResult.cityDistance?.rank || null,
+        // One entry per level credited, outermost last. The client renders
+        // these directly rather than a fixed global/city pair.
+        levels: leaderboardResult.levels,
+        distanceLevels: distanceResult.levels,
+        // Where the panorama actually was. Safe now, and only now: the guess
+        // is in.
+        region: publicRegion(scoringRegion),
+        globalRank: leaderboardResult.global?.rank ?? null,
+        cityRank: leaderboardResult.province?.rank ?? null,
+        globalDistanceRank: distanceResult.globalDistance?.rank ?? null,
+        cityDistanceRank: distanceResult.provinceDistance?.rank ?? null,
         exactLocation: {
           lat: numTargetLat,
           lng: numTargetLng

@@ -13,7 +13,8 @@ import { fakeOnly, resetStore, storedKeys, ttlOf } from './redis-harness.js';
 
 const SESSION = {
   sessionId: 'sess-1',
-  cityCode: 'TPHCM',
+  pickedRegion: 'TPHCM',
+  regionCode: 'TPHCM-Q7',
   exactLocation: { lat: 10.7769, lng: 106.7009 },
   imageId: '123456789',
   createdAt: 1_700_000_000_000,
@@ -44,9 +45,9 @@ describe('game sessions', () => {
 
   it('keeps sessions separate', async () => {
     await storeGameSession('sess-1', SESSION);
-    await storeGameSession('sess-2', { ...SESSION, sessionId: 'sess-2', cityCode: 'HN' });
-    expect((await getGameSession('sess-1')).cityCode).toBe('TPHCM');
-    expect((await getGameSession('sess-2')).cityCode).toBe('HN');
+    await storeGameSession('sess-2', { ...SESSION, sessionId: 'sess-2', regionCode: 'HN-BADINH' });
+    expect((await getGameSession('sess-1')).regionCode).toBe('TPHCM-Q7');
+    expect((await getGameSession('sess-2')).regionCode).toBe('HN-BADINH');
   });
 
   it('overwrites on re-store', async () => {
@@ -61,8 +62,17 @@ describe('game sessions', () => {
     expect(await getGameSession('sess-1')).toBeNull();
   });
 
-  it('tolerates deleting a session that is already gone', async () => {
-    await expect(deleteGameSession('never-existed')).resolves.toBe(true);
+  it('reports that it did not remove a session that was already gone', async () => {
+    // The return value is a claim, not a status: scoring is gated on it, so a
+    // second submit of the same session has to come back false rather than
+    // report success for a delete that removed nothing.
+    await expect(deleteGameSession('never-existed')).resolves.toBe(false);
+  });
+
+  it('reports the claim exactly once for a session that exists', async () => {
+    await storeGameSession('claim-me', SESSION);
+    await expect(deleteGameSession('claim-me')).resolves.toBe(true);
+    await expect(deleteGameSession('claim-me')).resolves.toBe(false);
   });
 
   it('sets a thirty minute expiry', async () => {

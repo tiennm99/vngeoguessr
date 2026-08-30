@@ -1,13 +1,50 @@
 ---
 phase: 4
 title: "API surface"
-status: todo
+status: completed
 priority: P1
 effort: "0.75d"
 dependencies: [2, 3]
 ---
 
 # Phase 4: API surface
+
+## Outcome (recorded after execution)
+
+District boards now fill in production: `/api/new-game` resolves the panorama's
+district server-side and stores it, and `/api/guess` fans out from that.
+
+**Two secrets, not one.** `regionCode` joins `exactLocation` on the
+never-serialized list, and both `/api/new-game` verbs are tested by serialising
+the whole response body and asserting the session's own values appear nowhere
+in it.
+
+**Session consumption became atomic.** The first implementation read the
+session then deleted it, which is not a guard: a review probe fired ten
+parallel submits of one session id and **all ten scored**. `del` now returns
+the DEL count, `deleteGameSession` returns it as a claim, and the route scores
+only if it won. Covered by a ten-way concurrent test.
+
+**The route rename was NOT done.** `city-coverage` -> `region-coverage` and its
+caller update are deferred: `src/app/debug/coverage/page.js` cannot be read or
+written from this environment (a context hook blocks every path matching
+`coverage`), and renaming the route without updating its one caller would break
+the debug page. The route accepts `?region=` at any level in place, so nothing
+is lost but the name. **Phase 5 cannot edit that page either until the hook is
+lifted.**
+
+Review fixes worth recording: `??` where `||` was needed in `resolveRegion`
+(`?region=&city=HN` resolved to an empty region); a `generatedAt` field
+restored because its only consumer is unreadable from here; and a stale
+`index.panos` reference in the coverage route's bbox branch that would have
+500'd every pan on the debug map -- caught by the tests the review asked for.
+
+Also corrected: an integration-only failure where the test's `fetch` stub
+swallowed the Upstash client's own calls. Against the fake, Redis does not use
+`fetch`; against a real instance it does.
+
+`npm test` 260/260, `npm run test:integration` 258 + 2 pre-existing skips,
+lint and build clean.
 
 ## Overview
 
@@ -192,8 +229,12 @@ sessions created before the deploy. *Response:* the `?? session.cityCode`
 fallback, covered by a test so it survives refactors.
 
 **Consuming the session first loses a guess on a write failure.** *Signal:* a
-player reports a scored round that did not count. *Response:* accepted trade —
-one lost guess beats six double-credited keys. The 500 is visible to the player.
+player reports a scored round that did not count. *Response:* accepted trade --
+one lost guess beats six double-credited keys. **Correction: the 500 is NOT
+visible to the player.** `GameClient.submitGameResult` returns null on failure
+and the handler then renders `distance 99999, score 0` as a normal result. The
+player sees a confident zero-point round rather than an error. Phase 5 owns
+`GameClient` and must distinguish a null result from a real one.
 
 **Renaming the coverage route breaks the debug page.** *Signal:* 404 on
 `/debug/coverage`. *Response:* one caller at `page.js:59`; update in the same

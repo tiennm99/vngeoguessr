@@ -78,13 +78,18 @@ export async function putJson(h, key, value, ttlSeconds) {
 }
 
 /**
- * Delete a key.
+ * Delete a key, reporting whether it was actually there.
+ *
+ * The count matters: DEL is atomic, so exactly one of N racing callers gets 1
+ * back and the rest get 0. That makes it the cheapest available
+ * compare-and-swap for "claim this key", which is how a game session is
+ * consumed exactly once.
  * @param {{ client: Redis, prefix: string }} h
  * @param {string} key
- * @returns {Promise<void>}
+ * @returns {Promise<number>} Keys removed: 1 if it existed, 0 if not.
  */
 export async function del(h, key) {
-  await h.client.del(pkey(h, key));
+  return Number(await h.client.del(pkey(h, key))) || 0;
 }
 
 /**

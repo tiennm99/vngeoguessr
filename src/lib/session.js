@@ -39,16 +39,19 @@ export async function getGameSession(sessionId) {
 }
 
 /**
- * Delete a game session from Upstash.
+ * Delete a game session, reporting whether this caller was the one to remove it.
+ *
+ * The return value is a claim, not a status. Two requests submitting the same
+ * session concurrently both read a live session, so scoring has to be gated on
+ * who actually deleted it -- DEL is atomic and only one caller sees a 1.
  * @param {string} sessionId Session identifier.
- * @returns {Promise<boolean>} Success status.
+ * @returns {Promise<boolean>} True when this call removed the session.
  */
 export async function deleteGameSession(sessionId) {
   try {
     const h = getUpstash();
     const key = SESSION_KEY_PREFIX + sessionId;
-    await del(h, key);
-    return true;
+    return (await del(h, key)) > 0;
   } catch (error) {
     console.error('Error deleting game session:', error);
     throw error;

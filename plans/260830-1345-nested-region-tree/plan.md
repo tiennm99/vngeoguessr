@@ -221,7 +221,7 @@ first two.
 | 1 | [Phase 1: Region tree model and boundaries](./phase-01-region-tree-model-and-boundaries.md) | Completed | — |
 | 2 | [Phase 2: Panorama district partition](./phase-02-panorama-district-partition.md) | Completed | 1 |
 | 3 | [Phase 3: Leaderboard fan-out and migration](./phase-03-leaderboard-fan-out-and-migration.md) | Completed | 1 |
-| 4 | [Phase 4: API surface](./phase-04-api-surface.md) | Pending | 2, 3 |
+| 4 | [Phase 4: API surface](./phase-04-api-surface.md) | Completed | 2, 3 |
 | 5 | [Phase 5: UI region navigation](./phase-05-ui-region-navigation.md) | Pending | 4 |
 | 6 | [Phase 6: Docs and verification](./phase-06-docs-and-verification.md) | Pending | 5 |
 
