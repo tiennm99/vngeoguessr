@@ -6,143 +6,99 @@ import '@photo-sphere-viewer/core/index.css';
 
 function PanoramaViewer({ imageUrl, onReady, onError }) {
   const containerRef = useRef(null);
-  const viewerRef = useRef(null);
   const onReadyRef = useRef(onReady);
   const onErrorRef = useRef(onError);
 
-  // Update refs when callbacks change
+  // Kept in refs so a changing callback identity cannot tear down the viewer.
   onReadyRef.current = onReady;
   onErrorRef.current = onError;
 
-  console.log('PanoramaViewer render - imageUrl:', imageUrl);
-
   useEffect(() => {
-    console.log('PanoramaViewer useEffect triggered - imageUrl:', imageUrl);
-    console.log('Container ref:', containerRef.current);
-    
+    const container = containerRef.current;
+    if (!container || !imageUrl) return;
+
+    // Each run mounts the viewer on its own child element rather than rewriting
+    // the container's innerHTML and looking the node back up by a fixed id.
+    // React runs effects twice in development, and the old approach let the
+    // second run delete the first viewer's DOM while its texture was still
+    // loading: the promise then never settled and never rejected, so the viewer
+    // sat on "Loading..." forever with nothing logged.
+    const mount = document.createElement('div');
+    mount.style.width = '100%';
+    mount.style.height = '100%';
+    container.appendChild(mount);
+
     let viewer = null;
+    let disposed = false;
 
-    const initViewer = async () => {
-      console.log('initViewer called');
-      if (!containerRef.current) {
-        console.error('Container ref is null');
-        return;
-      }
-      
-      if (!imageUrl) {
-        // Show loading or error state
-        containerRef.current.innerHTML = `
-          <div role="status" aria-live="polite" style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color: white; text-align: center;">
-            <div>Loading panoramic image...</div>
-          </div>
-        `;
-        return;
-      }
+    /** Show the panorama flat when the viewer cannot render it. */
+    const showFallbackImage = () => {
+      if (disposed) return;
+      const image = document.createElement('img');
+      image.src = imageUrl;
+      image.alt = 'Street view';
+      image.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+      mount.replaceChildren(image);
+    };
 
-      console.log('Initializing PhotoSphere Viewer with URL:', imageUrl);
-      console.log('Container element:', containerRef.current);
-
+    const start = () => {
+      if (disposed) return;
       try {
-        // Clean up existing viewer
-        if (viewerRef.current) {
-          viewerRef.current.destroy();
-        }
-
-        // Set up container with id for PhotoSphere Viewer
-        containerRef.current.innerHTML = '<div id="pano" style="width:100%; height:100%;"></div>';
-        
-        console.log('Creating PhotoSphere Viewer...');
-        
-        // Create new viewer with your specified config
         viewer = new Viewer({
-          container: document.getElementById("pano"),
+          container: mount,
           panorama: imageUrl,
           loadingImg: null,
           defaultYaw: 0,
-          defaultZoomLvl: -60,
-          navbar: ["zoom", "fullscreen"],
+          // PSV accepts 0-100; 0 is the widest view. The previous -60 was out
+          // of range and only worked because PSV clamps it to this same value.
+          defaultZoomLvl: 0,
+          navbar: ['zoom', 'fullscreen'],
           mousewheel: true,
           // One finger must rotate the panorama: looking around is the core
-          // verb of the game. Two-finger mode only makes sense when the viewer
-          // sits inside a scrolling page, and the game screen no longer scrolls.
-          touchmoveTwoFingers: false
+          // verb of the game. Two-finger mode only suits a viewer inside a
+          // scrolling page, and the game screen no longer scrolls.
+          touchmoveTwoFingers: false,
         });
-        
-        console.log('PhotoSphere Viewer created successfully');
 
         viewer.addEventListener('ready', () => {
-          console.log("PhotoSphere Viewer loaded successfully");
-          if (onReadyRef.current) onReadyRef.current();
+          if (!disposed) onReadyRef.current?.();
         });
 
-        viewer.addEventListener('panorama-loaded', () => {
-          console.log("Panorama image loaded");
-          if (onReadyRef.current) onReadyRef.current();
+        viewer.addEventListener('panorama-error', (event) => {
+          console.error('Panorama failed to render, falling back to a flat image:', event);
+          showFallbackImage();
+          onReadyRef.current?.();
         });
-
-        viewer.addEventListener('panorama-error', (error) => {
-          console.error("Error loading panorama:", error);
-          // Fallback to regular image on panorama error
-          if (containerRef.current) {
-            containerRef.current.innerHTML = `
-              <img 
-                src="${imageUrl}" 
-                style="width:100%; height:100%; object-fit:cover; border-radius:10px;" 
-                alt="Street view" 
-                onload="console.log('Fallback image loaded successfully')"
-                onerror="console.error('Both panorama and fallback image failed to load')"
-              />
-            `;
-            if (onReadyRef.current) onReadyRef.current();
-          }
-        });
-
-        // Also handle general errors
-        viewer.addEventListener('error', (error) => {
-          console.error("PhotoSphere Viewer error:", error);
-          if (onErrorRef.current) onErrorRef.current(error);
-        });
-
-        viewerRef.current = viewer;
-
       } catch (error) {
-        console.error('Error initializing PhotoSphere Viewer:', error);
-        
-        // Fallback to regular image
-        if (containerRef.current) {
-          containerRef.current.innerHTML = `
-            <img 
-              src="${imageUrl}" 
-              style="width:100%; height:100%; object-fit:cover; border-radius:10px;" 
-              alt="Street view" 
-            />
-          `;
-          
-          if (onReadyRef.current) onReadyRef.current();
-        }
-        
-        if (onErrorRef.current) onErrorRef.current(error);
+        console.error('Could not create the panorama viewer:', error);
+        showFallbackImage();
+        onReadyRef.current?.();
+        onErrorRef.current?.(error);
       }
     };
 
-    initViewer();
+    // A timeout rather than an immediate call: development mounts, unmounts and
+    // remounts effects back to back, and this lets the throwaway mount cancel
+    // before it ever asks the network for the image.
+    const startTimer = setTimeout(start, 0);
 
-    // Cleanup function
     return () => {
-      if (viewerRef.current) {
-        try {
-          viewerRef.current.destroy();
-        } catch (error) {
-          console.warn('Error destroying viewer:', error);
-        }
-        viewerRef.current = null;
+      // Claim this run's viewer before destroying it, so a late 'ready' from a
+      // run that is going away cannot clear the loading state of its successor.
+      disposed = true;
+      clearTimeout(startTimer);
+      try {
+        viewer?.destroy();
+      } catch (error) {
+        console.warn('Error destroying panorama viewer:', error);
       }
+      mount.remove();
     };
-  }, [imageUrl]); // Remove onReady and onError from deps to prevent constant reinitialization
+  }, [imageUrl]);
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       className="w-full h-full bg-neutral-900 overflow-hidden touch-none"
     />
   );
