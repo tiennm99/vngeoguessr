@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Maximize2, Minimize2 } from 'lucide-react';
+import MapSearchBox from './MapSearchBox';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
@@ -14,15 +15,19 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
 export default function GuessMapPanel({
   center,
   bbox,
+  regionCode,
   expanded,
   onExpandedChange,
   hasGuess,
   onMapClick,
 }) {
   const mapRef = useRef(null);
+  // Mirrored into state so the search box renders once the map exists.
+  const [mapInstance, setMapInstance] = useState(null);
 
   const handleMapReady = useCallback((map) => {
     mapRef.current = map;
+    setMapInstance(map);
   }, []);
 
   // Leaflet caches its container size, so growing or shrinking the minimap
@@ -39,7 +44,7 @@ export default function GuessMapPanel({
       // Frame the map rather than restyling its tiles: a bright map inset
       // in a padded card with real elevation reads as a lit window on
       // dark chrome, which is how GeoGuessr handles the same problem.
-      className={`absolute z-[500] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:static lg:inset-auto lg:z-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:p-1.5 ${
+      className={`absolute z-[500] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:relative lg:inset-auto lg:z-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:p-1.5 ${
         expanded ? 'inset-x-3 top-3' : 'right-3 h-36 w-36'
       }`}
     >
@@ -47,10 +52,23 @@ export default function GuessMapPanel({
         center={center}
         bbox={bbox}
         zoom={10}
+        // The search box owns the top-left corner on every breakpoint.
+        zoomPosition="bottomleft"
         onMapClick={onMapClick}
         onReady={handleMapReady}
         className="w-full h-full"
       />
+
+      {/* Search rides above the map (same layer as the expand/collapse
+          buttons). On phones it only makes sense once the minimap is
+          expanded; right-14 keeps it clear of the collapse button there. */}
+      <div
+        className={`absolute top-2 left-2 z-[1200] right-14 lg:right-auto lg:top-3 lg:left-3 lg:w-72 ${
+          expanded ? '' : 'hidden lg:block'
+        }`}
+      >
+        <MapSearchBox map={mapInstance} rootCode={regionCode} expanded={expanded} />
+      </div>
 
       {/* Collapsed, the map is only a preview: this cover turns the whole
           minimap into one tap target instead of letting a stray touch

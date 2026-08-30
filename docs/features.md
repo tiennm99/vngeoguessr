@@ -26,6 +26,10 @@
 ## Interactive Maps
 - **Leaflet Integration**: OpenStreetMap-based interactive mapping
 - **Click-to-Place**: Intuitive guess marker placement
+- **Map Search**: search box on the guess map finds districts (offline,
+  diacritic- and alias-aware: `quận 7`, `q7`, `hoàn kiếm`) and streets/places
+  (Photon geocoder, bounded to the played region). Selecting a result only
+  pans/zooms the map — it never places the guess marker
 
 ## Anti-Cheat Security
 - **Redis Session Management**: target coordinates stored server-side in Redis

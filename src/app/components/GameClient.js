@@ -304,6 +304,7 @@ export default function GameClient() {
           <GuessMapPanel
             center={mapCenter}
             bbox={pickedRegion?.bbox}
+            regionCode={pickedRegion?.code ?? 'VN'}
             expanded={mapExpanded}
             onExpandedChange={setMapExpanded}
             hasGuess={Boolean(guessCoordinates)}

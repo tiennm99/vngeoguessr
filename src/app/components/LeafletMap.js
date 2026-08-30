@@ -4,12 +4,15 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-export default function LeafletMap({ 
-  center, 
-  zoom = 10, 
+export default function LeafletMap({
+  center,
+  zoom = 10,
   bbox = null,
-  onMapClick, 
+  onMapClick,
   onReady,
+  // Consumers that overlay UI on the top-left corner (the guess map's search
+  // box) move the zoom control out of the way; everyone else keeps the default.
+  zoomPosition = 'topleft',
   className = "w-full h-full min-h-[400px]"
 }) {
   const mapRef = useRef(null);
@@ -37,8 +40,9 @@ export default function LeafletMap({
         });
 
         // Create map
-        const map = L.map(mapRef.current);
-        
+        const map = L.map(mapRef.current, { zoomControl: false });
+        L.control.zoom({ position: zoomPosition }).addTo(map);
+
         // Set initial view - use bbox if provided, otherwise center/zoom
         if (bbox) {
           // bbox format: [west, south, east, north]
@@ -101,9 +105,14 @@ export default function LeafletMap({
         }
         leafletMapRef.current = null;
         markersRef.current = [];
+        // The handle given out by onReady is now a destroyed map; a parent
+        // still holding it would crash on the first pan/zoom call.
+        if (onReadyRef.current) {
+          onReadyRef.current(null);
+        }
       }
     };
-  }, [bbox, center, zoom]); // Include props used in initialization
+  }, [bbox, center, zoom, zoomPosition]); // Include props used in initialization
 
   // Update view when props change
   useEffect(() => {

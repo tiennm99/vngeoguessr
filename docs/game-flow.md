@@ -37,6 +37,8 @@
 ### 5. Guessing Phase
 - **Image Interaction**: View street-level thumbnail image
 - **Map Interaction**: Place guess marker on interactive Leaflet map with OpenStreetMap
+- **Map Search**: optional search for a district, street, or place to pan the
+  map before clicking; results never reveal or place the answer
 - **Submission**: Click submit button to finalize guess
 
 ### 6. Server-Side Processing
