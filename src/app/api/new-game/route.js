@@ -71,8 +71,9 @@ export async function GET(request) {
       sessionId: currentSessionId,
       // Built from the picked region only -- never from the resolved district.
       region: publicRegion(pickedRegion),
+      // The pano id stays server-side in the session: with it a player could
+      // look the panorama up on Mapillary and read the answer coordinates.
       imageData: {
-        id: selectedImage.id,
         url: imageUrl,
         isPano: selectedImage.isPano
       }
