@@ -8,12 +8,17 @@
     "build": "next build",
     "build:check": "node scripts/build-check.mjs",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.mjs",
     "redis:up": "docker compose up -d --wait",
-    "redis:down": "docker compose down -v"
+    "redis:down": "docker compose down -v",
+    "data:boundaries": "node scripts/build-region-boundaries.mjs",
+    "data:panos": "node scripts/build-pano-index.mjs",
+    "data:districts": "node scripts/assign-pano-districts.mjs",
+    "data:repartition": "npm run data:boundaries -- --regenerate && npm run data:districts",
+    "leaderboard:migrate": "node scripts/migrate-leaderboards.mjs"
   },
   "dependencies": {
     "@photo-sphere-viewer/core": "^5.14.3",
@@ -55,9 +60,5 @@
   "overrides": {
     "js-yaml": "^4.2.0",
     "postcss": "^8.5.10"
-  },
-  "allowScripts": {
-    "sharp": true,
-    "unrs-resolver": true
   }
 }

@@ -11,6 +11,9 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  {
+    ignores: [".next/**", ".next-check/**", "src/data/**"],
+  },
   ...compat.extends("next/core-web-vitals"),
   {
     // next/core-web-vitals enables neither no-undef nor no-unused-vars, and
