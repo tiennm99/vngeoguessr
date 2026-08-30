@@ -81,7 +81,7 @@ generated region data* in [development.md](development.md).
   behind a generated `boundaries/index.js` barrel
 - `panos/<province>.json` - Panorama ids, coordinates, and district assignment,
   behind a generated `panos/index.js` barrel. **Server-side only** - roughly
-  29MB of exact answers
+  28MB of exact answers
 
 ### Utility Libraries (`src/lib/`)
 - `utils.js` - Utility functions including `cn()` for class name merging
@@ -110,9 +110,13 @@ Each carries a header comment with its flags and its cost.
 - `lib/leaderboard-migration.mjs` - Copy, verify, regression-check and restore
 
 ## Tests (`tests/`)
-Vitest, one file per module. `fake-upstash-redis.js`, `mock-upstash.js`,
-`redis-harness.js` and `wait-for-srh.js` are the shared harness that lets the
-same files run against either the in-memory fake or a real Redis.
+Vitest, mostly one file per `src/lib/` module, plus a route test for
+`new-game`, `guess`, and `debug/region-coverage`. The `skip`, `leaderboard`,
+`debug/mapillary`, and `debug/pano` routes have no dedicated test file; their
+underlying `src/lib/` logic (`leaderboard.js`, `mapillary.js`) is still
+covered. `fake-upstash-redis.js`, `mock-upstash.js`, `redis-harness.js` and
+`wait-for-srh.js` are the shared harness that lets the same files run against
+either the in-memory fake or a real Redis.
 
 Nothing here exercises the React components: there is no component-test
 dependency, so `GameClient.js`, `RegionPicker.js`, `RegionSelect.js` and the
@@ -130,5 +134,5 @@ coverage page are covered by manual testing only.
 - Project planning documents and implementation plans
 
 ## Public Assets (`public/`)
-- `*.svg` - SVG icons and graphics
+- `zlp.jpg` - Donation QR code image
 - Static assets served directly by Next.js

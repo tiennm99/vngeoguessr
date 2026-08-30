@@ -130,20 +130,21 @@ sends; the path form Upstash also supports (`GET /set/key/value`) returns 404.
 Run the scripts in this order -- each reads what the previous one wrote:
 
 ```bash
-node scripts/build-region-boundaries.mjs   # OSM/Nominatim -> boundaries + region tree
-node scripts/build-pano-index.mjs          # Mapillary z14 tiles -> per-province pano index
-node scripts/assign-pano-districts.mjs     # clip + partition panos by district; writes counts.js
+npm run data:boundaries    # OSM/Nominatim -> boundaries + region tree
+npm run data:panos         # Mapillary z14 tiles -> per-province pano index
+npm run data:districts     # clip + partition panos by district; writes counts.js
 ```
 
-Each script's header comment carries its flags and its cost; read it before
-running. Two things worth knowing up front:
+Each underlying script's header comment carries its flags and its cost; read it
+before running. Two things worth knowing up front:
 
-- `build-region-boundaries.mjs --regenerate` rebuilds the provinces, the barrel
-  and the tree from what is already on disk, with no network calls. Use it after
+- `npm run data:repartition` reruns the boundaries step with `--regenerate`
+  (rebuilds the provinces, the barrel and the tree from what is already on
+  disk) and then the districts step, with no network calls. Use it after
   hand-editing a boundary.
-- `build-pano-index.mjs` spends Mapillary tile requests against a 50,000/day
-  cap. `assign-pano-districts.mjs` spends none -- it only re-partitions indexes
-  that already exist, and refuses to rewrite `counts.js` on a partial run.
+- `npm run data:panos` spends Mapillary tile requests against a 50,000/day cap.
+  `npm run data:districts` spends none -- it only re-partitions indexes that
+  already exist, and refuses to rewrite `counts.js` on a partial run.
 
 ### Migrating leaderboards
 
@@ -153,8 +154,12 @@ default** and copies rather than moves, so the source boards survive.
 
 Deploy first, then migrate. The new code writes to the new keys immediately; a
 migration run before the deploy would copy a board that is still being written
-to under its old name. Run the script's `--help` for the apply, verify and
-restore flags.
+to under its old name. Run `npm run leaderboard:migrate` with no flags for a
+dry run; add `--apply --confirm-prefix=<key prefix>` to write (the confirm
+flag must echo the deployment's own `KEY_PREFIX`, or the script refuses), and
+`--restore=<backup.json> --confirm-prefix=<key prefix>` to undo from the
+backup file the apply run wrote. `--dry-run` is a guard, not a mode switch --
+combining it with `--apply` throws instead of guessing which one you meant.
 
 ## shadcn/ui Configuration
 

@@ -1,10 +1,10 @@
 # VNGeoGuessr
 
-A GeoGuessr clone focused on Vietnamese locations with accurate boundary detection and anti-cheat security. Play geolocation guessing games across 5 Vietnamese locations using real street-level imagery.
+A GeoGuessr clone focused on Vietnamese locations with accurate boundary detection and anti-cheat security. Play geolocation guessing games across a region tree covering the whole country using real street-level imagery.
 
 ## 🎮 Features
 
-- **5 Vietnamese Locations**: Ha Noi, Da Nang, Ho Chi Minh, Da Lat, Duc Hoa (Long An)
+- **Region Tree**: Whole country, 5 provinces, 61 districts — including Da Lat (Lam Dong) and Duc Hoa (Long An)
 - **360° Street View**: Mapillary panoramic images with PhotoSphere viewer
 - **Anti-Cheat Security**: Server-side session management prevents cheating
 - **Distance-Based Scoring**: 0-5 point system based on accuracy
@@ -25,7 +25,7 @@ For detailed information about this project, see the documentation in `/docs/`:
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
+- Node.js 24+
 - npm 11+
 - Redis server (for leaderboards)
 
@@ -56,13 +56,13 @@ Open [http://localhost:3000](http://localhost:3000) to play the game.
 - **Street View**: Mapillary API + PhotoSphere Viewer
 - **Maps**: Leaflet + OpenStreetMap
 - **Geographic Data**: Nominatim API + Turf.js
-- **Storage**: Redis (leaderboards) + In-memory sessions
+- **Storage**: Upstash Redis (leaderboards and game sessions)
 - **UI Components**: shadcn/ui
 
 ## 🎯 How to Play
 
 1. Enter your username
-2. Select a Vietnamese location
+2. Pick a region from the country/province/district tree
 3. View the 360° street panorama
 4. Place your guess on the map
 5. Earn points based on accuracy (closer = more points)
