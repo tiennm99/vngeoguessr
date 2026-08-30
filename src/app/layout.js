@@ -1,3 +1,4 @@
+import { THEME_STORAGE_KEY } from '../lib/theme';
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Geist, Geist_Mono } from "next/font/google";
@@ -31,9 +32,23 @@ export const viewport = {
   ],
 };
 
+// Runs before the first paint, so a dark-theme visitor never sees a white
+// flash while the bundle loads. Mirrors resolveDark/applyTheme in lib/theme.js.
+const themeScript = `(function(){try{
+var c=localStorage.getItem('${THEME_STORAGE_KEY}');
+if(c!=='light'&&c!=='dark')c='system';
+var d=c==='dark'||(c==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
+var r=document.documentElement;
+r.classList.toggle('dark',d);
+r.style.colorScheme=d?'dark':'light';
+}catch(e){}})();`;
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

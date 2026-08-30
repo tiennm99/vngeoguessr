@@ -31,7 +31,7 @@ export default function DonateQRModal({ isOpen, onClose }) {
           <Button
             onClick={onClose}
             variant="outline"
-            className="min-h-11 px-6"
+            className="px-6"
           >
             Close
           </Button>

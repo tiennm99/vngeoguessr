@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ThemeToggle from './components/ThemeToggle';
 import UsernameModal from './components/UsernameModal';
 import DonateQRModal from './components/DonateQRModal';
 import LeaderboardList from './components/LeaderboardList';
@@ -97,21 +98,27 @@ export default function Home() {
 
   const renderTabContent = (locationKey) => (
     <div className="flex gap-3">
-      <div className="flex flex-col space-y-2 min-w-[100px]">
-        <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2">Type</div>
-        {['score', 'distance'].map(type => (
-          <Button
-            key={type}
-            onClick={() => setActiveTypeTab(type)}
-            variant={activeTypeTab === type ? 'default' : 'secondary'}
-            aria-pressed={activeTypeTab === type}
-            className={`min-h-11 justify-start capitalize ${
-              activeTypeTab === type ? 'bg-brand text-brand-foreground hover:bg-brand-hover' : ''
-            }`}
-          >
-            {type}
-          </Button>
-        ))}
+      <div className="flex flex-col gap-2 min-w-[104px]">
+        <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Type</div>
+        <div role="group" aria-label="Leaderboard type" className="flex flex-col overflow-hidden rounded-lg border border-border">
+          {['score', 'distance'].map((type, index) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setActiveTypeTab(type)}
+              aria-pressed={activeTypeTab === type}
+              className={`h-11 px-3 text-left text-sm font-semibold capitalize outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:-ring-offset-1 ${
+                index > 0 ? 'border-t border-border' : ''
+              } ${
+                activeTypeTab === type
+                  ? 'bg-brand text-brand-foreground'
+                  : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="flex-1">
         <LeaderboardList
@@ -129,11 +136,12 @@ export default function Home() {
       <div className="min-h-dvh">
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           {/* Header */}
-          <header className="flex justify-between items-center mb-10">
+          <header className="flex flex-wrap justify-between items-center gap-3 mb-10">
             <Link href="/" className="text-2xl font-bold text-foreground tracking-wider">
               VNGeoGuessr
             </Link>
             <div className="flex items-center gap-3">
+              <ThemeToggle />
               {username && (
                 <span className="text-muted-foreground text-sm hidden sm:inline">
                   Playing as <span className="font-semibold text-brand">{username}</span>
@@ -142,14 +150,13 @@ export default function Home() {
               <Button
                 onClick={handleLeaderboardClick}
                 variant="outline"
-                className="min-h-11 transition-all"
               >
                 <Trophy className="size-4" aria-hidden="true" />
                 Leaderboard
               </Button>
               <Button
                 onClick={() => setShowDonateModal(true)}
-                className="min-h-11 bg-brand text-brand-foreground hover:bg-brand-hover transition-all"
+                variant="outline"
               >
                 <span className="text-base leading-none" aria-hidden="true">🍺</span>
                 Buy me a beer
@@ -209,15 +216,15 @@ export default function Home() {
                     <Link
                       key={city.code}
                       href={`/game?location=${city.code}`}
-                      className="city-card-accent flex min-h-14 items-center justify-between p-4 rounded-lg bg-muted/40 hover:bg-muted border border-border hover:border-brand/40 transition-colors duration-200 group focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="city-card-accent group flex min-h-16 items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-xs transition-all duration-150 hover:border-brand/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
-                      <span className="text-foreground font-semibold text-lg group-hover:text-brand transition-colors">
+                      <span className="text-foreground font-semibold text-lg transition-colors group-hover:text-brand">
                         {city.name}
                       </span>
-                      <ArrowRight
-                        className="size-5 text-muted-foreground group-hover:text-brand transition-colors"
-                        aria-hidden="true"
-                      />
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand-subtle px-3 py-2 text-sm font-semibold text-brand-subtle-foreground transition-colors group-hover:bg-brand group-hover:text-brand-foreground">
+                        Play
+                        <ArrowRight className="size-4" aria-hidden="true" />
+                      </span>
                     </Link>
                   ))}
                 </div>

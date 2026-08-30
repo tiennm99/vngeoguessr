@@ -49,6 +49,10 @@
   --color-brand-subtle: var(--brand-subtle);
   --color-brand-subtle-foreground: var(--brand-subtle-foreground);
   --color-surface: var(--surface);
+  --shadow-xs: var(--elevation-xs);
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -74,7 +78,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.55 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -88,9 +92,36 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Vietnamese flag palette. Kept as the brand identity; --brand is the token
+     every component should reference rather than a raw red utility class. */
+  --vn-red: #da251d;
+  --vn-red-dark: #c41e3a;
+  --vn-gold: #ffd700;
+
+  --brand: var(--vn-red);
+  --brand-hover: var(--vn-red-dark);
+  --brand-foreground: #ffffff;
+  --brand-subtle: oklch(0.962 0.028 22);
+  --brand-subtle-foreground: oklch(0.45 0.19 27);
+  /* Page background, one step off --background so cards read as raised. */
+  --surface: oklch(0.977 0.002 250);
+
+  /* Elevation. A single scale for buttons, cards and dialogs so raised things
+     agree on how raised they are. */
+  --elevation-xs: 0 1px 2px 0 rgb(0 0 0 / 5%);
+  --elevation-sm: 0 1px 3px 0 rgb(0 0 0 / 10%), 0 1px 2px -1px rgb(0 0 0 / 10%);
+  --elevation-md: 0 4px 10px -2px rgb(0 0 0 / 14%), 0 2px 4px -2px rgb(0 0 0 / 8%);
+  --elevation-lg: 0 10px 24px -4px rgb(0 0 0 / 16%), 0 4px 8px -4px rgb(0 0 0 / 10%);
+
+  /* Pressed state. Buttons had hover but nothing on press, which is what made
+     them feel unresponsive to touch. */
+  --brand-active: color-mix(in oklch, var(--brand-hover) 85%, black);
 }
 
-.dark {
+/* Dark palette. Declared as :root.dark, not .dark, so it outranks :root on
+   specificity instead of relying on source order. */
+:root.dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -102,11 +133,12 @@
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
+  /* Lifted from the shadcn default so body copy clears contrast minimums. */
+  --muted-foreground: oklch(0.75 0 0);
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
@@ -122,6 +154,27 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Red is lightened and desaturated rather than inverted, so it stays legible
+     on dark surfaces instead of vibrating against them. */
+  --brand: oklch(0.68 0.18 27);
+  --brand-hover: oklch(0.74 0.17 27);
+  --brand-foreground: oklch(0.145 0 0);
+  --brand-subtle: oklch(0.28 0.06 27);
+  --brand-subtle-foreground: oklch(0.86 0.11 27);
+  --surface: oklch(0.115 0 0);
+
+  /* Dark shadows read as nothing against a dark ground, so they carry more
+     opacity and add a faint top highlight to suggest a lit edge instead. */
+  --elevation-xs: 0 1px 2px 0 rgb(0 0 0 / 40%);
+  --elevation-sm: 0 1px 3px 0 rgb(0 0 0 / 50%), 0 1px 2px -1px rgb(0 0 0 / 40%),
+    inset 0 1px 0 0 rgb(255 255 255 / 4%);
+  --elevation-md: 0 6px 16px -4px rgb(0 0 0 / 55%), 0 2px 6px -2px rgb(0 0 0 / 40%),
+    inset 0 1px 0 0 rgb(255 255 255 / 5%);
+  --elevation-lg: 0 14px 32px -6px rgb(0 0 0 / 60%), 0 6px 12px -4px rgb(0 0 0 / 45%),
+    inset 0 1px 0 0 rgb(255 255 255 / 5%);
+
+  --brand-active: color-mix(in oklch, var(--brand-hover) 88%, black);
 }
 
 @layer base {
@@ -154,54 +207,6 @@
 /* Ensure dialog overlay appears above Leaflet maps */
 [data-radix-popper-content-wrapper] {
   z-index: 9999 !important;
-}
-
-/* Vietnamese flag palette. Kept as the brand identity; --brand is the token
-   every component should reference rather than a raw red utility class. */
-:root {
-  --vn-red: #da251d;
-  --vn-red-dark: #c41e3a;
-  --vn-gold: #ffd700;
-
-  --brand: var(--vn-red);
-  --brand-hover: var(--vn-red-dark);
-  --brand-foreground: #ffffff;
-  --brand-subtle: oklch(0.962 0.028 22);
-  --brand-subtle-foreground: oklch(0.45 0.19 27);
-  /* Page background, one step off --background so cards read as raised. */
-  --surface: oklch(0.977 0.002 250);
-}
-
-/* Dark palette. Red is lightened and desaturated rather than inverted, so it
-   stays legible on dark surfaces instead of vibrating against them. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.75 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 12%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-
-    --brand: oklch(0.68 0.18 27);
-    --brand-hover: oklch(0.74 0.17 27);
-    --brand-foreground: oklch(0.145 0 0);
-    --brand-subtle: oklch(0.28 0.06 27);
-    --brand-subtle-foreground: oklch(0.86 0.11 27);
-    --surface: oklch(0.115 0 0);
-  }
 }
 
 .vn-gradient-bg {

@@ -91,13 +91,13 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
               type="button"
               variant="ghost"
               onClick={onClose}
-              className="flex-1 min-h-11"
+              className="flex-1"
             >
               Skip
             </Button>
             <Button
               type="submit"
-              className="flex-1 min-h-11 bg-brand text-brand-foreground hover:bg-brand-hover"
+              className="flex-1"
             >
               Start Playing
             </Button>

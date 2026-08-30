@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import PanoramaViewer from './PanoramaViewer';
+import ThemeToggle from './ThemeToggle';
+import { useCountUp } from '../../lib/use-count-up';
 import DonateQRModal from './DonateQRModal';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
@@ -52,6 +54,10 @@ export default function GameClient() {
   // only takes over the screen once tapped. Desktop keeps both side by side and
   // ignores this flag entirely.
   const [mapExpanded, setMapExpanded] = useState(false);
+
+  // The result is the payoff of a round, so the score lands by counting up
+  // rather than arriving already finished.
+  const shownScore = useCountUp(score, showResult);
 
   const guessMapRef = useRef(null);
   const resultMapRef = useRef(null);
@@ -388,34 +394,38 @@ export default function GameClient() {
   return (
     <div className="h-dvh vn-gradient-bg flex flex-col overflow-hidden">
       {/* Compact Header */}
-      <header className="flex items-center justify-between px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] bg-card border-b border-border shadow-sm">
+      <header className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] bg-card border-b border-border shadow-sm">
         <Button
           onClick={handleGoBack}
           variant="ghost"
           size="sm"
+          aria-label="Back to menu"
           className="min-h-11 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
-          Back
+          <span className="hidden sm:inline">Back</span>
         </Button>
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-foreground hidden sm:inline">VNGeoGuessr</span>
-          <Badge className="bg-brand text-brand-foreground text-xs">
+          <Badge variant="brand" className="text-xs">
             {cityNames[location] || location}
           </Badge>
         </div>
 
-        <Button
-          onClick={() => setShowDonate(true)}
-          variant="ghost"
-          size="sm"
-          aria-label="Buy me a beer"
-          className="min-h-11 text-muted-foreground hover:text-foreground"
-        >
-          <span className="text-base leading-none" aria-hidden="true">🍺</span>
-          <span className="hidden sm:inline">Buy me a beer</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Button
+            onClick={() => setShowDonate(true)}
+            variant="ghost"
+            size="sm"
+            aria-label="Buy me a beer"
+            className="min-h-11 text-muted-foreground hover:text-foreground"
+          >
+            <span className="text-base leading-none" aria-hidden="true">🍺</span>
+            <span className="hidden sm:inline">Buy me a beer</span>
+          </Button>
+        </div>
       </header>
 
       {/* Game Content. Phones get a full-bleed panorama with the guess map
@@ -441,7 +451,10 @@ export default function GameClient() {
             position against the panorama; a flex column from lg up. */}
         <div className="contents lg:flex lg:flex-col lg:min-h-0 lg:gap-3">
           <div
-            className={`absolute z-[500] overflow-hidden rounded-lg border border-border bg-card shadow-lg transition-all duration-200 ease-out bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:static lg:inset-auto lg:z-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:shadow-sm ${
+            // Frame the map rather than restyling its tiles: a bright map inset
+            // in a padded card with real elevation reads as a lit window on
+            // dark chrome, which is how GeoGuessr handles the same problem.
+            className={`absolute z-[500] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:static lg:inset-auto lg:z-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:p-1.5 ${
               mapExpanded ? 'inset-x-3 top-3' : 'right-3 h-36 w-36'
             }`}
           >
@@ -485,8 +498,9 @@ export default function GameClient() {
             <Button
               onClick={handleSubmitGuess}
               disabled={!guessCoordinates || loading}
-              className="flex-1 min-h-12 py-4 text-base font-bold bg-brand text-brand-foreground hover:bg-brand-hover"
+              className="flex-1"
               size="lg"
+              loading={loading}
             >
               {loading ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Place a guess first'}
             </Button>
@@ -494,8 +508,7 @@ export default function GameClient() {
               onClick={handleSkipGuess}
               disabled={loading}
               variant="outline"
-              className="min-h-12 py-4 px-5 text-base font-medium"
-              size="lg"
+              className="px-5"
             >
               Skip
             </Button>
@@ -517,22 +530,24 @@ export default function GameClient() {
           <div className="overflow-y-auto -mx-1 px-1 space-y-4">
             <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
               {/* Score circle */}
-              <div className="flex flex-col items-center gap-2">
-                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)}`}>
-                  {score}
+              <div className="flex flex-col items-center gap-2 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
+                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold tabular-nums shadow-md ring-4 ring-background ${getScoreBg(score)}`}>
+                  {shownScore}
                 </div>
                 <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   {getScoreLabel(score)}
                 </span>
               </div>
 
-              <div>
-                <Badge variant="outline" className="text-lg font-semibold px-3 py-1 tabular-nums">
+              <div className="animate-fade-in-up" style={{ animationDelay: '240ms' }}>
+                <Badge variant="secondary" className="text-lg font-semibold px-3 py-1 tabular-nums">
                   {formatDistance(distance)} away
                 </Badge>
               </div>
 
-              <p className="text-muted-foreground text-sm">{getResultMessage(score, distance)}</p>
+              <p className="text-muted-foreground text-sm animate-fade-in-up" style={{ animationDelay: '320ms' }}>
+                {getResultMessage(score, distance)}
+              </p>
 
               {/* Leaderboard ranks */}
               {(globalScore !== null || cityScore !== null) && (
@@ -601,19 +616,10 @@ export default function GameClient() {
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
-            <Button
-              onClick={handleNextRound}
-              size="lg"
-              className="flex-1 min-h-12 bg-brand text-brand-foreground hover:bg-brand-hover font-bold"
-            >
+            <Button onClick={handleNextRound} size="lg" className="flex-[2]">
               Next Round
             </Button>
-            <Button
-              onClick={handleGoBack}
-              variant="outline"
-              size="lg"
-              className="flex-1 min-h-12"
-            >
+            <Button onClick={handleGoBack} variant="ghost" className="flex-1">
               Menu
             </Button>
           </div>
