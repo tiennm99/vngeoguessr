@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import * as turf from '@turf/turf';
 import { readFileSync } from 'node:fs';
-import { getCityIndex, pickRandomPano, countPanos } from '../src/lib/pano-index.js';
-import { CITIES } from '../src/lib/game.js';
+import { getCityIndex, pickRandomPano, countPanos, indexedCities } from '../src/lib/pano-index.js';
+import { getRegion } from '../src/lib/regions.js';
 
-const CODES = Object.keys(CITIES);
+// Indexes are built per province, so the province list -- not every node in the
+// tree -- is what has one. Districts are served by filtering their province.
+const CODES = indexedCities();
 
 describe('panorama index', () => {
   it.each(CODES)('%s has an index with panoramas', (code) => {
@@ -34,7 +36,7 @@ describe('panorama index', () => {
   it.each(CODES)('%s panoramas sit inside the city bbox', (code) => {
     // The index is built from tiles covering the bbox, then clipped to the
     // boundary, so anything outside means the clip or the bbox is wrong.
-    const [minLng, minLat, maxLng, maxLat] = CITIES[code].bbox;
+    const [minLng, minLat, maxLng, maxLat] = getRegion(code).bbox;
     const stray = getCityIndex(code).panos.find(
       (p) => p.lat < minLat || p.lat > maxLat || p.lng < minLng || p.lng > maxLng
     );
@@ -43,7 +45,7 @@ describe('panorama index', () => {
 
   it.each(CODES)('%s panoramas sit inside the city boundary', (code) => {
     const boundary = JSON.parse(
-      readFileSync(`src/data/boundaries/${code.toLowerCase()}.json`, 'utf8')
+      readFileSync(`src/data/boundaries/${code.toLowerCase()}/${code.toLowerCase()}.json`, 'utf8')
     );
     // Sample rather than test every point: booleanPointInPolygon against a
     // detailed outline is slow, and a clipping bug would not hide in a sample.
@@ -58,32 +60,32 @@ describe('panorama index', () => {
     }
   });
 
-  it.each(CODES)('%s index bbox agrees with the city config', (code) => {
-    expect(getCityIndex(code).bbox).toEqual(CITIES[code].bbox);
+  it.each(CODES)('%s index bbox agrees with the region tree', (code) => {
+    expect(getCityIndex(code).bbox).toEqual(getRegion(code).bbox);
   });
 });
 
 describe('pickRandomPano', () => {
-  it('returns an entry from the city', () => {
-    const chosen = pickRandomPano('DL');
-    expect(getCityIndex('DL').panos.some((p) => p.id === chosen.id)).toBe(true);
+  it('returns an entry from the province', () => {
+    const chosen = pickRandomPano('LD');
+    expect(getCityIndex('LD').panos.some((p) => p.id === chosen.id)).toBe(true);
   });
 
   it('never returns an excluded id', () => {
-    const { panos } = getCityIndex('DL');
+    const { panos } = getCityIndex('LD');
     const exclude = new Set(panos.slice(0, panos.length - 1).map((p) => p.id));
     // Only one candidate is left, so the choice is forced and checkable.
-    expect(pickRandomPano('DL', exclude).id).toBe(panos[panos.length - 1].id);
+    expect(pickRandomPano('LD', exclude).id).toBe(panos[panos.length - 1].id);
   });
 
   it('throws when everything is excluded', () => {
-    const all = new Set(getCityIndex('DL').panos.map((p) => p.id));
-    expect(() => pickRandomPano('DL', all)).toThrow(/No panoramas left/);
+    const all = new Set(getCityIndex('LD').panos.map((p) => p.id));
+    expect(() => pickRandomPano('LD', all)).toThrow(/No panoramas left/);
   });
 
   it('spreads across the index rather than returning one entry', () => {
     const seen = new Set();
-    for (let i = 0; i < 100; i++) seen.add(pickRandomPano('DL').id);
+    for (let i = 0; i < 100; i++) seen.add(pickRandomPano('LD').id);
     expect(seen.size).toBeGreaterThan(10);
   });
 });

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { CITY_BOUNDARIES } from '../../../../data/boundaries/index.js';
+import { REGION_BOUNDARIES } from '../../../../data/boundaries/index.js';
 import { PANO_INDEXES } from '../../../../data/panos/index.js';
 
 // Serves a city's outline and its panorama locations for the coverage debug
@@ -31,7 +31,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const code = (searchParams.get('city') || '').toUpperCase();
 
-  const boundary = CITY_BOUNDARIES[code];
+  const boundary = REGION_BOUNDARIES[code];
   const index = PANO_INDEXES[code];
   if (!boundary || !index) {
     return NextResponse.json(
