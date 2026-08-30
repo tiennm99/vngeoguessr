@@ -28,6 +28,12 @@ ten setter call sites surviving green). Lint currently emits 4 pre-existing
   `is_pano` field that is only a build-time filter (open the generated data and
   look at an actual record).
 
+- `README.md` is outside the doc-update habit. Verified 2026-08-30: the six
+  `/docs/` files were rewritten for the region tree while README still described
+  "5 Vietnamese locations" incl. Da Lat/Duc Hoa as top-level, "In-memory
+  sessions" (they are Redis), and Node 18+ against `engines: >=24`. Check README
+  explicitly on any docs pass; it is never reached by editing `/docs/`.
+
 **How to apply:** when a diff removes or renames state, props, helpers, or
 imports, grep the whole file. For any React change, state plainly in the report
 which criteria are runtime-only. For any doc change, verify each load-bearing
