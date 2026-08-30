@@ -20,13 +20,15 @@ For detailed information about this project, refer to the documentation files in
 - `npm run build` - Build the application for production
 - `npm start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm test` - Run tests against the in-memory Redis fake (no service needed)
+- `npm run test:integration` - Same tests against local Redis (`npm run redis:up` first)
 
 **Key Guidelines:**
 - **JavaScript Only**: No TypeScript files (.ts, .tsx)
 - **Function Parameters**: Use individual parameters, not object destructuring
 - **File Modifications**: Only modify source code, `/docs`, and `/plans`
 - **Security**: Never expose secrets or keys
-- **Testing**: Inform user when complete - they handle manual testing
+- **Testing**: Run `npm test` for `src/lib/` changes; inform user when complete - they handle manual testing of the UI
 
 ## Critical Instructions
 

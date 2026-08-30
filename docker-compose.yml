@@ -1,0 +1,36 @@
+# Local stand-in for Upstash Redis.
+#
+# Upstash itself is cloud-only, but @upstash/redis talks HTTP REST rather than
+# RESP, so any server exposing that REST surface is indistinguishable to the
+# app. SRH is the proxy Upstash's own docs recommend for this: it accepts the
+# Upstash REST API and forwards to a real Redis.
+#
+#   npm run redis:up    start it
+#   npm run redis:down  stop it and discard the data
+#
+# Used by `npm run test:integration`, and usable for `npm run dev` by pointing
+# UPSTASH_REDIS_REST_URL at http://localhost:8079 with the token below.
+
+services:
+  redis:
+    image: redis:7-alpine
+    # No volume: this data is disposable by design, and tests flush it anyway.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  srh:
+    image: hiett/serverless-redis-http:latest
+    ports:
+      - "8079:80"
+    environment:
+      SRH_MODE: env
+      # Local-only credential. SRH accepts any token it is configured with, and
+      # this one never reaches a real Upstash database.
+      SRH_TOKEN: vngeoguessr-local-token
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
