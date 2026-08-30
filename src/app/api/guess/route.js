@@ -138,7 +138,7 @@ export async function POST(request) {
   }
 }
 
-export async function GET(request) {
+export async function GET() {
   return NextResponse.json({
     success: false,
     error: 'GET method not supported for game submissions'

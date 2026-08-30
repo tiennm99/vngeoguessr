@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -128,7 +128,7 @@ export default function DebugPage() {
         const L = (await import('leaflet')).default;
         
         // Add bbox rectangle
-        const rectangle = L.rectangle(
+        L.rectangle(
           [[parsedBbox.minLat, parsedBbox.minLng], [parsedBbox.maxLat, parsedBbox.maxLng]],
           {
             color: '#ff0000',
