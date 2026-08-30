@@ -21,6 +21,18 @@ const MAX_ATTEMPTS = 3;
 const REQUEST_TIMEOUT_MS = 10000;
 
 /**
+ * Read the access token, failing loudly when it is absent.
+ * @returns {string} The token.
+ */
+function requireAccessToken() {
+  const accessToken = process.env.MAPILLARY_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error('MAPILLARY_ACCESS_TOKEN environment variable is not set');
+  }
+  return accessToken;
+}
+
+/**
  * Look up one image by id.
  * @param {string} imageId Mapillary image id.
  * @param {string} accessToken Mapillary access token.
@@ -43,15 +55,33 @@ async function fetchImage(imageId, accessToken) {
 }
 
 /**
+ * Resolve one panorama id to something the viewer can display.
+ * @param {string} imageId Mapillary image id.
+ * @returns {Promise<{id: string, url: string, isPano: boolean, lat: number, lng: number}>}
+ */
+export async function fetchPanoramaById(imageId) {
+  const image = await fetchImage(imageId, requireAccessToken());
+  // The original is often 4-8 MP; the 2048px derivative is the one the viewer
+  // should load on a phone.
+  const url = image.thumb_2048_url || image.thumb_original_url;
+  if (!url) throw new Error('image has no usable thumbnail');
+
+  return {
+    id: String(image.id),
+    url,
+    isPano: image.is_pano ?? true,
+    lat: image.geometry?.coordinates?.[1] ?? null,
+    lng: image.geometry?.coordinates?.[0] ?? null,
+  };
+}
+
+/**
  * Choose a panorama for a city and resolve it to a usable image.
  * @param {string} cityCode City code, e.g. 'TPHCM'.
  * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
  */
 export async function fetchCityPanorama(cityCode) {
-  const accessToken = process.env.MAPILLARY_ACCESS_TOKEN;
-  if (!accessToken) {
-    throw new Error('MAPILLARY_ACCESS_TOKEN environment variable is not set');
-  }
+  requireAccessToken();
 
   const tried = new Set();
   let lastError = null;
@@ -61,21 +91,14 @@ export async function fetchCityPanorama(cityCode) {
     tried.add(candidate.id);
 
     try {
-      const image = await fetchImage(candidate.id, accessToken);
-      // The original is often 4-8 MP; the 2048px derivative is the one the
-      // viewer should load on a phone.
-      const url = image.thumb_2048_url || image.thumb_original_url;
-      if (!url) throw new Error('image has no usable thumbnail');
-
+      const image = await fetchPanoramaById(candidate.id);
       return {
         success: true,
         data: {
-          id: String(image.id),
-          url,
-          isPano: image.is_pano ?? true,
-          // Trust the API's coordinates over the index's copy.
-          lat: image.geometry?.coordinates?.[1] ?? candidate.lat,
-          lng: image.geometry?.coordinates?.[0] ?? candidate.lng,
+          ...image,
+          // Trust the API's coordinates, falling back to the index's copy.
+          lat: image.lat ?? candidate.lat,
+          lng: image.lng ?? candidate.lng,
         },
       };
     } catch (error) {

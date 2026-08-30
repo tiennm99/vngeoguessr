@@ -163,6 +163,12 @@ export default function DebugPage() {
             <div>
               <h1 className="text-3xl font-bold text-white">Debug Tool</h1>
               <p className="text-white/80">Bbox Visualization & Mapillary Testing</p>
+              <Link
+                href="/debug/coverage"
+                className="mt-2 inline-block text-sm font-semibold text-white underline underline-offset-4 hover:opacity-80"
+              >
+                Panorama coverage map →
+              </Link>
             </div>
             <Button asChild>
               <Link href="/">Back to Home</Link>
