@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
   COUNTRY_CODE,
@@ -225,6 +225,62 @@ describe('client safety', () => {
       'data/regions/index.js',
       'lib/regions.js',
     ]);
+  });
+
+  it('no client module reaches server-only data', () => {
+    // The walk above guards regions.js, the module clients are told to use.
+    // This one guards the other direction: any component marked 'use client'
+    // that grows a path to the panorama indexes or the boundary barrel ships
+    // the answers (or 1.4MB of polygons) to the browser, whichever module the
+    // import went through.
+    const CLIENT_DIRECTIVE = /^\s*['"]use client['"]/;
+    const FORBIDDEN = ['data/panos', 'pano-index', 'data/boundaries'];
+
+    const collectSourceFiles = (dir, out) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = resolve(dir, entry.name);
+        if (entry.isDirectory()) {
+          // Generated output cannot carry a 'use client' directive, and the
+          // panos directory is ~28MB no test should read line by line.
+          if (entry.name !== 'data') collectSourceFiles(full, out);
+        } else if (/\.jsx?$/.test(entry.name)) {
+          out.push(full);
+        }
+      }
+      return out;
+    };
+
+    // Specifiers commonly omit the extension ('../../lib/game'), so try the
+    // bare path and both source extensions before giving up on a file.
+    const toExistingFile = (target) => {
+      for (const candidate of [target, `${target}.js`, `${target}.jsx`]) {
+        if (existsSync(candidate)) return candidate;
+      }
+      return null;
+    };
+
+    const clientFiles = collectSourceFiles(resolve('src'), []).filter((file) =>
+      CLIENT_DIRECTIVE.test(readFileSync(file, 'utf8'))
+    );
+    // If this ever goes to zero the filter broke, not the app.
+    expect(clientFiles.length).toBeGreaterThan(10);
+
+    const seen = new Set();
+    const walk = (file) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      for (const [, specifier] of readFileSync(file, 'utf8').matchAll(SPECIFIER)) {
+        const target = resolveSpecifier(file, specifier);
+        if (!target) continue;
+        const normalised = target.replace(/\\/g, '/');
+        for (const fragment of FORBIDDEN) {
+          expect(normalised, `${file} imports ${specifier}`).not.toContain(fragment);
+        }
+        const onDisk = toExistingFile(target);
+        if (onDisk) walk(onDisk);
+      }
+    };
+    for (const file of clientFiles) walk(file);
   });
 
   it('serves counts without a single coordinate', () => {
