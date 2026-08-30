@@ -42,23 +42,18 @@ Next.js 15 App Router structure:
 ### Reusable Components (`src/components/`)
 
 #### shadcn/ui Components (`src/components/ui/`)
+Only the primitives the app actually renders are vendored in. Add others with
+the shadcn CLI when a screen needs them, rather than keeping unused ones around.
+
 - `alert.jsx` - Alert notifications
-- `avatar.jsx` - User avatars
 - `badge.jsx` - Badge components
 - `button.jsx` - Button variants
 - `card.jsx` - Card layouts
 - `dialog.jsx` - Modal dialogs
-- `form.jsx` - Form components
 - `input.jsx` - Input fields
 - `label.jsx` - Form labels
-- `popover.jsx` - Popover components
-- `progress.jsx` - Progress indicators
-- `separator.jsx` - Visual separators
-- `sheet.jsx` - Side sheets
 - `skeleton.jsx` - Loading skeletons
-- `table.jsx` - Data tables
 - `tabs.jsx` - Tab navigation
-- `tooltip.jsx` - Tooltips
 
 ### Utility Libraries (`src/lib/`)
 - `utils.js` - Utility functions including `cn()` for class name merging

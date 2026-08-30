@@ -35,10 +35,10 @@
 - **class-variance-authority**: Component variant management
 - **tailwind-merge + clsx**: Dynamic class name handling
 
-## Form Handling & Validation
-- **react-hook-form**: Form state management
-- **@hookform/resolvers**: Form validation resolvers
-- **zod**: Schema validation
+## Testing
+- **Vitest**: Test runner for the logic in `src/lib/`
+- **In-memory Upstash fake**: Default backing store, no service required
+- **SRH + Redis (Docker)**: Optional lane running the same tests against real Redis
 
 ## Development & Analytics
 - **ESLint**: Code linting with Next.js configuration

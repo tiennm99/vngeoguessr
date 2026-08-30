@@ -128,11 +128,6 @@ export function getResultMessage(score, distance) {
   return "Nice try! Better luck next time!";
 }
 
-// Get accumulated score message
-export function getAccumulatedScoreMessage(newScore, totalScore) {
-  return `+${newScore} points! Total score: ${totalScore}`;
-}
-
 // Get distance color for leaderboard display
 export function getDistanceColor(distance) {
   if (distance <= 50) return 'text-green-700 dark:text-green-300';
@@ -140,19 +135,4 @@ export function getDistanceColor(distance) {
   if (distance <= 200) return 'text-yellow-700 dark:text-yellow-300';
   if (distance <= 500) return 'text-orange-700 dark:text-orange-300';
   return 'text-red-700 dark:text-red-300';
-}
-
-// Get random location within city bbox
-export function getRandomCityLocationFromBbox(cityCode) {
-  const bbox = cityBboxes[cityCode];
-  if (!bbox) {
-    throw new Error(`No bbox found for city code: ${cityCode}`);
-  }
-
-  const [minLng, minLat, maxLng, maxLat] = bbox;
-
-  const lng = Math.random() * (maxLng - minLng) + minLng;
-  const lat = Math.random() * (maxLat - minLat) + minLat;
-
-  return { lat, lng };
 }

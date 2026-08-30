@@ -21,8 +21,7 @@ import {
   cityNames,
   formatDistance,
   getUsername,
-  getResultMessage,
-  getAccumulatedScoreMessage
+  getResultMessage
 } from '../../lib/game';
 
 export default function GameClient() {
