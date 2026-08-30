@@ -254,11 +254,17 @@ describe('generated barrels', () => {
     expect(Object.keys(REGIONS)).toHaveLength(allRegions().length);
   });
 
-  it('the boundary barrel parses and holds every resolved region', async () => {
-    const { REGION_BOUNDARIES } = await import('../src/data/boundaries/index.js');
-    const withGeometry = allRegions().filter((code) => getRegion(code).bbox);
-    expect(Object.keys(REGION_BOUNDARIES).sort()).toEqual(
-      withGeometry.filter((code) => code !== COUNTRY_CODE).sort()
-    );
-  });
+  it(
+    'the boundary barrel parses and holds every resolved region',
+    async () => {
+      const { REGION_BOUNDARIES } = await import('../src/data/boundaries/index.js');
+      const withGeometry = allRegions().filter((code) => getRegion(code).bbox);
+      expect(Object.keys(REGION_BOUNDARIES).sort()).toEqual(
+        withGeometry.filter((code) => code !== COUNTRY_CODE).sort()
+      );
+    },
+    // Pulls 65 polygon files (~1.3MB) through the transform pipeline, which is
+    // the point of the test and well past the 5s default on a cold cache.
+    30_000
+  );
 });

@@ -1,20 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Trophy, Wrench } from "lucide-react";
+import { Trophy, Wrench } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ThemeToggle from './components/ThemeToggle';
 import UsernameModal from './components/UsernameModal';
 import DonateQRModal from './components/DonateQRModal';
 import LeaderboardList from './components/LeaderboardList';
-import { getUsername, setUsername, cities } from '../lib/game';
+import RegionPicker from './components/RegionPicker';
+import RegionSelect from './components/RegionSelect';
+import { getUsername, setUsername } from '../lib/game';
+import { COUNTRY_CODE, getRegion } from '../lib/regions';
 
 const STEP_LABELS = [
-  'Choose your city',
+  'Choose a region: the whole country, a province, or one district',
   'View 360° street panorama',
   'Place your guess on the map',
   'Earn points based on accuracy!'
@@ -26,9 +28,12 @@ export default function Home() {
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [username, setUsernameState] = useState('');
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
-  const [activeLocationTab, setActiveLocationTab] = useState('global');
+  const [level, setLevel] = useState('country');
+  const [region, setRegion] = useState(COUNTRY_CODE);
   const [activeTypeTab, setActiveTypeTab] = useState('score');
   const [leaderboards, setLeaderboards] = useState({});
+  // Which board failed, so an outage is not shown as an empty board.
+  const [leaderboardError, setLeaderboardError] = useState(null);
   const fetchIdRef = useRef(0);
 
   useEffect(() => {
@@ -46,90 +51,57 @@ export default function Home() {
     setShowUsernameModal(false);
   };
 
-  const fetchAllLeaderboards = async () => {
+  const fetchLeaderboard = async (regionCode, type) => {
+    const key = `${regionCode}-${type}`;
+
+    // Bump first: a cache hit still supersedes whatever is in flight, and it
+    // has to clear the spinner that request raised or a cached board renders
+    // behind skeletons until an unrelated fetch settles.
     const currentFetchId = ++fetchIdRef.current;
+    if (leaderboards[key]) {
+      setLoadingLeaderboard(false);
+      return;
+    }
+
     setLoadingLeaderboard(true);
-
     try {
-      const keys = [
-        { city: null, type: 'score' },
-        { city: null, type: 'distance' },
-        ...cities.flatMap(c => [
-          { city: c.code, type: 'score' },
-          { city: c.code, type: 'distance' }
-        ])
-      ];
-
-      const results = await Promise.all(
-        keys.map(async ({ city, type }) => {
-          const params = new URLSearchParams();
-          if (city) params.append('city', city);
-          params.append('type', type);
-          const response = await fetch(`/api/leaderboard?${params.toString()}`);
-          const data = await response.json();
-          const key = `${city || 'global'}-${type}`;
-          return { key, data: data.success ? data.leaderboard : [] };
-        })
-      );
-
+      const params = new URLSearchParams({ region: regionCode, type });
+      const response = await fetch(`/api/leaderboard?${params.toString()}`);
+      const data = await response.json();
+      // A newer selection landed while this was in flight.
       if (currentFetchId !== fetchIdRef.current) return;
 
-      const map = {};
-      results.forEach(({ key, data }) => { map[key] = data; });
-      setLeaderboards(map);
-    } catch (error) {
-      console.error('Error fetching leaderboards:', error);
-    } finally {
-      if (currentFetchId === fetchIdRef.current) {
-        setLoadingLeaderboard(false);
+      if (!response.ok || !data.success) {
+        // An empty array here would render as "No scores yet" and be cached as
+        // such, so a backend outage would read as wiped leaderboards.
+        throw new Error(data.error || `Leaderboard request failed (${response.status})`);
       }
+      setLeaderboards((current) => ({ ...current, [key]: data.leaderboard }));
+      setLeaderboardError(null);
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+      if (currentFetchId === fetchIdRef.current) setLeaderboardError(key);
+    } finally {
+      if (currentFetchId === fetchIdRef.current) setLoadingLeaderboard(false);
     }
   };
 
+  // Only the board on screen is fetched. Fetching every one was viable at five
+  // cities; at 67 regions it would be 134 requests on a single click.
+  useEffect(() => {
+    if (showLeaderboardModal && region) fetchLeaderboard(region, activeTypeTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLeaderboardModal, region, activeTypeTab]);
+
   const handleLeaderboardClick = () => {
+    // Cleared on open so a player who just scored does not see their old total.
+    // Kept within a session so switching level or type back is free.
+    setLeaderboards({});
+    setLeaderboardError(null);
     setShowLeaderboardModal(true);
-    fetchAllLeaderboards();
   };
 
-  const getLeaderboardData = (locationKey, type) => {
-    const key = `${locationKey}-${type}`;
-    return leaderboards[key] || [];
-  };
-
-  const renderTabContent = (locationKey) => (
-    <div className="flex gap-3">
-      <div className="flex flex-col gap-2 min-w-[104px]">
-        <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Type</div>
-        <div role="group" aria-label="Leaderboard type" className="flex flex-col overflow-hidden rounded-lg border border-border">
-          {['score', 'distance'].map((type, index) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setActiveTypeTab(type)}
-              aria-pressed={activeTypeTab === type}
-              className={`h-11 px-3 text-left text-sm font-semibold capitalize outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:-ring-offset-1 ${
-                index > 0 ? 'border-t border-border' : ''
-              } ${
-                activeTypeTab === type
-                  ? 'bg-brand text-brand-foreground'
-                  : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex-1">
-        <LeaderboardList
-          data={getLeaderboardData(locationKey, activeTypeTab)}
-          loading={loadingLeaderboard}
-          currentUsername={username}
-          type={activeTypeTab}
-        />
-      </div>
-    </div>
-  );
+  const rows = leaderboards[`${region}-${activeTypeTab}`] ?? [];
 
   return (
     <div className="min-h-dvh vn-gradient-bg">
@@ -205,29 +177,13 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            {/* City Selection */}
+            {/* Where to play */}
             <Card className="lg:col-span-3 bg-card border-border shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xl font-bold text-card-foreground text-center">Select a City</CardTitle>
+                <CardTitle className="text-xl font-bold text-card-foreground text-center">Where to Play</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3">
-                  {cities.map((city, i) => (
-                    <Link
-                      key={city.code}
-                      href={`/game?location=${city.code}`}
-                      className="city-card-accent group flex min-h-16 items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-xs transition-all duration-150 hover:border-brand/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    >
-                      <span className="text-foreground font-semibold text-lg transition-colors group-hover:text-brand">
-                        {city.name}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-brand-subtle px-3 py-2 text-sm font-semibold text-brand-subtle-foreground transition-colors group-hover:bg-brand group-hover:text-brand-foreground">
-                        Play
-                        <ArrowRight className="size-4" aria-hidden="true" />
-                      </span>
-                    </Link>
-                  ))}
-                </div>
+                <RegionPicker />
               </CardContent>
             </Card>
           </div>
@@ -240,24 +196,60 @@ export default function Home() {
         <Dialog open={showLeaderboardModal} onOpenChange={setShowLeaderboardModal}>
           <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl text-center font-bold">Leaderboards</DialogTitle>
+              <DialogTitle className="text-2xl text-center font-bold">
+                {region ? getRegion(region).name : 'Leaderboards'}
+              </DialogTitle>
             </DialogHeader>
-            <Tabs value={activeLocationTab} onValueChange={setActiveLocationTab} className="w-full">
-              <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${cities.length + 1}, minmax(0, 1fr))` }}>
-                <TabsTrigger value="global">Global</TabsTrigger>
-                {cities.map(city => (
-                  <TabsTrigger key={city.code} value={city.code}>{city.code}</TabsTrigger>
-                ))}
-              </TabsList>
-              <TabsContent value="global" className="space-y-3 pt-2">
-                {renderTabContent('global')}
-              </TabsContent>
-              {cities.map(city => (
-                <TabsContent key={city.code} value={city.code} className="space-y-3 pt-2">
-                  {renderTabContent(city.code)}
-                </TabsContent>
-              ))}
-            </Tabs>
+            <div className="space-y-4">
+              <RegionSelect
+                level={level}
+                onLevelChange={setLevel}
+                region={region}
+                onRegionChange={setRegion}
+              />
+
+              <div className="flex gap-3">
+                <div className="flex flex-col gap-2 min-w-[104px]">
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">Type</div>
+                  <div role="group" aria-label="Leaderboard type" className="flex flex-col overflow-hidden rounded-lg border border-border">
+                    {['score', 'distance'].map((type, index) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setActiveTypeTab(type)}
+                        aria-pressed={activeTypeTab === type}
+                        className={`h-11 px-3 text-left text-sm font-semibold capitalize outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:-ring-offset-1 ${
+                          index > 0 ? 'border-t border-border' : ''
+                        } ${
+                          activeTypeTab === type
+                            ? 'bg-brand text-brand-foreground'
+                            : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  {leaderboardError === `${region}-${activeTypeTab}` ? (
+                    <div className="py-10 text-center" role="alert">
+                      <p className="text-base text-foreground">Couldn&apos;t load this leaderboard</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        The scores are still there. Try again in a moment.
+                      </p>
+                    </div>
+                  ) : (
+                  <LeaderboardList
+                    data={rows}
+                    loading={loadingLeaderboard}
+                    currentUsername={username}
+                    type={activeTypeTab}
+                  />
+                  )}
+                </div>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 

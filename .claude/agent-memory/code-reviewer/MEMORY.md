@@ -1,1 +1,2 @@
 - [Anti-cheat invariant and its known bypass](project-anti-cheat-invariant.md) — pano coords are the answers; the import-walk test does not cover the debug API that leaks them.
+- [Quality gate blind spots](project-quality-gates-blind-spots.md) — lint/typecheck/tests all pass on undefined identifiers and UI regressions; grep removed symbols yourself.

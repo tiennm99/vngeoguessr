@@ -270,3 +270,15 @@
     transition: none;
   }
 }
+
+/* Reduced motion. The accordion and select animate through Tailwind variant
+   utilities (data-[state=open]:animate-accordion-down and friends), so the
+   rules have to target those rendered selectors -- a block matching the bare
+   .animate-* class names matches nothing on the page. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='accordion-content'],
+  [data-slot='select-content'],
+  .animate-fade-in-up {
+    animation: none !important;
+  }
+}

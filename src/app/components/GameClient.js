@@ -14,17 +14,17 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
   loading: () => <div role="status" aria-live="polite" className="w-full h-full min-h-[400px] bg-muted flex items-center justify-center text-muted-foreground">Loading map...</div>
 });
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  CITIES,
-  cityCenters,
-  cityNames,
   formatDistance,
   getUsername,
   getResultMessage
 } from '../../lib/game';
+// The revealed path comes from /api/guess (the RESOLVED district), not from
+// regionPath(pickedRegion) -- computing it client-side from what the player
+// chose would make the reveal meaningless for a country round.
+import { getRegion, isRegion } from '../../lib/regions';
 
 export default function GameClient() {
   const searchParams = useSearchParams();
@@ -42,18 +42,31 @@ export default function GameClient() {
   const [exactLocation, setExactLocation] = useState(null);
   const [showDonate, setShowDonate] = useState(false);
   const [username, setUsernameState] = useState('');
-  const [globalRank, setGlobalRank] = useState(null);
-  const [cityRank, setCityRank] = useState(null);
-  const [globalScore, setGlobalScore] = useState(null);
-  const [cityScore, setCityScore] = useState(null);
-  const [globalDistanceRank, setGlobalDistanceRank] = useState(null);
-  const [cityDistanceRank, setCityDistanceRank] = useState(null);
+  // One entry per level the guess credited, innermost first. The old fixed
+  // global/city pair cannot express a district round.
+  const [scoreLevels, setScoreLevels] = useState([]);
+  const [distanceLevels, setDistanceLevels] = useState([]);
+  // Where the panorama actually was. Only known after the guess.
+  const [resolvedPath, setResolvedPath] = useState(null);
   const [leaderboardMessage, setLeaderboardMessage] = useState('');
+  // A failed submission is not a zero-point round. Distinguishing them stops
+  // the result screen presenting a write failure as a confident 99999m miss.
+  const [submitFailed, setSubmitFailed] = useState(false);
   const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]);
   // On phones the guess map floats over the panorama as a corner minimap and
   // only takes over the screen once tapped. Desktop keeps both side by side and
   // ignores this flag entirely.
   const [mapExpanded, setMapExpanded] = useState(false);
+
+  // What the player picked, resolved through the tree. A bookmarked
+  // ?location=DL still works: DL is a district of Lam Dong now, and every node
+  // keeps an entry.
+  const pickedCode = location.toUpperCase();
+  const pickedRegion = isRegion(pickedCode) ? getRegion(pickedCode) : null;
+  // Never echo the raw query string: an unknown value would render as the
+  // page's own label, and the API uppercases before resolving, so ?region=hn
+  // would otherwise show 'hn' while serving a Ha Noi round.
+  const regionName = pickedRegion ? pickedRegion.name : 'Vietnam';
 
   // The result is the payoff of a round, so the score lands by counting up
   // rather than arriving already finished.
@@ -66,9 +79,11 @@ export default function GameClient() {
 
   const getRandomImage = useCallback(async (locationCode, currentSessionId = null) => {
     try {
-      const url = currentSessionId ?
-        `/api/new-game?city=${locationCode}&sessionId=${currentSessionId}` :
-        `/api/new-game?city=${locationCode}`;
+      // Encoded: an unencoded value carrying its own '&sessionId=' would let a
+      // shared link choose the session key a victim's round is stored under.
+      const params = new URLSearchParams({ region: locationCode });
+      if (currentSessionId) params.set('sessionId', currentSessionId);
+      const url = `/api/new-game?${params.toString()}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -99,7 +114,7 @@ export default function GameClient() {
     setLoading(true);
 
     try {
-      const center = cityCenters[locationCode];
+      const center = isRegion(locationCode) ? getRegion(locationCode).center : null;
       if (center) setMapCenter(center);
       await getRandomImage(locationCode);
       setInitialized(true);
@@ -113,7 +128,9 @@ export default function GameClient() {
 
   useEffect(() => {
     if (initialized) return;
-    const locationParam = searchParams.get('location') || 'TPHCM';
+    // ?region= is the current form; ?location= is what existing links carry.
+    const locationParam =
+      searchParams.get('region') || searchParams.get('location') || 'TPHCM';
     setLocation(locationParam);
     const existingUsername = getUsername();
     setUsernameState(existingUsername || '');
@@ -183,51 +200,55 @@ export default function GameClient() {
       const result = await submitGameResult(guessCoordinates);
 
       if (result) {
+        setSubmitFailed(false);
         setDistance(result.distance);
         setScore(result.score);
         setExactLocation(result.exactLocation);
-        setGlobalRank(result.globalRank);
-        setCityRank(result.cityRank);
-        setGlobalDistanceRank(result.globalDistanceRank);
-        setCityDistanceRank(result.cityDistanceRank);
-
-        if (result.leaderboard) {
-          if (result.leaderboard.global) setGlobalScore(result.leaderboard.global.score);
-          if (result.leaderboard.city) setCityScore(result.leaderboard.city.score);
-          setLeaderboardMessage(result.leaderboard.message);
-        }
+        setScoreLevels(result.levels ?? []);
+        setDistanceLevels(result.distanceLevels ?? []);
+        setResolvedPath(result.region?.path ?? null);
+        if (result.leaderboard) setLeaderboardMessage(result.leaderboard.message);
       } else {
-        setDistance(99999);
+        // The guess did not record. Say so instead of rendering a 99999m round,
+        // which reads as a real miss and is indistinguishable from one.
+        setSubmitFailed(true);
+        setDistance(0);
         setScore(0);
         setExactLocation(null);
-        setGlobalRank(null);
-        setCityRank(null);
+        setScoreLevels([]);
+        setDistanceLevels([]);
+        setResolvedPath(null);
       }
     } catch (error) {
+      // A throw here means the same thing as a null result: nothing was
+      // recorded. One representation for both, so the screen cannot show a
+      // confident 99999m miss for a round the server never saw.
       console.error('Error submitting guess:', error);
-      setDistance(99999);
+      setSubmitFailed(true);
+      setDistance(0);
       setScore(0);
       setExactLocation(null);
-      setGlobalRank(null);
-      setCityRank(null);
-      setGlobalDistanceRank(null);
-      setCityDistanceRank(null);
+      setScoreLevels([]);
+      setDistanceLevels([]);
+      setResolvedPath(null);
     }
 
     setLoading(false);
     setShowResult(true);
   };
 
+  // Everything a round accumulates. Both Next Round and Skip come through here,
+  // so anything left out leaks into the next round -- a stale submitFailed in
+  // particular would title a good round "Round Not Recorded".
   const resetRoundState = () => {
     setMapExpanded(false);
     setGuessCoordinates(null);
-    setGlobalRank(null);
-    setCityRank(null);
-    setGlobalScore(null);
-    setCityScore(null);
-    setGlobalDistanceRank(null);
-    setCityDistanceRank(null);
     setExactLocation(null);
+    setScoreLevels([]);
+    setDistanceLevels([]);
+    setResolvedPath(null);
+    setSubmitFailed(false);
+    setLeaderboardMessage('');
   };
 
   const handleNextRound = () => {
@@ -263,9 +284,11 @@ export default function GameClient() {
     router.push('/');
   };
 
-  // Create result map when dialog opens
+  // Create result map when dialog opens. Not on the failure path: the map
+  // container lives inside the success branch, so its ref is never there and
+  // initializeMap would retry ten times against nothing.
   useEffect(() => {
-    if (showResult && guessCoordinates) {
+    if (showResult && !submitFailed && guessCoordinates) {
       if (resultLeafletMapRef.current) {
         resultLeafletMapRef.current.remove();
         resultLeafletMapRef.current = null;
@@ -385,7 +408,7 @@ export default function GameClient() {
         <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
           <div className="w-12 h-12 border-4 border-border border-t-brand rounded-full animate-spin mx-auto" aria-hidden="true" />
           <p className="text-foreground text-lg font-medium">Loading panoramic image...</p>
-          <p className="text-muted-foreground text-sm">{cityNames[location] || location}</p>
+          <p className="text-muted-foreground text-sm">{regionName}</p>
         </div>
       </div>
     );
@@ -409,7 +432,7 @@ export default function GameClient() {
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-foreground hidden sm:inline">VNGeoGuessr</span>
           <Badge variant="brand" className="text-xs">
-            {cityNames[location] || location}
+            {regionName}
           </Badge>
         </div>
 
@@ -460,7 +483,7 @@ export default function GameClient() {
           >
             <LeafletMap
               center={mapCenter}
-              bbox={CITIES[location]?.bbox}
+              bbox={pickedRegion?.bbox}
               zoom={10}
               onMapClick={handleMapClick}
               onReady={handleGuessMapReady}
@@ -523,11 +546,27 @@ export default function GameClient() {
           key={showResult ? 'open' : 'closed'}
         >
           <DialogHeader>
-            <DialogTitle className="text-center text-2xl font-bold">Round Result</DialogTitle>
+            <DialogTitle className="text-center text-2xl font-bold">
+              {submitFailed ? 'Round Not Recorded' : 'Round Result'}
+            </DialogTitle>
           </DialogHeader>
 
           {/* Scrollable body: everything between the title and the actions. */}
           <div className="overflow-y-auto -mx-1 px-1 space-y-4">
+            {submitFailed ? (
+              // A failed submission is not a zero-point round. Showing the
+              // score circle here would present a write failure as a real miss,
+              // and the player would have no way to tell the difference.
+              <div className="space-y-3 py-6 text-center" role="alert">
+                <p className="text-lg font-semibold text-foreground">
+                  Your guess could not be saved
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Nothing was scored. The round has ended, so start a new one to try again.
+                </p>
+              </div>
+            ) : (
+              <>
             <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
               {/* Score circle */}
               <div className="flex flex-col items-center gap-2 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
@@ -549,40 +588,46 @@ export default function GameClient() {
                 {getResultMessage(score, distance)}
               </p>
 
-              {/* Leaderboard ranks */}
-              {(globalScore !== null || cityScore !== null) && (
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {cityScore !== null && (
-                    <div className="bg-brand-subtle text-brand-subtle-foreground rounded-lg p-2">
-                      <p className="font-semibold">{cityNames[location]}</p>
-                      <p className="tabular-nums">Total: {cityScore}</p>
-                      {cityRank && <p className="text-xs opacity-80 tabular-nums">Rank #{cityRank}</p>}
+              {/* Where the panorama actually was. The reveal: for a province or
+                  country round the player did not know this until now. */}
+              {resolvedPath && (
+                <p className="text-sm text-muted-foreground">
+                  {resolvedPath.join(' › ')}
+                </p>
+              )}
+
+              {/* One row per level the guess credited. A district round shows
+                  three; a round whose panorama fell outside every district
+                  shows two. */}
+              {scoreLevels.length > 0 && (
+                <div className="grid gap-2 text-sm sm:grid-cols-3">
+                  {scoreLevels.map((entry) => (
+                    <div
+                      key={entry.code}
+                      className="rounded-lg bg-brand-subtle p-2 text-brand-subtle-foreground"
+                    >
+                      <p className="font-semibold">{entry.name}</p>
+                      <p className="tabular-nums">
+                        {entry.score === null ? 'Below top 200' : `Total: ${entry.score}`}
+                      </p>
+                      {entry.rank && (
+                        <p className="text-xs tabular-nums opacity-80">Rank #{entry.rank}</p>
+                      )}
                     </div>
-                  )}
-                  {globalScore !== null && (
-                    <div className="bg-muted text-foreground rounded-lg p-2">
-                      <p className="font-semibold">Global</p>
-                      <p className="tabular-nums">Total: {globalScore}</p>
-                      {globalRank && <p className="text-xs text-muted-foreground tabular-nums">Rank #{globalRank}</p>}
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
 
-              {(globalDistanceRank !== null || cityDistanceRank !== null) && (
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {cityDistanceRank !== null && (
-                    <div className="bg-muted rounded-lg p-2">
-                      <p className="font-medium text-foreground">{cityNames[location]} Distance</p>
-                      <p className="text-muted-foreground tabular-nums">Rank #{cityDistanceRank}</p>
-                    </div>
-                  )}
-                  {globalDistanceRank !== null && (
-                    <div className="bg-muted rounded-lg p-2">
-                      <p className="font-medium text-foreground">Global Distance</p>
-                      <p className="text-muted-foreground tabular-nums">Rank #{globalDistanceRank}</p>
-                    </div>
-                  )}
+              {distanceLevels.some((entry) => entry.rank) && (
+                <div className="grid gap-2 text-xs sm:grid-cols-3">
+                  {distanceLevels
+                    .filter((entry) => entry.rank)
+                    .map((entry) => (
+                      <div key={entry.code} className="rounded-lg bg-muted p-2">
+                        <p className="font-medium text-foreground">{entry.name} distance</p>
+                        <p className="tabular-nums text-muted-foreground">Rank #{entry.rank}</p>
+                      </div>
+                    ))}
                 </div>
               )}
 
@@ -591,7 +636,7 @@ export default function GameClient() {
               )}
 
               <p className="text-xs text-muted-foreground">
-                {username || 'Anonymous'} • {cityNames[location] || location}
+                {username || 'Anonymous'} • {regionName}
               </p>
             </div>
 
@@ -612,6 +657,8 @@ export default function GameClient() {
                 )}
               </div>
             </div>
+              </>
+            )}
           </div>
 
           {/* Actions */}

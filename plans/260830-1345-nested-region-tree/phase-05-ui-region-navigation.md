@@ -1,13 +1,60 @@
 ---
 phase: 5
 title: "UI region navigation"
-status: todo
+status: completed
 priority: P1
 effort: "1.5-2d"
 dependencies: [4]
 ---
 
 # Phase 5: UI region navigation
+
+## Outcome (recorded after execution)
+
+The home page is a province accordion: the province row plays that province,
+the chevron expands it, and all 61 districts sit underneath. The leaderboard
+modal browses by level and region and fetches **one board instead of 134**.
+`GameClient` shows one rank row per credited level and reveals the resolved
+path only after the guess.
+
+**The debug coverage page was NOT touched.** `src/app/debug/coverage/page.js`
+cannot be read or written from this environment -- a context hook denies both
+Read and Bash on any path matching `coverage`. It still imports `cities` from
+`src/lib/game.js` and still fetches `/api/debug/city-coverage`, which is why
+that route kept its name in Phase 4.
+
+**Consequence for Phase 6:** `cities`, `CITIES`, `cityNames`, `cityCenters` and
+`cityBboxes` in `src/lib/game.js` are **not dead code**. `cities` has a live
+caller in that page and all five are asserted in `tests/game.test.js`. Do not
+delete them until the page is migrated.
+
+### A regression the whole gate missed
+
+Removing six `useState` declarations left ten setter calls behind as free
+identifiers. `Next Round` and `Skip` would have thrown `ReferenceError` on
+every click -- the game unplayable past round one -- and `npm run lint`, `npm
+run build:check` and all 260 tests passed over it. `next/core-web-vitals`
+enables neither `no-undef` nor `no-unused-vars`, the JS build does not
+type-check, and there are no component tests.
+
+Fixed, and the gap closed: `eslint.config.mjs` now enables `no-undef` as an
+error. Verified by reintroducing the bug, which fails lint with
+`'setGlobalRank' is not defined`.
+
+### Other corrections
+
+- The submission-failure state now resets between rounds, and a thrown submit
+  takes the same path as a null result instead of rendering a 99999m miss.
+- The accordion keyframes added here were dead: `tw-animate-css` already ships
+  them and the variant utilities override the hand-written pair, so the
+  `prefers-reduced-motion` block matched nothing. Replaced with rules that
+  target the rendered `data-slot` selectors.
+- The region query parameter is encoded and uppercased before use; an unknown
+  value no longer renders as the page's own label.
+- A failed leaderboard fetch shows an error rather than being cached and
+  rendered as "No scores yet".
+
+`npm test` 260/260, lint 0 errors, build clean.
 
 ## Overview
 
