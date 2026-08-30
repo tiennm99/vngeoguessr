@@ -155,7 +155,7 @@ function thinToGrid(points) {
 }
 
 async function buildCity(code, token) {
-  const boundaryPath = `${BOUNDARY_DIR}/${code.toLowerCase()}.geojson`;
+  const boundaryPath = `${BOUNDARY_DIR}/${code.toLowerCase()}.json`;
   if (!existsSync(boundaryPath)) {
     throw new Error(`${code}: missing ${boundaryPath} — run build-city-boundaries.mjs first`);
   }

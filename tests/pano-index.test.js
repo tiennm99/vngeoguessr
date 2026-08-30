@@ -43,7 +43,7 @@ describe('panorama index', () => {
 
   it.each(CODES)('%s panoramas sit inside the city boundary', (code) => {
     const boundary = JSON.parse(
-      readFileSync(`src/data/boundaries/${code.toLowerCase()}.geojson`, 'utf8')
+      readFileSync(`src/data/boundaries/${code.toLowerCase()}.json`, 'utf8')
     );
     // Sample rather than test every point: booleanPointInPolygon against a
     // detailed outline is slow, and a clipping bug would not hide in a sample.
