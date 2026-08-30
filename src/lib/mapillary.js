@@ -59,7 +59,7 @@ async function probeRandomWindow(bbox, delta, accessToken, signal) {
     (lng + delta).toFixed(4),
     (lat + delta).toFixed(4),
   ].join(',');
-  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_original_url,geometry,is_pano&limit=3&bbox=${queryBbox}&is_pano=true`;
+  const apiUrl = `https://graph.mapillary.com/images?access_token=${accessToken}&fields=id,thumb_2048_url,thumb_original_url,geometry,is_pano&limit=3&bbox=${queryBbox}&is_pano=true`;
 
   const response = await fetch(apiUrl, {
     headers: { Accept: 'application/json' },

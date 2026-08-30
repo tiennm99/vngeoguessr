@@ -70,8 +70,11 @@ export async function GET(request) {
       lng: selectedImage.geometry.coordinates[0]
     };
 
-    // Use original-resolution panorama URL for PhotoSphere viewer
-    const imageUrl = selectedImage.thumb_original_url;
+    // Prefer the 2048px panorama: the original is often 4-8 MP and several
+    // megabytes, which dominates round latency on mobile data and strains
+    // WebGL texture memory on phones. Fall back when Mapillary has no 2048
+    // derivative for the image.
+    const imageUrl = selectedImage.thumb_2048_url || selectedImage.thumb_original_url;
 
     // Create or update game session
     const currentSessionId = sessionId || generateSessionId();
