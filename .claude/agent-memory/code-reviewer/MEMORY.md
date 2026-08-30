@@ -1,0 +1,1 @@
+- [Anti-cheat invariant and its known bypass](project-anti-cheat-invariant.md) — pano coords are the answers; the import-walk test does not cover the debug API that leaks them.

@@ -76,29 +76,48 @@ export async function fetchPanoramaById(imageId) {
 }
 
 /**
- * Choose a panorama for a city and resolve it to a usable image.
- * @param {string} cityCode City code, e.g. 'TPHCM'.
+ * Choose a panorama at or below a region and resolve it to a usable image.
+ *
+ * `regionCode` on the result is the district the chosen panorama actually sits
+ * in, which is what a guess gets credited to -- not the region the player
+ * picked. It has to come from the attempt that SUCCEEDED: each retry draws a
+ * fresh candidate, potentially from a different district, so carrying the first
+ * one forward would credit the wrong place.
+ * @param {string} regionCode Region code at any level, e.g. 'VN', 'TPHCM', 'TPHCM-Q7'.
  * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
  */
-export async function fetchCityPanorama(cityCode) {
+export async function fetchCityPanorama(regionCode) {
   requireAccessToken();
 
   const tried = new Set();
   let lastError = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const candidate = pickRandomPano(cityCode, tried);
+    let candidate;
+    try {
+      candidate = pickRandomPano(regionCode, tried);
+    } catch (error) {
+      // The pool ran dry -- a small district whose few images have all been
+      // deleted upstream. A caller-visible failure, not a 500.
+      return { success: false, error: error.message };
+    }
     tried.add(candidate.id);
 
     try {
       const image = await fetchPanoramaById(candidate.id);
+      // The API's coordinates win for scoring, but the district was resolved
+      // from the index's copy of the same image. The two differ by metres at
+      // most, so the only way they disagree is a panorama sitting within metres
+      // of a district border -- in which case the guess is credited to the
+      // neighbour. Re-deriving here would mean a point-in-polygon against the
+      // district outlines on every round, which is not worth paying for that.
       return {
         success: true,
         data: {
           ...image,
-          // Trust the API's coordinates, falling back to the index's copy.
           lat: image.lat ?? candidate.lat,
           lng: image.lng ?? candidate.lng,
+          regionCode: candidate.regionCode,
         },
       };
     } catch (error) {

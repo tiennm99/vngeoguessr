@@ -1,13 +1,51 @@
 ---
 phase: 2
 title: "Panorama district partition"
-status: todo
+status: completed
 priority: P1
 effort: "1d"
 dependencies: [1]
 ---
 
 # Phase 2: Panorama district partition
+
+## Outcome (recorded after execution)
+
+| Province | Panos | Cells | Districts | Stranded | Worst |
+|---|---|---|---|---|---|
+| HN | 225,966 | 1,281 | 30/30 | 30 (0.01%) | 35 m |
+| TPHCM | 184,938 | 787 | 21/22 | 184 (0.10%) | 46 m |
+| DN | 1,521 | 39 | 5/7 | 1 (0.07%) | 6 m |
+| LA | 11,717 | 106 | 1/1 | 0 | - |
+| LD | 475 | 8 | 1/1 | 0 | - |
+
+**64 of 67 regions playable.** The three that are not are one of each cause in
+the coverage note: `TPHCM-CUCHI` has no boundary, `DN-CAMLE` and `DN-HOAVANG`
+have no street imagery (verified: zero panoramas even inside Cam Le's bbox).
+
+Data growth 2.85 MB against the 3.5 MB budget. Zero Mapillary requests.
+
+Nine findings from the code review were fixed before landing. Three mattered:
+
+1. **A partial run silently zeroed `counts.js`** for every province it did not
+   process, and the suite still passed because the playability tests iterate
+   whatever `playableRegions()` reports. Partial runs now leave `counts.js`
+   alone.
+2. **`build-pano-index.mjs` never received the shared assignment module**, so
+   any province rebuild would emit an index with no districts -- leaf draws
+   throwing, province draws silently crediting the province forever. Folded in.
+3. **The nearest-district fallback ranked by bbox centre**, measured at 6.09 km
+   of misattribution in Ho Chi Minh City. Ranking by real distance to the
+   outline brings the worst case to 46 m.
+
+Two test-integrity fixes worth recording: the client-safety import walk matched
+only single-quoted relative paths and was blind to the `@/` alias the repo uses
+in 15+ files -- it was passing by luck of import style, not by enforcement. And
+`unassigned` was structurally always zero, so the plan's "under 2%" gate
+measured nothing; a real `stranded` counter replaced it (actual 0.05%, with a
+build-time throw above 2%).
+
+`npm test` 182/182, `build:check` and `lint` clean.
 
 ## Overview
 

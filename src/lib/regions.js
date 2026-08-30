@@ -11,6 +11,7 @@
 // leaderboard fans out over.
 
 import { REGIONS } from '../data/regions/index.js';
+import { REGION_COUNTS } from '../data/regions/counts.js';
 
 export const COUNTRY_CODE = 'VN';
 
@@ -103,6 +104,39 @@ export function regionPath(code) {
 /** Every node in the tree, in declaration order. */
 export function allRegions() {
   return Object.keys(REGIONS);
+}
+
+/**
+ * Coverage for a node: panorama count, distinct places, and whether it is
+ * worth offering.
+ *
+ * `cells` counts distinct ~1.1km squares, and it is the number that matters.
+ * The index is thinned at 33m, so a raw count overstates distinct places by
+ * roughly 30x -- a district can hold hundreds of panoramas and still be one
+ * street seen from many angles.
+ * @param {string} code Region code.
+ * @returns {{panos: number, cells: number, playable: boolean, thin: boolean}}
+ */
+export function coverageOf(code) {
+  return REGION_COUNTS[code] ?? { panos: 0, cells: 0, playable: false, thin: false };
+}
+
+/** True when a node has enough coverage to play. */
+export function isPlayable(code) {
+  return coverageOf(code).playable;
+}
+
+/** True when a node is playable but repetitive -- a couple of streets. */
+export function isThin(code) {
+  return coverageOf(code).thin;
+}
+
+/**
+ * Every node that can actually be played.
+ * @returns {string[]} Playable region codes.
+ */
+export function playableRegions() {
+  return Object.keys(REGIONS).filter(isPlayable);
 }
 
 /**

@@ -182,23 +182,64 @@ describe('coverage', () => {
 });
 
 describe('client safety', () => {
+  // Every specifier form the repo can produce: static and dynamic import, both
+  // quote styles, bare side-effect imports, and re-exports. An earlier version
+  // matched only single-quoted relative paths, which silently skipped the '@/'
+  // alias that jsconfig.json defines and 15+ files already use -- so the one
+  // test enforcing this invariant would have passed while the leak shipped.
+  const SPECIFIER = /(?:\bfrom|\bimport|\brequire)\s*\(?\s*['"]([^'"]+)['"]/g;
+
+  /** Resolve a specifier to a path on disk, or null if it is a bare package. */
+  const resolveSpecifier = (fromFile, specifier) => {
+    if (specifier.startsWith('@/')) return resolve('src', specifier.slice(2));
+    if (specifier.startsWith('.')) return resolve(dirname(fromFile), specifier);
+    return null;
+  };
+
   it('never reaches the panorama data', () => {
     // src/lib/regions.js is imported by client components. The panorama
-    // indexes are ~25MB of exact answers; a path from one to the other would
+    // indexes are ~29MB of exact answers; a path from one to the other would
     // ship every round's solution to the browser.
     const seen = new Set();
     const walk = (file) => {
       if (seen.has(file) || !existsSync(file)) return;
       seen.add(file);
-      const source = readFileSync(file, 'utf8');
-      for (const match of source.matchAll(/from\s+'(\.[^']+)'/g)) {
-        const target = resolve(dirname(file), match[1]);
-        expect(target.replace(/\\/g, '/')).not.toContain('data/panos');
+      for (const [, specifier] of readFileSync(file, 'utf8').matchAll(SPECIFIER)) {
+        const target = resolveSpecifier(file, specifier);
+        if (!target) continue;
+        const normalised = target.replace(/\\/g, '/');
+        expect(normalised, `${file} imports ${specifier}`).not.toContain('data/panos');
+        expect(normalised, `${file} imports ${specifier}`).not.toContain('pano-index');
         if (target.endsWith('.js')) walk(target);
       }
     };
     walk(resolve('src/lib/regions.js'));
-    expect(seen.size).toBeGreaterThan(0);
+
+    // Assert the exact set, so a future refactor that empties the graph -- or
+    // quietly adds a module to it -- fails here rather than passing vacuously.
+    const relative = [...seen]
+      .map((file) => file.replace(/\\/g, '/').split('/src/')[1])
+      .sort();
+    expect(relative).toEqual([
+      'data/regions/counts.js',
+      'data/regions/index.js',
+      'lib/regions.js',
+    ]);
+  });
+
+  it('serves counts without a single coordinate', () => {
+    // counts.js is the one panorama-derived file a client may import. It must
+    // carry tallies only: a lat or lng in here would defeat the whole split.
+    // Strip the header comment first -- it says the file holds no coordinates,
+    // and a naive scan would flag that sentence as evidence of the opposite.
+    const data = readFileSync(resolve('src/data/regions/counts.js'), 'utf8')
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('//'))
+      .join('\n');
+    expect(data).not.toMatch(/\blat\b|\blng\b|coordinates/);
+    // Every numeric literal should be a small count, never a Vietnam latitude
+    // (8-24) or longitude (102-110) carrying six decimal places.
+    expect(data).not.toMatch(/\d+\.\d{4,}/);
   });
 });
 

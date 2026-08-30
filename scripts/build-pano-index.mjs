@@ -16,6 +16,8 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, existsSy
 import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
 import * as turf from '@turf/turf';
+import { REGIONS } from '../src/data/regions/index.js';
+import { assignPanos } from './lib/assign-districts.mjs';
 
 // The image layer, the one carrying per-image points, only exists at z14.
 const ZOOM = 14;
@@ -228,12 +230,32 @@ async function buildCity(code, token) {
   panos.sort((a, b) => a.lat - b.lat || a.lng - b.lng);
   panos = panos.map(({ id, lat, lng }) => ({ id, lat, lng }));
 
+  // Assign districts here, through the same module scripts/assign-pano-districts.mjs
+  // uses. An index written without them would still load, but every leaf draw
+  // would find an empty bucket and every province draw would credit the
+  // province instead of a district -- silently, and forever.
+  const leaves = (REGIONS[code].children ?? []).filter((leaf) => REGIONS[leaf].bbox);
+  const { assignments, counts, cells, stranded, unassigned, worstStrandedKm } = assignPanos(
+    panos,
+    leaves
+  );
+  const districtIndex = Object.fromEntries(leaves.map((leaf, i) => [leaf, i]));
+  console.log(
+    `  ${leaves.length} districts, ${stranded} stranded (worst ${worstStrandedKm}km)`
+  );
+
   const header = {
     code,
     name: boundary.properties.name,
     center: boundary.properties.center,
     bbox: boundary.properties.bbox,
     count: panos.length,
+    districts: leaves,
+    districtCounts: counts,
+    districtCells: cells,
+    stranded,
+    worstStrandedKm,
+    unassigned,
     source: `mapillary vector tiles z${ZOOM}`,
     grid: GRID_DEG,
     generatedAt: new Date().toISOString(),
@@ -248,7 +270,11 @@ async function buildCity(code, token) {
       .join('\n') +
     '\n "panos": [\n' +
     panos
-      .map((p) => `  {"id":${JSON.stringify(p.id)},"lat":${p.lat},"lng":${p.lng}}`)
+      .map((p, i) => {
+        const d = assignments[i];
+        const suffix = d === null || d === undefined ? '' : `,"d":${districtIndex[d]}`;
+        return `  {"id":${JSON.stringify(p.id)},"lat":${p.lat},"lng":${p.lng}${suffix}}`;
+      })
       .join(',\n') +
     '\n ]\n';
 
@@ -272,6 +298,24 @@ function writeBarrel() {
   const files = readdirSync(OUT_DIR)
     .filter((name) => name.endsWith('.json'))
     .sort();
+
+  // Guard against a stale file resurrecting a province that no longer exists.
+  // Da Lat and Duc Hoa were promoted into Lam Dong and Long An; an old dl.json
+  // left beside ld.json would be picked up here and PANO_INDEXES would carry
+  // both, silently double-counting ~12k panoramas.
+  const known = new Set(
+    Object.keys(REGIONS)
+      .filter((code) => REGIONS[code].level === 'province')
+      .map((code) => `${code.toLowerCase()}.json`)
+  );
+  const strays = files.filter((name) => !known.has(name));
+  if (strays.length > 0) {
+    throw new Error(
+      `${OUT_DIR} holds files for regions that are not provinces: ${strays.join(', ')}. ` +
+        'Delete them before rebuilding, or the barrel will double-count.'
+    );
+  }
+
   const entries = files.map((name) => ({
     code: name.replace(/\.json$/, '').toUpperCase(),
     // Sanitised because region codes contain hyphens, which are legal in a
@@ -299,7 +343,20 @@ let tilesRequested = 0;
 
 const token = loadToken();
 const requested = process.argv.slice(2);
-const codes = requested.length ? requested : ['HN', 'TPHCM', 'DN', 'LD', 'LA'];
+const PROVINCES = Object.keys(REGIONS).filter((code) => REGIONS[code].level === 'province');
+const codes = requested.length ? requested : PROVINCES;
+
+// Validated before the loop, not inside writeBarrel. A stray code -- 'DL' was a
+// province two commits ago -- would otherwise spend ~2,800 tile requests
+// against a 50,000/day cap and write a file that then wedges every later barrel
+// write until someone deletes it by hand.
+const unknown = codes.filter((code) => !PROVINCES.includes(code));
+if (unknown.length > 0) {
+  throw new Error(
+    `Not provinces: ${unknown.join(', ')}. ` +
+      `Indexes are built per province: ${PROVINCES.join(', ')}.`
+  );
+}
 for (const code of codes) {
   await buildCity(code, token);
   // Rewrite after every city, so an interrupted run still leaves a consistent
