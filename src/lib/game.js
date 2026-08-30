@@ -1,45 +1,52 @@
 import * as turf from '@turf/turf';
 
-// Cities enum-like structure
+// Cities enum-like structure.
+//
+// bbox comes from src/data/boundaries/<code>.geojson, which holds each city's
+// pre-2025-merger extent. Vietnam merged its provinces in mid-2025, so today's
+// official Ho Chi Minh City covers 36,566 km2 and reaches Vung Tau; the legacy
+// outline is the area people actually mean by the city.
+//
+// center stays the recognisable city centre rather than the polygon's centroid,
+// which for an irregular outline can land somewhere no one associates with the
+// place. The map fits the bbox anyway.
+//
+// There is no Mapillary query window any more: locations come from the prebuilt
+// index in src/data/panos/, not from searching an area.
 export const CITIES = {
   HN: {
     code: 'HN',
     name: 'Ha Noi',
     center: [21.0285, 105.8542],
-    bbox: [105.77, 20.96, 105.88, 21.05],
-    mapillaryDelta: 0.003,
+    bbox: [105.28896, 20.56452, 106.02004, 21.38542],
     enabled: true
   },
   DN: {
     code: 'DN',
     name: 'Da Nang',
     center: [16.0544, 108.2022],
-    bbox: [108.17, 16, 108.25, 16.1],
-    mapillaryDelta: 0.005,
-    enabled: false
+    bbox: [107.81854, 15.91799, 108.33864, 16.2255],
+    enabled: true
   },
   TPHCM: {
     code: 'TPHCM',
     name: 'Ho Chi Minh',
     center: [10.8231, 106.6297],
-    bbox: [106.62, 10.71, 106.75, 10.83],
-    mapillaryDelta: 0.005,
+    bbox: [106.46356, 10.35828, 107.02758, 10.92934],
     enabled: true
   },
   DL: {
     code: 'DL',
     name: 'Da Lat',
     center: [11.9404, 108.4583],
-    bbox: [108.38, 11.89, 108.50, 12.00],
-    mapillaryDelta: 0.005,
+    bbox: [108.31521, 11.80798, 108.5944, 12.00855],
     enabled: true
   },
   DH: {
     code: 'DH',
     name: 'Duc Hoa (Long An)',
     center: [10.8888, 106.3825],
-    bbox: [106.35, 10.85, 106.45, 10.95],
-    mapillaryDelta: 0.005,
+    bbox: [106.27082, 10.7409, 106.53287, 11.02578],
     enabled: true
   }
 };
@@ -56,12 +63,6 @@ export const cityNames = Object.fromEntries(
 
 export const cityBboxes = Object.fromEntries(
   Object.values(CITIES).map(city => [city.code, city.bbox])
-);
-
-// Per-city Mapillary query bbox half-side (degrees). Smaller for dense urban
-// areas to keep Mapillary query cost under their 'reduce data' cap.
-export const cityDeltas = Object.fromEntries(
-  Object.values(CITIES).map(city => [city.code, city.mapillaryDelta])
 );
 
 // Cities list for UI components (only enabled cities)

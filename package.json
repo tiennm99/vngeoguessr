@@ -35,9 +35,11 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",
+    "@mapbox/vector-tile": "^3.0.0",
     "@tailwindcss/postcss": "^4.3.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "15.4.6",
+    "pbf": "^5.1.2",
     "tailwindcss": "^4.3.3",
     "tw-animate-css": "^1.3.6",
     "vitest": "^4.1.11"

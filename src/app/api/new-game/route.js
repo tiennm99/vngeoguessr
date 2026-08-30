@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { cityNames, cityBboxes, cityDeltas } from '../../../lib/game.js';
-import { fetchMapillaryImages } from '../../../lib/mapillary.js';
+import { cityNames } from '../../../lib/game.js';
+import { fetchCityPanorama } from '../../../lib/mapillary.js';
 import { storeGameSession, getGameSession } from '../../../lib/session.js';
 
 // Generate a unique session ID using uuid
@@ -28,26 +28,9 @@ export async function GET(request) {
   }
 
   try {
-    console.log('Getting images for city:', cityName);
-
-    // Get city bbox + per-city Mapillary delta (half-side of query window)
-    const bbox = cityBboxes[cityCode];
-    const delta = cityDeltas[cityCode];
-    if (!bbox) {
-      return NextResponse.json({
-        success: false,
-        error: `No bbox found for city: ${cityCode}`
-      }, { status: 400 });
-    }
-    if (!delta) {
-      return NextResponse.json({
-        success: false,
-        error: `No Mapillary delta configured for city: ${cityCode}`
-      }, { status: 400 });
-    }
-
-    // Fetch images from city bbox via random-point dart-throw
-    const imageResult = await fetchMapillaryImages(bbox, delta);
+    // The location comes from the prebuilt index, so this is one lookup rather
+    // than a search over an area.
+    const imageResult = await fetchCityPanorama(cityCode);
 
     if (!imageResult.success) {
       // The user-facing message is generic; keep the real cause in the logs so
@@ -59,22 +42,9 @@ export async function GET(request) {
       });
     }
 
-    // Select a random panoramic image
-    const panoImages = imageResult.data.filter(img => img.is_pano);
-    const selectedImage = panoImages.length > 0 ?
-      panoImages[Math.floor(Math.random() * panoImages.length)] :
-      imageResult.data[0];
-
-    const exactLocation = {
-      lat: selectedImage.geometry.coordinates[1],
-      lng: selectedImage.geometry.coordinates[0]
-    };
-
-    // Prefer the 2048px panorama: the original is often 4-8 MP and several
-    // megabytes, which dominates round latency on mobile data and strains
-    // WebGL texture memory on phones. Fall back when Mapillary has no 2048
-    // derivative for the image.
-    const imageUrl = selectedImage.thumb_2048_url || selectedImage.thumb_original_url;
+    const selectedImage = imageResult.data;
+    const exactLocation = { lat: selectedImage.lat, lng: selectedImage.lng };
+    const imageUrl = selectedImage.url;
 
     // Create or update game session
     const currentSessionId = sessionId || generateSessionId();
@@ -95,7 +65,7 @@ export async function GET(request) {
       imageData: {
         id: selectedImage.id,
         url: imageUrl,
-        isPano: selectedImage.is_pano || false
+        isPano: selectedImage.isPano
       }
     });
 

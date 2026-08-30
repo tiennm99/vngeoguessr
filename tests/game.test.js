@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   CITIES,
   cities,
-  cityDeltas,
   calculateDistance,
   calculateScore,
   formatDistance,
@@ -88,10 +87,8 @@ describe('city configuration', () => {
     }
   });
 
-  it('gives every city a Mapillary delta and a well-formed bbox', () => {
+  it('gives every city a well-formed bbox', () => {
     for (const city of Object.values(CITIES)) {
-      expect(cityDeltas[city.code]).toBeGreaterThan(0);
-
       const [minLng, minLat, maxLng, maxLat] = city.bbox;
       expect(maxLng).toBeGreaterThan(minLng);
       expect(maxLat).toBeGreaterThan(minLat);
