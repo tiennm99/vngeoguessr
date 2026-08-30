@@ -8,8 +8,7 @@
 import { readFileSync } from 'node:fs';
 import * as turf from '@turf/turf';
 import { REGIONS } from '../../src/data/regions/index.js';
-
-const BOUNDARY_DIR = 'src/data/boundaries';
+import { BOUNDARY_DIR } from './paths.mjs';
 
 // Distinct-place resolution. The index is thinned at ~33m, so a single street
 // corridor yields dozens of entries and a raw count overstates how many

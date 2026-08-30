@@ -31,9 +31,7 @@ import {
   coverageVerdict,
   loadBoundary,
 } from './lib/assign-districts.mjs';
-
-const PANO_DIR = 'src/data/panos';
-const TREE_DIR = 'src/data/regions';
+import { PANO_DIR, TREE_DIR } from './lib/paths.mjs';
 
 const childrenOf = (code) => REGIONS[code]?.children ?? [];
 const provinces = () => childrenOf('VN');
