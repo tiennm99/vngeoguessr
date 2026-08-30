@@ -220,7 +220,7 @@ first two.
 |---|-------|--------|-----------|
 | 1 | [Phase 1: Region tree model and boundaries](./phase-01-region-tree-model-and-boundaries.md) | Completed | — |
 | 2 | [Phase 2: Panorama district partition](./phase-02-panorama-district-partition.md) | Completed | 1 |
-| 3 | [Phase 3: Leaderboard fan-out and migration](./phase-03-leaderboard-fan-out-and-migration.md) | Pending | 1 |
+| 3 | [Phase 3: Leaderboard fan-out and migration](./phase-03-leaderboard-fan-out-and-migration.md) | Completed | 1 |
 | 4 | [Phase 4: API surface](./phase-04-api-surface.md) | Pending | 2, 3 |
 | 5 | [Phase 5: UI region navigation](./phase-05-ui-region-navigation.md) | Pending | 4 |
 | 6 | [Phase 6: Docs and verification](./phase-06-docs-and-verification.md) | Pending | 5 |
@@ -237,7 +237,8 @@ first two.
 - [ ] `leaderboard:vietnam` and `distance:vietnam` remain the country node's keys — pre-change totals unchanged and still growing
 - [ ] `leaderboard:city:hn` / `:dn` / `:tphcm` / `:dl` / `:dh` totals are unchanged immediately after deploy
 - [ ] `leaderboard:city:ld` equals `leaderboard:city:dl` and `leaderboard:city:la` equals `leaderboard:city:dh` immediately after migration
-- [ ] The migration aborts if its export contains zero keys, and prints the resolved `KEY_PREFIX`
+- [ ] The migration aborts if its export contains zero keys, refuses an empty source that would wipe a populated destination, and prints the resolved `KEY_PREFIX`
+- [ ] The migration verifies the backfill landed, and can restore its own backup
 - [ ] `/game?location=HN` and `/game?location=DL` still work
 - [ ] A leaf below the playability threshold is listed in the tree but not offered as playable
 - [ ] 200 draws at `VN` hit at least four distinct provinces

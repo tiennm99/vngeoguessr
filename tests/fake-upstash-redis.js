@@ -85,6 +85,31 @@ export class FakeRedis {
     return had || hadZset ? 1 : 0;
   }
 
+  /**
+   * Cursor-based key scan.
+   *
+   * Returns everything in one page: the store is in-memory, so a real cursor
+   * would only add a loop the tests cannot meaningfully exercise. Callers still
+   * have to handle the cursor protocol, because the real client does paginate.
+   */
+  async scan(cursor, opts = {}) {
+    const keys = [...this.strings.keys(), ...this.zsets.keys()];
+    const live = keys.filter((key) => !this.#expired(key));
+    if (!opts.match) return ['0', live];
+
+    // Redis glob: * spans any run of characters, ? one. Everything else in the
+    // pattern is literal, so escape it before substituting the wildcards.
+    const escaped = opts.match.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^${escaped.replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
+    return ['0', live.filter((key) => pattern.test(key))];
+  }
+
+  /** True when a string key's TTL has elapsed. Sorted sets never expire here. */
+  #expired(key) {
+    const entry = this.strings.get(key);
+    return Boolean(entry?.expireAt && entry.expireAt <= Date.now());
+  }
+
   async zadd(key, { score, member }) {
     let zset = this.zsets.get(key);
     if (!zset) {

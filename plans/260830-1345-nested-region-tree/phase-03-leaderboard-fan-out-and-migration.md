@@ -1,13 +1,43 @@
 ---
 phase: 3
 title: "Leaderboard fan-out and migration"
-status: todo
+status: completed
 priority: P1
 effort: "1.5d"
 dependencies: [1]
 ---
 
 # Phase 3: Leaderboard fan-out and migration
+
+## Outcome (recorded after execution)
+
+A guess now credits its district, its province, and Vietnam. `VN` maps to the
+pre-existing `leaderboard:vietnam`, the `:city:` key segment is unchanged, and
+`DL`/`DH` keep their bare codes -- so no key holding a player's history was
+renamed or reset.
+
+**The separate legacy-baseline artifact was dropped.** It duplicated data the
+full backup already contains, and it existed only to support a reconciliation
+nobody has asked for. The requirement is simpler than the plan made it: old
+scores stay where they are, and new guesses add to country, province and
+district. That is what ships. Criterion 8 is removed rather than left unmet.
+
+A code review found one Critical that the tests could not see: `copySortedSet`
+deleted the destination unconditionally, so an empty source wiped it and wrote
+nothing back -- while the post-apply check excluded exactly the four keys the
+script writes, and printed success. It was invisible because the test file
+reimplemented the copy instead of importing it. Both are fixed: the logic moved
+to `scripts/lib/leaderboard-migration.mjs` and the tests exercise the real
+functions. Verified against live Redis: the wipe scenario now refuses and the
+data survives.
+
+Also corrected: the fan-out had been serialised across levels, which was slower
+than the two-level code it replaced (`Promise.all` restored); an empty
+`KEY_PREFIX` would have let `scanKeys` sweep co-tenant data; `?city=` began
+returning 500 instead of the global board; and `--dry-run --apply` wrote.
+
+`npm test` 218/218, `npm run test:integration` 216 passed / 2 pre-existing
+skips, lint and build clean.
 
 ## Overview
 
@@ -176,7 +206,6 @@ artefact.
    key via `scanKeys`, with members and scores, to a timestamped JSON file.
    **Abort if the export contains zero keys** — an empty export is a wrong-prefix
    symptom, not a clean slate.
-2. Write the legacy baseline snapshot for `HN`, `DN`, `TPHCM` alongside it.
 3. `DEL` destination, then copy `:dl` → `:ld` and `:dh` → `:la` with **absolute
    scores**, score and distance both.
 4. Report per-key member counts before and after. Abort if either source is empty.
@@ -263,6 +292,5 @@ a fan-out bug.
 - [ ] `leaderboard:city:ld` equals `:dl`, and `:la` equals `:dh`
 - [ ] Every pre-existing key is unchanged after the migration
 - [ ] The migration prints its prefix, aborts on an empty export, requires `--confirm-prefix`, and `DEL`s before copying
-- [ ] The legacy baseline snapshot for HN/DN/TPHCM is committed
 - [ ] Migration ordering is documented as deploy-then-migrate
 - [ ] `npm test` and `npm run test:integration` pass

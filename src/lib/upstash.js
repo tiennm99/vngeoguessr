@@ -4,10 +4,16 @@ import { Redis } from '@upstash/redis';
 //
 // Logical key namespace (callers pass these unprefixed):
 //   session:{sessionId}              string, TTL 30 min
-//   leaderboard:vietnam              sorted set (score)
-//   leaderboard:city:{cityCode}      sorted set (score)
-//   distance:vietnam                 sorted set (distance)
-//   distance:city:{cityCode}         sorted set (distance)
+//   leaderboard:vietnam              sorted set (score)    -- the VN node
+//   leaderboard:city:{regionCode}    sorted set (score)
+//   distance:vietnam                 sorted set (distance) -- the VN node
+//   distance:city:{regionCode}       sorted set (distance)
+//
+// The ':city:' segment is a misnomer now that regions form a country >
+// province > district tree, and {regionCode} may be any node below the
+// country: 'tphcm', 'tphcm-q7', 'dl'. It is kept because renaming it would
+// strand every key already holding a player's history. The country keeps its
+// own two legacy key names for the same reason.
 //
 // Multi-tenancy: every physical Upstash key carries KEY_PREFIX (default
 // 'vngeoguessr:') so this project can safely share an Upstash DB with other
@@ -31,7 +37,11 @@ export function getUpstash() {
   if (!url) throw new Error('UPSTASH_REDIS_REST_URL or KV_REST_API_URL is required');
   if (!token) throw new Error('UPSTASH_REDIS_REST_TOKEN or KV_REST_API_TOKEN is required');
   const client = new Redis({ url, token });
-  const prefix = process.env.KEY_PREFIX ?? DEFAULT_KEY_PREFIX;
+  // `??` would accept KEY_PREFIX= (set but empty), which removes the only thing
+  // keeping this project's keys apart from every other project sharing the
+  // Upstash database. That was harmless while the adapter only touched keys it
+  // named; scanKeys enumerates, so an empty prefix would sweep co-tenant data.
+  const prefix = process.env.KEY_PREFIX || DEFAULT_KEY_PREFIX;
   handle = { client, prefix };
   return handle;
 }
@@ -140,6 +150,42 @@ export async function zRank(h, key, member) {
 export async function zRevRank(h, key, member) {
   const result = await h.client.zrevrank(pkey(h, key), member);
   return result == null ? null : Number(result);
+}
+
+/**
+ * Every logical key matching a pattern.
+ *
+ * The prefix is applied to the pattern and stripped from the results, so
+ * callers work in the same logical namespace as every other function here. A
+ * caller that reached past the adapter and scanned `leaderboard:*` directly
+ * would match nothing, because the physical keys all carry KEY_PREFIX -- and an
+ * empty result is indistinguishable from an empty database, which is how a
+ * backup silently succeeds against the wrong namespace.
+ *
+ * Uses SCAN rather than KEYS: KEYS blocks the server for the whole sweep.
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} pattern Logical glob, e.g. 'leaderboard:*'.
+ * @returns {Promise<string[]>} Logical keys, prefix removed.
+ */
+export async function scanKeys(h, pattern) {
+  // SCAN guarantees each key is returned at least once, not exactly once: a
+  // key can repeat across pages when the keyspace rehashes mid-sweep.
+  const found = new Set();
+  let cursor = '0';
+  do {
+    const [next, batch] = await h.client.scan(cursor, {
+      match: pkey(h, pattern),
+      count: 500,
+    });
+    cursor = String(next);
+    for (const key of batch) {
+      // Only strip a prefix that is actually there. Blind slicing would mangle
+      // a key, and with an empty prefix would hand back another tenant's.
+      if (!key.startsWith(h.prefix)) continue;
+      found.add(key.slice(h.prefix.length));
+    }
+  } while (cursor !== '0');
+  return [...found];
 }
 
 /**

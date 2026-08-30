@@ -189,3 +189,112 @@ describe('global leaderboard', () => {
     expect(await getLeaderboard()).toEqual([{ username: 'anh', score: 5, rank: 1 }]);
   });
 });
+
+describe('fan-out up the region tree', () => {
+  beforeEach(async () => {
+    await resetStore();
+  });
+
+  it('credits the district, its province and the country by the same amount', async () => {
+    const result = await submitScore('mai', 3, 'TPHCM-Q7');
+    expect(result.levels.map((l) => l.code)).toEqual(['TPHCM-Q7', 'TPHCM', 'VN']);
+    for (const level of result.levels) expect(level.score).toBe(3);
+
+    const keys = await storedKeys();
+    expect(keys).toContain('vngeoguessr:leaderboard:city:tphcm-q7');
+    expect(keys).toContain('vngeoguessr:leaderboard:city:tphcm');
+    expect(keys).toContain('vngeoguessr:leaderboard:vietnam');
+  });
+
+  it('rolls a second district into the same province and country totals', async () => {
+    await submitScore('mai', 3, 'TPHCM-Q7');
+    const second = await submitScore('mai', 2, 'TPHCM-Q1');
+
+    expect(second.district.score).toBe(2); // Q1 alone
+    expect(second.province.score).toBe(5); // Q7 + Q1
+    expect(second.global.score).toBe(5);
+  });
+
+  it('keeps Da Lat under Lam Dong', async () => {
+    // Pre-2025 units: Duc Hoa belongs to Long An, not the Tay Ninh it merged
+    // into. Both leaf codes stay bare so their history stays attached.
+    const daLat = await submitScore('mai', 4, 'DL');
+    expect(daLat.levels.map((l) => l.code)).toEqual(['DL', 'LD', 'VN']);
+
+    const ducHoa = await submitScore('mai', 1, 'DH');
+    expect(ducHoa.levels.map((l) => l.code)).toEqual(['DH', 'LA', 'VN']);
+    expect(ducHoa.global.score).toBe(5);
+  });
+
+  it('credits two levels when the panorama sat outside every district', async () => {
+    // A province-level code is a legitimate scoring target: the panorama fell
+    // in a gap between simplified district outlines.
+    const result = await submitScore('mai', 2, 'DN');
+    expect(result.levels.map((l) => l.code)).toEqual(['DN', 'VN']);
+    expect(result.district).toBeNull();
+    expect(result.province.score).toBe(2);
+  });
+
+  it('maps the country to the pre-existing global key', async () => {
+    // Not leaderboard:city:vn -- the national board players already have has to
+    // keep accumulating rather than restarting under a new name.
+    await submitScore('mai', 1, 'DL');
+    const keys = await storedKeys();
+    expect(keys).toContain('vngeoguessr:leaderboard:vietnam');
+    expect(keys).not.toContain('vngeoguessr:leaderboard:city:vn');
+  });
+
+  it('fans distance records out with one shared id', async () => {
+    const result = await submitDistanceRecord('mai', 250, 'TPHCM-Q7');
+    expect(result.levels.map((l) => l.code)).toEqual(['TPHCM-Q7', 'TPHCM', 'VN']);
+
+    // The same attempt should be recognisable as one record at every level.
+    const district = await getLeaderboard('TPHCM-Q7', 10, 'distance');
+    const country = await getLeaderboard('VN', 10, 'distance');
+    expect(district[0].timestamp).toBe(country[0].timestamp);
+    expect(district[0].distance).toBe(250);
+  });
+});
+
+describe('region validation', () => {
+  beforeEach(async () => {
+    await resetStore();
+  });
+
+  it.each([
+    ['submitScore', () => submitScore('mai', 3, 'NOPE')],
+    ['submitDistanceRecord', () => submitDistanceRecord('mai', 100, 'NOPE')],
+    ['getLeaderboard', () => getLeaderboard('NOPE')],
+  ])('%s rejects an unknown region', async (_name, call) => {
+    // Validated in the library, not only in the route: the migration script and
+    // any future caller bypass routes entirely, and the key builder lowercases
+    // whatever it is handed straight into a Redis key.
+    await expect(call()).rejects.toThrow(/Unknown region/);
+  });
+
+  it('creates no key for a rejected region', async () => {
+    await expect(submitScore('mai', 3, 'NOPE')).rejects.toThrow();
+    expect(await storedKeys()).toEqual([]);
+  });
+
+  it.each([
+    // 0 and NaN are falsy, so they take the default of 100 -- the same
+    // behaviour as the `parseInt(...) || 100` this replaced.
+    [-1, 1],
+    [0, 100],
+    [NaN, 100],
+    [99999, 200],
+    [Infinity, 200],
+    ['50', 50],
+  ])('clamps a limit of %s to %i rows', async (limit, expected) => {
+    // Seeded past the cap so each clamp lands on a distinguishable length. A
+    // board with one entry cannot tell a working clamp from a missing one.
+    for (let i = 0; i < 250; i++) await submitScore(`p${i}`, (i % 5) + 1, 'DL');
+    expect((await getLeaderboard('DL', limit, 'score')).length).toBe(expected);
+  });
+
+  it('treats a null region as the country', async () => {
+    await submitScore('mai', 3, 'DL');
+    expect(await getLeaderboard(null)).toEqual(await getLeaderboard('VN'));
+  });
+});
