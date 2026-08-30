@@ -86,7 +86,7 @@ export async function fetchPanoramaById(imageId) {
  * @param {string} regionCode Region code at any level, e.g. 'VN', 'TPHCM', 'TPHCM-Q7'.
  * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
  */
-export async function fetchCityPanorama(regionCode) {
+export async function fetchRegionPanorama(regionCode) {
   requireAccessToken();
 
   const tried = new Set();

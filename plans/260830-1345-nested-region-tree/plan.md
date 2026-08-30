@@ -1,7 +1,7 @@
 ---
 title: "Nested Region Tree"
 description: "Replace the flat five-city model with a country > province > district tree whose scores roll upward, preserving all existing leaderboard points."
-status: pending
+status: completed
 priority: P1
 effort: "4-6d"
 tags: [data-model, leaderboard, region-tree]
@@ -223,27 +223,30 @@ first two.
 | 3 | [Phase 3: Leaderboard fan-out and migration](./phase-03-leaderboard-fan-out-and-migration.md) | Completed | 1 |
 | 4 | [Phase 4: API surface](./phase-04-api-surface.md) | Completed | 2, 3 |
 | 5 | [Phase 5: UI region navigation](./phase-05-ui-region-navigation.md) | Completed | 4 |
-| 6 | [Phase 6: Docs and verification](./phase-06-docs-and-verification.md) | Pending | 5 |
+| 6 | [Phase 6: Docs and verification](./phase-06-docs-and-verification.md) | Completed | 5 |
 
 ## Success Criteria
 
-- [ ] `src/data/regions/index.js` holds 1 country, 5 provinces, and 61 leaves, all generated
-- [ ] Both generated barrels parse — a test `import()`s them
-- [ ] Every leaf that Nominatim resolved has a boundary polygon; unresolved leaves are recorded in `missingParts`, not fatal
-- [ ] Every panorama in the five province indexes carries a district assignment, or is counted in a reported unassigned tally under 2%
-- [ ] `src/lib/regions.js`'s import graph never reaches `src/data/panos/` — asserted by test
-- [ ] A guess in `TPHCM-Q7` increases the `TPHCM-Q7`, `TPHCM`, and `VN` score totals by the same amount
-- [ ] The leaf is resolved from the **winning** panorama draw, server-side, and never appears in any pre-guess response
-- [ ] `leaderboard:vietnam` and `distance:vietnam` remain the country node's keys — pre-change totals unchanged and still growing
-- [ ] `leaderboard:city:hn` / `:dn` / `:tphcm` / `:dl` / `:dh` totals are unchanged immediately after deploy
-- [ ] `leaderboard:city:ld` equals `leaderboard:city:dl` and `leaderboard:city:la` equals `leaderboard:city:dh` immediately after migration
-- [ ] The migration aborts if its export contains zero keys, refuses an empty source that would wipe a populated destination, and prints the resolved `KEY_PREFIX`
-- [ ] The migration verifies the backfill landed, and can restore its own backup
-- [ ] `/game?location=HN` and `/game?location=DL` still work
-- [ ] A leaf below the playability threshold is listed in the tree but not offered as playable
-- [ ] 200 draws at `VN` hit at least four distinct provinces
-- [ ] `npm test`, `npm run test:integration`, and `npm run build:check` pass
-- [ ] No province's panorama index is re-fetched from Mapillary
+All verified against the shipped code on 2026-08-30, not against the phase
+checkboxes. Evidence in parentheses.
+
+- [x] `src/data/regions/index.js` holds 1 country, 5 provinces, and 61 leaves, all generated (`Object.values(REGIONS)` by level)
+- [x] Both generated barrels parse — a test `import()`s them (`tests/regions.test.js` "generated barrels")
+- [x] Every leaf that Nominatim resolved has a boundary polygon; unresolved leaves are recorded in `missingParts`, not fatal (Cu Chi is the only one; `tphcm/tphcm.json` `missingParts: 1`)
+- [x] Every panorama in the five province indexes carries a district assignment, or is counted in a reported unassigned tally under 2% (**0 unassigned in all five**; worst stranded 46 m)
+- [x] `src/lib/regions.js`'s import graph never reaches `src/data/panos/` — asserted by test (`tests/regions.test.js` "client safety"; also confirmed empirically — 0 pano ids across 40 files in `.next-check/static`)
+- [x] A guess in `TPHCM-Q7` increases the `TPHCM-Q7`, `TPHCM`, and `VN` score totals by the same amount (`tests/leaderboard.test.js:198`)
+- [x] The leaf is resolved from the **winning** panorama draw, server-side, and never appears in any pre-guess response (`mapillary.js` returns `candidate.regionCode` from the successful attempt; `tests/new-game-route.test.js`)
+- [x] `leaderboard:vietnam` and `distance:vietnam` remain the country node's keys (`leaderboard.js:17,50`; `tests/leaderboard.test.js:239`)
+- [x] `leaderboard:city:hn` / `:dn` / `:tphcm` / `:dl` / `:dh` totals are unchanged immediately after deploy (those codes are unchanged in the tree, so the keys are unchanged)
+- [x] `leaderboard:city:ld` equals `leaderboard:city:dl` and `leaderboard:city:la` equals `leaderboard:city:dh` immediately after migration (`tests/migrate-leaderboards.test.js`, both lanes)
+- [x] The migration aborts if its export contains zero keys, refuses an empty source that would wipe a populated destination, and prints the resolved `KEY_PREFIX` (`tests/migrate-leaderboards.test.js:44-90`)
+- [x] The migration verifies the backfill landed, and can restore its own backup (`verifyTargets`, `findRegressions`, `restore`)
+- [x] `/game?location=HN` and `/game?location=DL` still work (`GameClient.js:131-133` accepts `?region=` then `?location=`; every node is keyed in the tree)
+- [x] A leaf below the playability threshold is listed in the tree but not offered as playable (3 unplayable leaves: Cu Chi plus 2 in Da Nang; `RegionPicker` renders them disabled with the reason)
+- [x] 200 draws at `VN` hit at least four distinct provinces (`tests/pano-index.test.js:221`)
+- [x] `npm test`, `npm run test:integration`, and `npm run build:check` pass (255 passed; 253 passed + 2 skipped; build clean)
+- [x] No province's panorama index is re-fetched from Mapillary (Phase 2 partitioned the existing indexes; `assign-pano-districts.mjs` contains no `fetch`)
 
 ## Red Team Review
 
@@ -293,7 +296,12 @@ None. Seven decisions were resolved with the user:
 3. **New province leaderboards** — backfilled from their single child's totals.
 4. **Legacy province points** — left on the parent, no synthetic child node.
 5. **Duc Hoa's parent** — Long An, not Tay Ninh, per the pre-2025 basis.
-6. **`VN` scoring zero** — accepted; ships as an exploration mode.
+6. **`VN` scoring zero** — **superseded during execution.** `VN` scores like
+   any other node: a country draw resolves to a district, and the fan-out
+   credits district, province and `VN` alike. The country keeps the pre-existing
+   `leaderboard:vietnam` key rather than a new `leaderboard:city:vn`
+   (`src/lib/leaderboard.js:17,50`, `tests/leaderboard.test.js:239-245`). The
+   docs describe the shipped behaviour, not this line.
 7. **Phase 5 primitives** — add the two Radix packages.
 
 <!-- slug: nested-region-tree -->

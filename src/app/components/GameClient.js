@@ -374,7 +374,7 @@ export default function GameClient() {
 
       setTimeout(initializeMap, 300);
     }
-  }, [showResult, exactLocation, guessCoordinates]);
+  }, [showResult, submitFailed, exactLocation, guessCoordinates]);
 
   useEffect(() => {
     if (!showResult && resultLeafletMapRef.current) {

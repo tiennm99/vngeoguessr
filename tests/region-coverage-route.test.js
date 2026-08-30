@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GET } from '../src/app/api/debug/city-coverage/route.js';
+import { GET } from '../src/app/api/debug/region-coverage/route.js';
 import { countPanos } from '../src/lib/pano-index.js';
 import { provinceOf } from '../src/lib/regions.js';
 
@@ -43,8 +43,9 @@ describe('GET debug coverage', () => {
     expect((await GET(request('region=NOPE'))).status).toBe(400);
   });
 
-  it('still accepts ?city= from the existing debug page', async () => {
-    expect((await (await GET(request('city=DN'))).json()).success).toBe(true);
+  it('rejects an empty ?region=, rather than reading it as a code', async () => {
+    // URLSearchParams yields '' here, which ?? would have kept.
+    expect((await GET(request('region='))).status).toBe(400);
   });
 
   it('reports the generation stamp its consumer may render', async () => {

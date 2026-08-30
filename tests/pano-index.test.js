@@ -3,11 +3,11 @@ import * as turf from '@turf/turf';
 import { readFileSync } from 'node:fs';
 import { outlineSegments } from '../scripts/lib/assign-districts.mjs';
 import {
-  getCityIndex,
+  getProvinceIndex,
   getRegionPanos,
   pickRandomPano,
   countPanos,
-  indexedCities,
+  indexedProvinces,
 } from '../src/lib/pano-index.js';
 import {
   getRegion,
@@ -20,19 +20,19 @@ import {
 
 // Indexes are built per province, so the province list -- not every node in the
 // tree -- is what has one. Districts are served by filtering their province.
-const CODES = indexedCities();
+const CODES = indexedProvinces();
 
 describe('panorama index', () => {
   it.each(CODES)('%s has an index with panoramas', (code) => {
     expect(countPanos(code)).toBeGreaterThan(0);
   });
 
-  it('rejects an unknown city', () => {
-    expect(() => getCityIndex('NOPE')).toThrow(/No panorama index/);
+  it('rejects an unknown province', () => {
+    expect(() => getProvinceIndex('NOPE')).toThrow(/No panorama index/);
   });
 
   it.each(CODES)('%s entries are well formed', (code) => {
-    const malformed = getCityIndex(code).panos.find(
+    const malformed = getProvinceIndex(code).panos.find(
       (p) =>
         typeof p.id !== 'string' ||
         p.id.length === 0 ||
@@ -43,27 +43,27 @@ describe('panorama index', () => {
   });
 
   it.each(CODES)('%s ids are unique', (code) => {
-    const ids = getCityIndex(code).panos.map((p) => p.id);
+    const ids = getProvinceIndex(code).panos.map((p) => p.id);
     expect(new Set(ids).size, `${code} has duplicate ids`).toBe(ids.length);
   });
 
-  it.each(CODES)('%s panoramas sit inside the city bbox', (code) => {
+  it.each(CODES)('%s panoramas sit inside its province bbox', (code) => {
     // The index is built from tiles covering the bbox, then clipped to the
     // boundary, so anything outside means the clip or the bbox is wrong.
     const [minLng, minLat, maxLng, maxLat] = getRegion(code).bbox;
-    const stray = getCityIndex(code).panos.find(
+    const stray = getProvinceIndex(code).panos.find(
       (p) => p.lat < minLat || p.lat > maxLat || p.lng < minLng || p.lng > maxLng
     );
     expect(stray, `${code} has a panorama outside its bbox`).toBeUndefined();
   });
 
-  it.each(CODES)('%s panoramas sit inside the city boundary', (code) => {
+  it.each(CODES)('%s panoramas sit inside its province boundary', (code) => {
     const boundary = JSON.parse(
       readFileSync(`src/data/boundaries/${code.toLowerCase()}/${code.toLowerCase()}.json`, 'utf8')
     );
     // Sample rather than test every point: booleanPointInPolygon against a
     // detailed outline is slow, and a clipping bug would not hide in a sample.
-    const panos = getCityIndex(code).panos;
+    const panos = getProvinceIndex(code).panos;
     const step = Math.max(1, Math.floor(panos.length / 200));
     for (let i = 0; i < panos.length; i += step) {
       const inside = turf.booleanPointInPolygon(
@@ -75,25 +75,25 @@ describe('panorama index', () => {
   });
 
   it.each(CODES)('%s index bbox agrees with the region tree', (code) => {
-    expect(getCityIndex(code).bbox).toEqual(getRegion(code).bbox);
+    expect(getProvinceIndex(code).bbox).toEqual(getRegion(code).bbox);
   });
 });
 
 describe('pickRandomPano', () => {
   it('returns an entry from the province', () => {
     const chosen = pickRandomPano('LD');
-    expect(getCityIndex('LD').panos.some((p) => p.id === chosen.id)).toBe(true);
+    expect(getProvinceIndex('LD').panos.some((p) => p.id === chosen.id)).toBe(true);
   });
 
   it('never returns an excluded id', () => {
-    const { panos } = getCityIndex('LD');
+    const { panos } = getProvinceIndex('LD');
     const exclude = new Set(panos.slice(0, panos.length - 1).map((p) => p.id));
     // Only one candidate is left, so the choice is forced and checkable.
     expect(pickRandomPano('LD', exclude).id).toBe(panos[panos.length - 1].id);
   });
 
   it('throws when everything is excluded', () => {
-    const all = new Set(getCityIndex('LD').panos.map((p) => p.id));
+    const all = new Set(getProvinceIndex('LD').panos.map((p) => p.id));
     expect(() => pickRandomPano('LD', all)).toThrow(/No panoramas left/);
   });
 
@@ -106,7 +106,7 @@ describe('pickRandomPano', () => {
 
 describe('district partition', () => {
   it.each(CODES)('%s accounts for every panorama', (code) => {
-    const index = getCityIndex(code);
+    const index = getProvinceIndex(code);
     const assigned = Object.values(index.districtCounts).reduce((a, b) => a + b, 0);
     expect(assigned + index.unassigned, `${code} counts do not add up`).toBe(
       index.panos.length
@@ -118,7 +118,7 @@ describe('district partition', () => {
     // in a sliver between two neighbours. It still belongs to one of them, and
     // the build assigns it to the nearest -- leaving it province-only would
     // under-credit that district forever.
-    expect(getCityIndex(code).unassigned).toBe(0);
+    expect(getProvinceIndex(code).unassigned).toBe(0);
   });
 
   it.each(CODES)('%s strands few enough points to trust the partition', (code) => {
@@ -126,7 +126,7 @@ describe('district partition', () => {
     // `stranded` is the number that carries signal: how many fell outside every
     // district polygon and had to be placed by proximity. It rises when the
     // leaf simplification tolerance opens gaps along shared borders.
-    const index = getCityIndex(code);
+    const index = getProvinceIndex(code);
     const rate = index.stranded / index.panos.length;
     expect(rate, `${code} strands ${(rate * 100).toFixed(2)}%`).toBeLessThan(0.02);
   });
@@ -135,7 +135,7 @@ describe('district partition', () => {
     // A fallback placement is only defensible if it is close. Ranking by bbox
     // centre once put a point 6km into the wrong district; ranking by the real
     // outline keeps the worst case in the tens of metres.
-    expect(getCityIndex(code).worstStrandedKm, code).toBeLessThan(1.1);
+    expect(getProvinceIndex(code).worstStrandedKm, code).toBeLessThan(1.1);
   });
 
   it.each(CODES)('%s district codes are real children of the province', (code) => {
@@ -143,11 +143,11 @@ describe('district partition', () => {
     // Copy before sorting. The index object is shared across the whole suite,
     // and every `d` field is an offset into districts[] -- sorting it in place
     // silently repoints every panorama at the wrong district.
-    expect([...getCityIndex(code).districts].sort()).toEqual([...expected].sort());
+    expect([...getProvinceIndex(code).districts].sort()).toEqual([...expected].sort());
   });
 
   it.each(CODES)('%s every d index is in range', (code) => {
-    const index = getCityIndex(code);
+    const index = getProvinceIndex(code);
     const bad = index.panos.find(
       (p) => p.d !== undefined && !(p.d >= 0 && p.d < index.districts.length)
     );
@@ -158,7 +158,7 @@ describe('district partition', () => {
     // Sample rather than test all 424,691: point-in-polygon against detailed
     // outlines is slow, and a partition bug would not hide in a sample.
     for (const code of CODES) {
-      const index = getCityIndex(code);
+      const index = getProvinceIndex(code);
       const step = Math.max(1, Math.floor(index.panos.length / 60));
       for (let i = 0; i < index.panos.length; i += step) {
         const pano = index.panos[i];
@@ -253,7 +253,7 @@ describe('playability', () => {
   });
 
   it('requires enough panoramas to survive the retry budget', () => {
-    // fetchCityPanorama retries up to 3 times with a different candidate, so a
+    // fetchRegionPanorama retries up to 3 times with a different candidate, so a
     // region with fewer than that throws instead of degrading.
     for (const code of playableRegions()) {
       expect(coverageOf(code).panos, code).toBeGreaterThanOrEqual(3);

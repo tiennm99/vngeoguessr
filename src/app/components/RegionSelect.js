@@ -25,6 +25,8 @@ const LEVELS = [
   { id: 'district', label: 'District' },
 ];
 
+const ALL_LEVELS = LEVELS.map((entry) => entry.id);
+
 /**
  * Pick a region by level, then by name.
  *
@@ -42,6 +44,9 @@ const LEVELS = [
  * @param {string} props.region Currently selected region code.
  * @param {Function} props.onRegionChange Called with the new region code.
  * @param {boolean} props.playableOnly True to hide regions with no coverage.
+ * @param {string[]} props.levels Level ids to offer, in order. Defaults to all
+ *   three. The coverage debug page passes province and district only, because
+ *   the country has no outline of its own to draw.
  */
 export default function RegionSelect({
   level,
@@ -49,12 +54,18 @@ export default function RegionSelect({
   region,
   onRegionChange,
   playableOnly = false,
+  levels = ALL_LEVELS,
 }) {
+  const shown = LEVELS.filter((entry) => levels.includes(entry.id));
+  // A caller that restricts `levels` can still hold a `level` outside them. Fall
+  // back to the first offered one rather than rendering no pressed button and,
+  // for 'country', no select either -- which leaves no way to change anything.
+  const active = levels.includes(level) ? level : levels[0];
   // Districts are grouped under their province: 61 of them in one flat list is
   // the problem the level row exists to avoid, and it would only move it.
   const groups = useMemo(() => {
-    if (level === 'country') return [];
-    if (level === 'province') {
+    if (active === 'country') return [];
+    if (active === 'province') {
       return [{ label: null, codes: provinces().filter((code) => !playableOnly || isPlayable(code)) }];
     }
     return provinces()
@@ -63,7 +74,7 @@ export default function RegionSelect({
         codes: childrenOf(province).filter((code) => !playableOnly || isPlayable(code)),
       }))
       .filter((group) => group.codes.length > 0);
-  }, [level, playableOnly]);
+  }, [active, playableOnly]);
 
   const handleLevel = (next) => {
     onLevelChange(next);
@@ -79,16 +90,16 @@ export default function RegionSelect({
         aria-label="Region level"
         className="flex overflow-hidden rounded-lg border border-border"
       >
-        {LEVELS.map((entry, index) => (
+        {shown.map((entry, index) => (
           <button
             key={entry.id}
             type="button"
             onClick={() => handleLevel(entry.id)}
-            aria-pressed={level === entry.id}
+            aria-pressed={active === entry.id}
             className={`h-9 flex-1 px-3 text-sm font-semibold whitespace-nowrap outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring ${
               index > 0 ? 'border-l border-border' : ''
             } ${
-              level === entry.id
+              active === entry.id
                 ? 'bg-brand text-brand-foreground'
                 : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
@@ -98,10 +109,10 @@ export default function RegionSelect({
         ))}
       </div>
 
-      {level !== 'country' && (
+      {active !== 'country' && (
         <Select value={region ?? undefined} onValueChange={onRegionChange}>
-          <SelectTrigger className="w-full sm:w-56" aria-label={`Choose a ${level}`}>
-            <SelectValue placeholder={`Choose a ${level}`} />
+          <SelectTrigger className="w-full sm:w-56" aria-label={`Choose a ${active}`}>
+            <SelectValue placeholder={`Choose a ${active}`} />
           </SelectTrigger>
           <SelectContent>
             {groups.map((group) => (

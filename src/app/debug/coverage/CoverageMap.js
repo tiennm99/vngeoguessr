@@ -98,12 +98,17 @@ export default function CoverageMap({
     };
   }, []);
 
-  // Draw the city outline and frame it whenever the city changes.
+  // Draw the region outline and frame it whenever the region changes.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !boundary) return;
+    if (!map) return;
 
+    // Removed unconditionally: a null boundary means the region changed or its
+    // request failed, and an early return here left the previous outline drawn
+    // and framed as though it belonged to the new selection.
     boundaryLayerRef.current?.remove();
+    boundaryLayerRef.current = null;
+    if (!boundary) return;
     const layer = L.geoJSON(boundary, {
       style: {
         color: '#da251d',

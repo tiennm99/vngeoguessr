@@ -19,11 +19,11 @@ import { getRegion, childrenOf, provinceOf, provinces, isPlayable } from './regi
  * @param {string} provinceCode Province code, e.g. 'TPHCM'.
  * @returns {Object} The index, including its panos array.
  */
-export function getCityIndex(provinceCode) {
+export function getProvinceIndex(provinceCode) {
   const index = PANO_INDEXES[provinceCode];
   if (!index) {
     throw new Error(
-      `No panorama index for city: ${provinceCode}. ` +
+      `No panorama index for province: ${provinceCode}. ` +
         'Run: node scripts/build-pano-index.mjs ' + provinceCode
     );
   }
@@ -45,7 +45,7 @@ const bucketCache = new Map();
 function districtPanos(districtCode) {
   const province = provinceOf(districtCode);
   if (!bucketCache.has(province)) {
-    const index = getCityIndex(province);
+    const index = getProvinceIndex(province);
     const buckets = new Map(index.districts.map((code) => [code, []]));
     for (const pano of index.panos) {
       // `d` indexes into the header's districts array; absent means the point
@@ -76,7 +76,7 @@ const EMPTY = Object.freeze([]);
  */
 export function getRegionPanos(code) {
   const { level } = getRegion(code);
-  if (level === 'province') return Object.freeze(getCityIndex(code).panos);
+  if (level === 'province') return Object.freeze(getProvinceIndex(code).panos);
   if (level === 'district') return districtPanos(code);
   throw new Error(`getRegionPanos does not materialise ${level} level: ${code}`);
 }
@@ -133,7 +133,7 @@ export function pickRandomPano(code, excludeIds = new Set()) {
         ? code
         : chosen.d === undefined
           ? code
-          : getCityIndex(code).districts[chosen.d],
+          : getProvinceIndex(code).districts[chosen.d],
   };
 }
 
@@ -154,6 +154,6 @@ export function countPanos(code) {
  * Province codes that currently have an index built.
  * @returns {string[]} Codes.
  */
-export function indexedCities() {
+export function indexedProvinces() {
   return Object.keys(PANO_INDEXES);
 }

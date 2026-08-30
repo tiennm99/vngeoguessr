@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchCityPanorama } from '../src/lib/mapillary.js';
+import { fetchRegionPanorama } from '../src/lib/mapillary.js';
 import { getRegionPanos } from '../src/lib/pano-index.js';
 import { provinceOf } from '../src/lib/regions.js';
 
@@ -36,7 +36,7 @@ afterEach(() => {
   else process.env.MAPILLARY_ACCESS_TOKEN = ORIGINAL_TOKEN;
 });
 
-describe('fetchCityPanorama', () => {
+describe('fetchRegionPanorama', () => {
   it('reports the district of the attempt that succeeded', async () => {
     // Every retry draws a fresh candidate, potentially from a different
     // district. Carrying the first one forward would credit the wrong place.
@@ -49,7 +49,7 @@ describe('fetchCityPanorama', () => {
       return new Response(JSON.stringify(imageBody(id)), { status: 200 });
     });
 
-    const result = await fetchCityPanorama('TPHCM');
+    const result = await fetchRegionPanorama('TPHCM');
     expect(result.success).toBe(true);
     expect(seenIds.length).toBe(2);
 
@@ -64,7 +64,7 @@ describe('fetchCityPanorama', () => {
     // out. The route turns this into a message, not a 500.
     vi.stubGlobal('fetch', async () => new Response('gone', { status: 404 }));
 
-    const result = await fetchCityPanorama('LD');
+    const result = await fetchRegionPanorama('LD');
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/No panorama could be loaded/);
   });
@@ -78,7 +78,7 @@ describe('fetchCityPanorama', () => {
       return new Response('unauthorized', { status: 401 });
     });
 
-    await expect(fetchCityPanorama('LD')).rejects.toThrow(/authentication failed/);
+    await expect(fetchRegionPanorama('LD')).rejects.toThrow(/authentication failed/);
     expect(calls).toBe(1);
   });
 
@@ -88,7 +88,7 @@ describe('fetchCityPanorama', () => {
       return new Response(JSON.stringify(imageBody(id)), { status: 200 });
     });
 
-    const result = await fetchCityPanorama('DL');
+    const result = await fetchRegionPanorama('DL');
     expect(result.success).toBe(true);
     expect(result.data.regionCode).toBe('DL');
   });
@@ -99,7 +99,7 @@ describe('fetchCityPanorama', () => {
       return new Response(JSON.stringify(imageBody(id)), { status: 200 });
     });
 
-    const result = await fetchCityPanorama('VN');
+    const result = await fetchRegionPanorama('VN');
     expect(result.success).toBe(true);
     expect(result.data.regionCode).not.toBe('VN');
     expect(provinceOf(result.data.regionCode)).toBeTruthy();

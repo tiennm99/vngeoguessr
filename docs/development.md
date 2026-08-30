@@ -50,9 +50,10 @@ For local Redis without an Upstash account, see *Running Upstash locally* below.
 
 ### Testing & Completion
 
-Tests live in `tests/` and cover the logic in `src/lib/`: scoring and distance,
-the Upstash key adapter, game sessions, and the leaderboards. Run `npm test`
-after changing anything under `src/lib/`.
+Tests live in `tests/` and cover the logic in `src/lib/` (scoring and distance,
+the Upstash key adapter, game sessions, the region tree, the panorama indexes
+and the leaderboards), the API routes, and the leaderboard migration. Run
+`npm test` after changing anything under `src/lib/` or `src/data/`.
 
 The suite runs against two backing stores, from one set of test files:
 
@@ -123,6 +124,38 @@ UPSTASH_REDIS_REST_TOKEN=vngeoguessr-local-token
 SRH accepts commands only as a JSON array POSTed to `/`, which is what the SDK
 sends; the path form Upstash also supports (`GET /set/key/value`) returns 404.
 
+### Rebuilding the generated region data
+
+`src/data/regions/`, `src/data/boundaries/` and `src/data/panos/` are generated.
+Run the scripts in this order -- each reads what the previous one wrote:
+
+```bash
+node scripts/build-region-boundaries.mjs   # OSM/Nominatim -> boundaries + region tree
+node scripts/build-pano-index.mjs          # Mapillary z14 tiles -> per-province pano index
+node scripts/assign-pano-districts.mjs     # clip + partition panos by district; writes counts.js
+```
+
+Each script's header comment carries its flags and its cost; read it before
+running. Two things worth knowing up front:
+
+- `build-region-boundaries.mjs --regenerate` rebuilds the provinces, the barrel
+  and the tree from what is already on disk, with no network calls. Use it after
+  hand-editing a boundary.
+- `build-pano-index.mjs` spends Mapillary tile requests against a 50,000/day
+  cap. `assign-pano-districts.mjs` spends none -- it only re-partitions indexes
+  that already exist, and refuses to rewrite `counts.js` on a partial run.
+
+### Migrating leaderboards
+
+`scripts/migrate-leaderboards.mjs` backfills the two boards whose region code
+changed (Da Lat into Lam Dong, Duc Hoa into Long An). It is **dry-run by
+default** and copies rather than moves, so the source boards survive.
+
+Deploy first, then migrate. The new code writes to the new keys immediately; a
+migration run before the deploy would copy a board that is still being written
+to under its old name. Run the script's `--help` for the apply, verify and
+restore flags.
+
 ## shadcn/ui Configuration
 
 - **Style**: "new-york"
@@ -136,5 +169,7 @@ sends; the path form Upstash also supports (`GET /set/key/value`) returns 404.
 - Follow existing code patterns in the codebase
 - Use established libraries and utilities already present
 - Maintain consistent naming conventions
-- No comments unless explicitly requested
+- Write descriptive comments where the reason for the code is not obvious from
+  the code -- this codebase leans on them heavily to record why a measured
+  approach was chosen over the obvious one
 - Prefer editing existing files over creating new ones

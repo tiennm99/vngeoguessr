@@ -7,30 +7,32 @@
 - Display UsernameModal if not set
 - Store username for leaderboard tracking
 
-### 2. Location Selection
-- Choose from 5 Vietnamese locations:
-  - Ha Noi
-  - Da Nang
-  - Ho Chi Minh
-  - Da Lat
-  - Duc Hoa (Long An)
+### 2. Region Selection
+- Choose anywhere on the region tree:
+  - **Vietnam** — draws from every covered province
+  - **A province** — Ha Noi, Ho Chi Minh, Da Nang, Lam Dong, Long An
+  - **A district or town** — 61 of them, expanded from their province
+- Regions with no usable panoramas are listed but disabled, with the reason
+  shown. See the Coverage note in [project-overview.md](project-overview.md)
 
 ### 3. Session Creation
 - Server generates unique UUID v4 session ID
-- Server stores exact target location securely in Redis with 30-minute expiry
-- Client receives session ID but never the target coordinates
+- Server stores the exact target location **and the district the panorama sits
+  in** in Redis with 30-minute expiry
+- Client receives session ID only — never the coordinates, never the district
 
 ### 4. Location Display Process
-- **Bbox Location Generation**: Server uses pre-defined city bounding boxes for random coordinate generation
-- **Image Search**: Mapillary API dart-throw strategy (ported from viguessr):
-  - Pick random points in city bbox
-  - Query small fixed-size sub-bboxes (side = 2×delta) centered on each point
-  - Throw 8 windows concurrently per round; first window with panos wins, losers aborted
-  - Up to 20 windows total across rounds before giving up
-  - Per-city delta tuned to keep query cost below Mapillary cap (HN: 0.003°, others: 0.005°)
-  - Filter for is_pano=true panoramic images, limit 3 results
-- **Image Display**: Thumbnail images displayed (thumb_original_url)
-- **Security**: Client never receives exact target coordinates
+- **Pick from the index**: the server draws a random panorama id from the
+  prebuilt index for the selected region (`pickRandomPano` in
+  `src/lib/pano-index.js`). A country draw picks a province uniformly first, so
+  the round is not dominated by whichever province has the most panoramas
+- **Resolve the image**: one Mapillary lookup by id, ~230ms. Up to three
+  candidates are tried in case an image was deleted upstream
+- **Credit the district that won**: the resolving district comes from the attempt
+  that succeeded, not the first candidate — each retry may sit in a different
+  district
+- **Image Display**: `thumb_2048_url`, falling back to `thumb_original_url`
+- **Security**: client never receives the coordinates or the district
 
 ### 5. Guessing Phase
 - **Image Interaction**: View street-level thumbnail image
@@ -43,7 +45,8 @@
 - **Validation**: Server validates coordinate ranges and session existence
 - **Calculation**: Server calculates distance using Turf.js distance function
 - **Scoring**: Server-side score calculation with distance-based points
-- **Cleanup**: Redis session deleted after successful submission
+- **Cleanup**: the session is claimed with an atomic `DEL` *before* any score is
+  written, so a replay or a concurrent submit scores exactly once
 
 ### 7. Scoring System
 Distance-based points (0-5 scale):
@@ -57,15 +60,17 @@ Distance-based points (0-5 scale):
 ### 8. Results Display
 - Show calculated distance between guess and actual location
 - Display earned points for current round (0-5 scale)
-- Show accumulated total scores for both city and global score leaderboards
-- Display current rankings in both city and global score leaderboards
-- Show distance leaderboard rankings for current game (city and global)
-- Show leaderboard update message with score increments
-- Reveal exact target coordinates and location details
-- Compare guess vs actual location on map
+- Reveal the region path the panorama was in, e.g. Vietnam › Ho Chi Minh ›
+  District 7 — this is the first time the client learns the district
+- Show the accumulated total and rank at each of the three levels
+- Show distance leaderboard rankings for the current game at each level
+- Reveal exact target coordinates and compare guess vs actual on the map
 
 ### 9. Leaderboard Management
-- **Triple-Leaderboard Updates**: Each game updates score leaderboards AND distance leaderboards (city + global)
+- **Rollup fan-out**: each game updates the score board and the distance board
+  at every level above the panorama — normally district, province and
+  Vietnam, or province and Vietnam when the panorama fell outside every
+  district outline. The levels are written concurrently
 - **Score Leaderboards**: Accumulated scoring system with single entry per user
 - **Distance Leaderboards**: Best distance records with multiple entries per user allowed
 - **Redis Sorted Sets**: Persistent storage using ZADD/ZRANGE operations
@@ -76,7 +81,7 @@ Distance-based points (0-5 scale):
 - **Persistent Storage**: No expiration on leaderboard data
 
 ### 10. Continue or Exit
-- Option to start next round with new session and location
-- Option to return to city selection for different city
+- Option to start next round with new session and location in the same region
+- Option to return to the region picker and choose somewhere else
 - Option to view full leaderboard with pagination
 - Redis session cleanup ensures fresh start for each round

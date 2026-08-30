@@ -27,14 +27,19 @@ For detailed information about this project, refer to the documentation files in
 - **JavaScript Only**: No TypeScript files (.ts, .tsx)
 - **Function Parameters**: Use individual parameters, not object destructuring
 - **File Modifications**: Only modify source code, `/docs`, and `/plans`
+- **Generated Data**: `src/data/` is build output. Change the scripts in
+  `scripts/`, never the files
+- **Client Safety**: `src/lib/pano-index.js` and `src/data/panos/` are
+  server-only. Client components use `src/lib/regions.js`
 - **Security**: Never expose secrets or keys
-- **Testing**: Run `npm test` for `src/lib/` changes; inform user when complete - they handle manual testing of the UI
+- **Testing**: Run `npm test` for changes under `src/lib/` or `src/data/`; inform user when complete - they handle manual testing of the UI
 
 ## Critical Instructions
 
 When working on this codebase, always:
 1. Read the relevant documentation files in `/docs/` for context
 2. Follow the JavaScript-only approach with individual function parameters
-3. Maintain server-side security for game sessions and coordinates
+3. Maintain server-side security for game sessions, coordinates, and the
+   district a panorama resolved to
 4. Use existing patterns and libraries already present in the codebase
 5. Highlight any configuration file changes for manual processing

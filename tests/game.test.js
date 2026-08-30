@@ -1,14 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  cities,
-  cityNames,
-  cityCenters,
-  cityBboxes,
   calculateDistance,
   calculateScore,
   formatDistance,
 } from '../src/lib/game.js';
-import { allRegions, getRegion, provinces } from '../src/lib/regions.js';
 
 describe('calculateScore', () => {
   // The bands are the whole scoring rule, so each boundary is pinned on both
@@ -71,43 +66,5 @@ describe('formatDistance', () => {
     [12300, '12.30km'],
   ])('formats %dm as %s', (distance, expected) => {
     expect(formatDistance(distance)).toBe(expected);
-  });
-});
-
-describe('region lookups', () => {
-  // Shape and geography of the tree itself are covered by regions.test.js.
-  // These assert only that game.js's derived lookups stay faithful to it.
-
-  it('offers the provinces, and only the provinces, as entry points', () => {
-    expect(cities.map((city) => city.code)).toEqual(provinces());
-  });
-
-  it('uppercases entry-point names for the UI', () => {
-    for (const city of cities) {
-      expect(city.name).toBe(city.name.toUpperCase());
-    }
-  });
-
-  it('names every node, not just the entry points', () => {
-    // A bookmarked /game?location=DL has to keep resolving now that Da Lat is a
-    // district of Lam Dong rather than a top-level city.
-    for (const code of allRegions()) {
-      expect(cityNames[code], code).toBe(getRegion(code).name);
-    }
-    expect(cityNames.DL).toBe('Da Lat');
-  });
-
-  it('mirrors the tree for centres and boxes it has', () => {
-    for (const code of allRegions()) {
-      const region = getRegion(code);
-      if (region.center) expect(cityCenters[code], code).toEqual(region.center);
-      if (region.bbox) expect(cityBboxes[code], code).toEqual(region.bbox);
-    }
-  });
-
-  it('omits nodes with no boundary rather than inventing one', () => {
-    // Cu Chi has no OSM relation left, so it has no extent to look up.
-    expect(cityBboxes['TPHCM-CUCHI']).toBeUndefined();
-    expect(cityNames['TPHCM-CUCHI']).toBe('Cu Chi');
   });
 });

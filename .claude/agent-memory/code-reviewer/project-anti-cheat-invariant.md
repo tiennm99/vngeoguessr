@@ -13,7 +13,7 @@ transitively reach them, enforced by the "client safety" import walk in
 **Why:** a client that can map a panorama id to coordinates scores perfectly every round.
 
 **How to apply:** the bundle-graph walk is only half the boundary. Verified 2026-08-30:
-the debug coverage route is unauthenticated, has no `NODE_ENV` gate and no middleware,
+the debug coverage route (`src/app/api/debug/region-coverage/route.js`, renamed from `city-coverage` on 2026-08-30, and it now accepts only `?region=`) is unauthenticated, has no `NODE_ENV` gate and no middleware,
 and returns exact `{id, lat, lng}` entries. `/api/new-game` hands the client the
 panorama id, so the answer is reachable without any bundle leak. Phase 4 widened that
 route from 5 province codes to every code with a boundary (65), so a caller can now pull

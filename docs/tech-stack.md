@@ -1,42 +1,60 @@
 # Tech Stack
 
 ## Frontend Framework
-- **Next.js 15.4.6**: React-based full-stack framework with App Router
-- **React 19.1.0**: Latest React version for component architecture
+- **Next.js 15.5**: React-based full-stack framework with App Router
+- **React 19.2**: Component architecture
 - **Tailwind CSS 4**: Utility-first CSS framework for styling
 
 ## Street View & Mapping
-- **Mapillary API**: Panoramic street-level imagery provider (thumb_original_url, is_pano=true filter)
-  - **Dart-throw strategy**: pick random points in city bbox, query small fixed-size sub-bboxes (2×delta), re-roll on empty. Keeps query cost under Mapillary cap.
-  - **Concurrent rounds**: 8 windows raced per round (20 max total). A Mapillary round-trip costs ~1-5s, so racing keeps wall time at one round-trip instead of the sum of every miss.
-  - **Per-city delta**: configurable in CITIES enum (`src/lib/game.js`). HN: 0.003° (~333m), others: 0.005° (~556m)
+- **Mapillary vector tiles**: the z14 `image` layer is the index source. Read
+  offline by `scripts/build-pano-index.mjs` with `@mapbox/vector-tile` + `pbf`,
+  against a 50,000 requests/day cap
+- **Mapillary Graph API**: one call per round -- lookup by image id, ~230ms.
+  Its `/images?bbox=` search is deliberately off the game path: it returns HTTP
+  500 in every dense district, because it counts images inside the box before
+  applying the limit. See the header of `src/lib/mapillary.js`.
+  `api/debug/mapillary/route.js` keeps the search as a diagnostic, and will
+  reproduce those 500s
 - **Leaflet**: Interactive mapping library for guess placement
-- **OpenStreetMap**: Map tile provider for base maps
-- **@photo-sphere-viewer/core**: 360° panorama viewer (planned integration)
+- **OpenStreetMap**: Map tile provider for base maps; Nominatim supplies the
+  administrative boundaries via `scripts/build-region-boundaries.mjs`
+- **@photo-sphere-viewer/core**: 360° panorama viewer
 
 ## Geographic Processing
-- **@turf/turf**: Spatial operations library for distance calculations and point processing
-- **Bbox-based Location**: Pre-defined city bounding boxes for location generation
+- **@turf/turf**: distance, point-in-polygon, union, simplify, and
+  point-to-line distance -- used both at runtime and by the offline builds
+- **Generated region tree**: `src/data/regions/` holds the nodes,
+  `src/data/boundaries/<province>/` the simplified outlines, and
+  `src/data/panos/` the per-province panorama indexes
+- **Client/server split**: `src/lib/regions.js` is the client-safe view and
+  imports nothing from `src/data/panos/` or `src/lib/pano-index.js`. That
+  boundary is enforced by an import-graph walk in `tests/regions.test.js` -- the
+  indexes are ~29MB of exact answers
 - **Server-side Calculations**: All geographic processing on backend
 
 ## Data Storage & Session Management
 - **Upstash Redis (REST)**: Session and leaderboard storage via `@upstash/redis` SDK (REST client, no sockets)
 - **Credential Flexibility**: Accepts `UPSTASH_REDIS_REST_URL`+`UPSTASH_REDIS_REST_TOKEN` (vanilla Upstash) or `KV_REST_API_URL`+`KV_REST_API_TOKEN` (Vercel Marketplace aliases)
 - **Multi-tenant Key Prefix**: All physical keys carry `KEY_PREFIX` (default `vngeoguessr:`) to safely share Upstash DB with other Vercel projects. Prefix applied centrally in `src/lib/upstash.js`; callers use logical keys only.
-- **Key Namespaces**: `session:{id}` (30-min TTL), `leaderboard:{scope}`, `distance:{scope}` (no expiry)
+- **Key Namespaces**: `session:{id}` (30-min TTL), `leaderboard:{scope}`,
+  `distance:{scope}` (no expiry). `{scope}` is `vietnam` for the country and
+  `city:{regionCode}` for every province and district -- the `city:` segment is
+  kept so existing scores stay addressable
 - **Sorted Sets**: Leaderboard ranking with automatic trimming (top 200)
 - **UUID v4**: Session identifier generation
 - **30-minute Session Expiry**: Automatic TTL-based cleanup
 
 ## UI Components & Styling
 - **shadcn/ui**: Complete component library with "new-york" style
-- **Radix UI**: Headless component primitives
+- **Radix UI**: Headless component primitives -- dialog, label, slot, tabs, plus
+  accordion (province expansion) and select (region picker)
 - **Lucide React**: Icon library
 - **class-variance-authority**: Component variant management
 - **tailwind-merge + clsx**: Dynamic class name handling
 
 ## Testing
-- **Vitest**: Test runner for the logic in `src/lib/`
+- **Vitest**: Test runner for the logic in `src/lib/`, the API routes, the
+  generated region data, and the leaderboard migration
 - **In-memory Upstash fake**: Default backing store, no service required
 - **SRH + Redis (Docker)**: Optional lane running the same tests against real Redis
 

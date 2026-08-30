@@ -7,7 +7,8 @@ import { ArrowLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import PanoramaViewer from '../../components/PanoramaViewer';
-import { cities } from '../../../lib/game';
+import RegionSelect from '../../components/RegionSelect';
+import { getRegion } from '../../../lib/regions';
 
 const CoverageMap = dynamic(() => import('./CoverageMap'), {
   ssr: false,
@@ -23,10 +24,13 @@ const CoverageMap = dynamic(() => import('./CoverageMap'), {
 });
 
 export default function CoveragePage() {
-  const [city, setCity] = useState(cities[0]?.code ?? 'TPHCM');
-  // The outline is held apart from the dots and replaced only when the city
+  // Province and district only: the country has no outline of its own, so the
+  // route has nothing to draw for it.
+  const [level, setLevel] = useState('province');
+  const [region, setRegion] = useState('TPHCM');
+  // The outline is held apart from the dots and replaced only when the region
   // changes. Storing it with each response gave it a new identity on every
-  // pan, and the map treated that as a new city and refit itself, so no zoom
+  // pan, and the map treated that as a new region and refit itself, so no zoom
   // ever survived and each refit triggered another fetch.
   const [boundary, setBoundary] = useState(null);
   const [panos, setPanos] = useState(null);
@@ -48,25 +52,30 @@ export default function CoveragePage() {
   // than they come back, and an older one landing last would redraw stale dots.
   const requestIdRef = useRef(0);
 
-  const load = useCallback(async (cityCode, viewport) => {
+  const load = useCallback(async (regionCode, viewport) => {
     const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
 
     try {
-      const params = new URLSearchParams({ city: cityCode });
+      const params = new URLSearchParams({ region: regionCode });
       if (viewport) params.set('bbox', viewport.join(','));
-      const response = await fetch(`/api/debug/city-coverage?${params}`);
+      const response = await fetch(`/api/debug/region-coverage?${params}`);
       const json = await response.json();
       if (requestId !== requestIdRef.current) return;
 
       if (!json.success) {
+        // Everything derived from the previous region has to go with the dots.
+        // Leaving the tallies up rendered Ho Chi Minh's 184,938 as Cu Chi's,
+        // beside the error saying Cu Chi could not be loaded.
         setError(json.error || 'Request failed');
         setPanos(null);
+        setCounts(null);
+        setGeneratedAt(null);
         return;
       }
 
-      // Present only on the first request for a city.
+      // Present only on the first request for a region.
       if (json.boundary) setBoundary(json.boundary);
       setPanos(json.panos);
       setCounts(json.counts);
@@ -81,10 +90,12 @@ export default function CoveragePage() {
   useEffect(() => {
     setBoundary(null);
     setPanos(null);
+    setCounts(null);
+    setGeneratedAt(null);
     setSelected(null);
     setPano(null);
-    load(city, null);
-  }, [city, load]);
+    load(region, null);
+  }, [region, load]);
 
   const handleSelectPano = useCallback(async (point) => {
     const requestId = ++panoRequestRef.current;
@@ -117,9 +128,9 @@ export default function CoveragePage() {
 
   const handleBoundsChange = useCallback(
     (nextBbox) => {
-      load(city, nextBbox);
+      load(region, nextBbox);
     },
-    [city, load]
+    [region, load]
   );
 
   return (
@@ -132,22 +143,21 @@ export default function CoveragePage() {
               <span className="hidden sm:inline">Debug</span>
             </Link>
           </Button>
-          <h1 className="text-lg font-bold text-foreground">Panorama coverage</h1>
+          <h1 className="text-lg font-bold text-foreground">
+            Panorama coverage
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              {getRegion(region).name}
+            </span>
+          </h1>
         </div>
 
-        <div role="group" aria-label="City" className="flex flex-wrap gap-1">
-          {cities.map((option) => (
-            <Button
-              key={option.code}
-              onClick={() => setCity(option.code)}
-              variant={city === option.code ? 'default' : 'outline'}
-              size="sm"
-              aria-pressed={city === option.code}
-            >
-              {option.name}
-            </Button>
-          ))}
-        </div>
+        <RegionSelect
+          level={level}
+          onLevelChange={setLevel}
+          region={region}
+          onRegionChange={setRegion}
+          levels={['province', 'district']}
+        />
       </header>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card/60 px-4 py-2 text-sm">
@@ -159,7 +169,7 @@ export default function CoveragePage() {
         {counts && (
           <>
             <Badge variant="secondary" className="tabular-nums">
-              {counts.total.toLocaleString()} in city
+              {counts.total.toLocaleString()} in region
             </Badge>
             <Badge variant="secondary" className="tabular-nums">
               {counts.inView.toLocaleString()} in view

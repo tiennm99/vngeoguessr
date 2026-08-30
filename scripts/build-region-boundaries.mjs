@@ -11,9 +11,14 @@
 //   node scripts/build-region-boundaries.mjs HN DN     # only these provinces
 //
 // Output:
-//   src/data/boundaries/<code>.json   one per resolved leaf, plus one per province
-//   src/data/boundaries/index.js      barrel
-//   src/data/regions/index.js         the tree: names, parents, centers, bboxes
+//   src/data/boundaries/<province>/<code>.json   one per resolved leaf, plus
+//                                                one per province
+//   src/data/boundaries/index.js                 barrel
+//   src/data/regions/index.js                    the tree: names, parents,
+//                                                centers, bboxes, coverage flags
+//
+// Panorama counts live in src/data/regions/counts.js and are written by
+// scripts/assign-pano-districts.mjs, not here.
 //
 // Coverage is deliberately partial and grows by adding entries below. A leaf
 // Nominatim cannot resolve is recorded as unresolved rather than failing the
@@ -47,6 +52,12 @@ const TREE_DIR = 'src/data/regions';
 //   center    Optional override. The computed centre of mass of an irregular
 //             outline can land somewhere no one associates with the place, so
 //             the five original entry points keep their hand-picked centres.
+//
+// To add a province: add its node and its leaves here, run this script, then
+// scripts/build-pano-index.mjs and scripts/assign-pano-districts.mjs. No
+// application code changes -- every screen reads the generated tree. The
+// Coverage section of docs/project-overview.md explains what each kind of
+// absent coverage means and which one is actually a defect.
 const REGIONS = {
   VN: { name: 'Vietnam', level: 'country' },
 

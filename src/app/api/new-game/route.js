@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getRegion } from '../../../lib/regions.js';
 import { resolvePlayableRegion, publicRegion } from '../../../lib/region-request.js';
-import { fetchCityPanorama } from '../../../lib/mapillary.js';
+import { fetchRegionPanorama } from '../../../lib/mapillary.js';
 import { storeGameSession, getGameSession } from '../../../lib/session.js';
 
 // Generate a unique session ID using uuid
@@ -25,7 +25,7 @@ export async function GET(request) {
   try {
     // The location comes from the prebuilt index, so this is one lookup rather
     // than a search over an area.
-    const imageResult = await fetchCityPanorama(pickedRegion);
+    const imageResult = await fetchRegionPanorama(pickedRegion);
 
     if (!imageResult.success) {
       // The user-facing message is generic; keep the real cause in the logs so

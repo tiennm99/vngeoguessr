@@ -1,26 +1,35 @@
 ---
 name: project-quality-gates-blind-spots
-description: This repo's three quality gates (lint, build:check, vitest) cannot catch undefined identifiers or any UI regression, so never treat "all green" as evidence a component works
+description: What this repo's four gates (lint, vitest, integration, build:check) can and cannot catch - no-undef now closed, but UI behaviour and doc truthfulness remain unverifiable by any gate
 metadata:
   type: project
 ---
 
-`npm run lint`, `npm run build:check` and `npx vitest run` all pass on code that
-throws `ReferenceError` at runtime.
+`npm run lint`, `npm test`, `npm run test:integration` and `npm run build:check`
+can all be green while a screen is broken and a doc is false.
 
-**Why:** the repo is JavaScript-only by policy (no TS), ESLint extends only
-`next/core-web-vitals`, which enables neither `no-undef` nor `no-unused-vars`;
-the Next.js production build does not type-check JS; and `tests/` contains no
-component tests and no `@testing-library` dependency — every suite is lib/API
-level. Verified 2026-08-30 while reviewing the Phase 5 region-navigation UI:
-`GameClient.js` kept ten calls to `setGlobalRank` / `setCityRank` /
-`setGlobalScore` / `setCityScore` / `setGlobalDistanceRank` /
-`setCityDistanceRank` after their `useState` declarations were deleted, and all
-three gates were clean.
+**Why:** JavaScript-only by policy, so no type checker. `tests/` has no component
+tests and no `@testing-library` dependency - every suite is lib/API level.
+
+**Closed since 2026-08-30:** `eslint.config.mjs` now adds `no-undef: error` and
+`no-unused-vars: warn` on top of `next/core-web-vitals`, with browser+node
+globals. That kills the original failure (six `useState` declarations deleted,
+ten setter call sites surviving green). Lint currently emits 4 pre-existing
+`no-unused-vars` warnings; treat any new one as a signal.
+
+**Still open, verified 2026-08-30 on the Phase 6 docs review:**
+- React prop/state contracts. `no-undef` does not see a prop a parent forgot to
+  pass, a stale value left in state when a sibling is cleared, or a Leaflet
+  layer never removed. Reason through the render and effect order by hand.
+- Doc claims. Nothing asserts that `/docs/` matches the code. Two real misses in
+  one pass: a doc naming `playableRegions()` as the enforcement point when the
+  real one is `isPlayable()` via `resolvePlayableRegion()` (grep the named symbol
+  for production callers, not just for existence), and a doc claiming a per-point
+  `is_pano` field that is only a build-time filter (open the generated data and
+  look at an actual record).
 
 **How to apply:** when a diff removes or renames state, props, helpers, or
-imports, grep the whole file for the old identifiers rather than trusting the
-gates. For any React change, also state plainly in the report which criteria are
-runtime-only and therefore unverified by static review. Related:
-[[project-anti-cheat-invariant]] — same lesson, a passing test is not the
-property.
+imports, grep the whole file. For any React change, state plainly in the report
+which criteria are runtime-only. For any doc change, verify each load-bearing
+claim with a command and say which claims you could not verify. Related:
+[[project-anti-cheat-invariant]] - same lesson, a passing test is not the property.
