@@ -6,7 +6,7 @@
 // replaces asking the Graph API what is near a random point, which fails
 // outright in dense districts and takes seconds where it works.
 //
-// SERVER-SIDE ONLY. These files are ~25MB of exact answers; importing them from
+// SERVER-SIDE ONLY. These files are ~28MB of exact answers; importing them from
 // anywhere the browser can reach hands every round's solution to the player.
 // src/lib/regions.js is the client-safe view of the same tree and deliberately
 // imports nothing from here -- tests/regions.test.js enforces that boundary.

@@ -3,7 +3,20 @@
 import { Medal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDistance, getDistanceColor } from '../../lib/game';
+import { formatDistance, calculateScore } from '../../lib/game';
+
+// Keyed by the round score the distance would earn, so the tint tracks the
+// scoring ladder instead of re-typing its thresholds.
+const DISTANCE_COLORS = {
+  5: 'text-green-700 dark:text-green-300',
+  4: 'text-blue-700 dark:text-blue-300',
+  3: 'text-yellow-700 dark:text-yellow-300',
+  2: 'text-orange-700 dark:text-orange-300',
+};
+
+function getDistanceColor(distance) {
+  return DISTANCE_COLORS[calculateScore(distance)] ?? 'text-red-700 dark:text-red-300';
+}
 
 function getScoreColor(score) {
   if (score >= 50) return 'text-purple-700 dark:text-purple-300';

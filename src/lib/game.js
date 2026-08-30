@@ -17,14 +17,21 @@ export function calculateDistance(lat1, lon1, lat2, lon2) {
   }
 }
 
+// Distance ceiling in meters -> points. The single scoring ladder; anything
+// that bands a result (colors, labels, the scoring table on the home page)
+// should derive from calculateScore rather than re-typing these thresholds.
+export const SCORE_BANDS = [
+  { maxMeters: 50, points: 5 },
+  { maxMeters: 100, points: 4 },
+  { maxMeters: 200, points: 3 },
+  { maxMeters: 500, points: 2 },
+  { maxMeters: 1000, points: 1 },
+];
+
 // Calculate score based on distance (0-5 points scale)
 export function calculateScore(distance) {
-  if (distance <= 50) return 5;
-  if (distance <= 100) return 4;
-  if (distance <= 200) return 3;
-  if (distance <= 500) return 2;
-  if (distance <= 1000) return 1;
-  return 0;
+  const band = SCORE_BANDS.find((entry) => distance <= entry.maxMeters);
+  return band ? band.points : 0;
 }
 
 // Format distance for display
@@ -34,33 +41,4 @@ export function formatDistance(distance) {
   } else {
     return `${(distance / 1000).toFixed(2)}km`;
   }
-}
-
-
-// Get or set username from localStorage
-export function getUsername() {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('vngeoguessr_username');
-}
-
-export function setUsername(username) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('vngeoguessr_username', username);
-}
-
-// Get result message based on score
-export function getResultMessage(score, distance) {
-  if (score > 4) return "Excellent! Outstanding guess!";
-  if (score > 2) return "Good job! Nice work!";
-  if (score > 0) return "Not bad! Keep trying!";
-  return "Nice try! Better luck next time!";
-}
-
-// Get distance color for leaderboard display
-export function getDistanceColor(distance) {
-  if (distance <= 50) return 'text-green-700 dark:text-green-300';
-  if (distance <= 100) return 'text-blue-700 dark:text-blue-300';
-  if (distance <= 200) return 'text-yellow-700 dark:text-yellow-300';
-  if (distance <= 500) return 'text-orange-700 dark:text-orange-300';
-  return 'text-red-700 dark:text-red-300';
 }
