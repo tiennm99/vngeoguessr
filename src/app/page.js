@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Trophy, Coffee, Wrench } from "lucide-react";
+import { ArrowRight, Trophy, Wrench } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -151,8 +151,8 @@ export default function Home() {
                 onClick={() => setShowDonateModal(true)}
                 className="min-h-11 bg-brand text-brand-foreground hover:bg-brand-hover transition-all"
               >
-                <Coffee className="size-4" aria-hidden="true" />
-                Buy me a coffee
+                <span className="text-base leading-none" aria-hidden="true">🍺</span>
+                Buy me a beer
               </Button>
             </div>
           </header>

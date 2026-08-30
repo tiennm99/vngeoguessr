@@ -10,21 +10,23 @@ export default function DonateQRModal({ isOpen, onClose }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md max-w-[90vw] max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="text-2xl text-center font-bold">Buy Me a Coffee</DialogTitle>
+          <DialogTitle className="text-2xl text-center font-bold">
+            Buy Me a Beer <span aria-hidden="true">🍺</span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="text-center space-y-4 flex flex-col items-center">
-          <div className="w-full max-w-[320px] mx-auto">
+          <div className="w-full max-w-[280px] mx-auto">
             <Image
-              src="/qr.png"
+              src="/zlp.jpg"
               alt="QR code for bank transfer donation"
-              width={320}
-              height={320}
+              width={768}
+              height={1024}
               className="w-full h-auto object-contain rounded-xl shadow-lg"
             />
           </div>
 
-          <p className="text-sm text-muted-foreground">Scan to support the project</p>
+          <p className="text-sm text-muted-foreground">Scan to buy me a beer</p>
 
           <Button
             onClick={onClose}
