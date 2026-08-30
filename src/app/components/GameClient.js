@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { ArrowLeft, Coffee } from 'lucide-react';
+import { ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import PanoramaViewer from './PanoramaViewer';
 import DonateQRModal from './DonateQRModal';
 
@@ -49,7 +49,12 @@ export default function GameClient() {
   const [cityDistanceRank, setCityDistanceRank] = useState(null);
   const [leaderboardMessage, setLeaderboardMessage] = useState('');
   const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]);
+  // On phones the guess map floats over the panorama as a corner minimap and
+  // only takes over the screen once tapped. Desktop keeps both side by side and
+  // ignores this flag entirely.
+  const [mapExpanded, setMapExpanded] = useState(false);
 
+  const guessMapRef = useRef(null);
   const resultMapRef = useRef(null);
   const resultLeafletMapRef = useRef(null);
   const initializingRef = useRef(false);
@@ -148,6 +153,19 @@ export default function GameClient() {
     setLoading(false);
   }, []);
 
+  const handleGuessMapReady = useCallback((map) => {
+    guessMapRef.current = map;
+  }, []);
+
+  // Leaflet caches its container size, so growing or shrinking the minimap
+  // leaves it rendering at the old dimensions until it is told to remeasure.
+  useEffect(() => {
+    const map = guessMapRef.current;
+    if (!map) return;
+    const timer = setTimeout(() => map.invalidateSize(), 220);
+    return () => clearTimeout(timer);
+  }, [mapExpanded]);
+
   const handleMapClick = (coordinates) => {
     setGuessCoordinates([coordinates.lat, coordinates.lng]);
   };
@@ -196,6 +214,7 @@ export default function GameClient() {
   };
 
   const resetRoundState = () => {
+    setMapExpanded(false);
     setGuessCoordinates(null);
     setGlobalRank(null);
     setCityRank(null);
@@ -357,7 +376,7 @@ export default function GameClient() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center vn-gradient-bg">
+      <div className="h-dvh flex items-center justify-center vn-gradient-bg">
         <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
           <div className="w-12 h-12 border-4 border-border border-t-brand rounded-full animate-spin mx-auto" aria-hidden="true" />
           <p className="text-foreground text-lg font-medium">Loading panoramic image...</p>
@@ -368,9 +387,9 @@ export default function GameClient() {
   }
 
   return (
-    <div className="min-h-dvh vn-gradient-bg flex flex-col">
+    <div className="h-dvh vn-gradient-bg flex flex-col overflow-hidden">
       {/* Compact Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-card border-b border-border shadow-sm">
+      <header className="flex items-center justify-between px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] bg-card border-b border-border shadow-sm">
         <Button
           onClick={handleGoBack}
           variant="ghost"
@@ -392,18 +411,19 @@ export default function GameClient() {
           onClick={() => setShowDonate(true)}
           variant="ghost"
           size="sm"
-          aria-label="Buy me a coffee"
+          aria-label="Buy me a beer"
           className="min-h-11 text-muted-foreground hover:text-foreground"
         >
-          <Coffee className="size-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Buy me a coffee</span>
+          <span className="text-base leading-none" aria-hidden="true">🍺</span>
+          <span className="hidden sm:inline">Buy me a beer</span>
         </Button>
       </header>
 
-      {/* Game Content */}
-      <div className="flex-1 p-3 grid lg:grid-cols-2 gap-3 lg:h-[calc(100dvh-52px)]">
+      {/* Game Content. Phones get a full-bleed panorama with the guess map
+          floating over it; lg and up keeps the original two-column split. */}
+      <div className="relative flex-1 min-h-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:p-3">
         {/* Panorama Viewer */}
-        <div className="bg-neutral-900 rounded-lg overflow-hidden min-h-[45dvh] lg:min-h-0">
+        <div className="absolute inset-0 bg-neutral-900 overflow-hidden lg:static lg:rounded-lg">
           {imageData ? (
             <PanoramaViewer
               key={imageData.id}
@@ -412,31 +432,64 @@ export default function GameClient() {
               onError={handlePanoramaError}
             />
           ) : (
-            <div className="w-full h-full min-h-[400px] flex items-center justify-center" role="status" aria-live="polite">
+            <div className="w-full h-full flex items-center justify-center" role="status" aria-live="polite">
               <p className="text-neutral-300">Loading panorama...</p>
             </div>
           )}
         </div>
 
-        {/* Map and Controls */}
-        <div className="flex flex-col gap-3">
-          <div className="bg-card rounded-lg overflow-hidden flex-1 shadow-sm border border-border">
+        {/* Map and Controls. display:contents on mobile so both children
+            position against the panorama; a flex column from lg up. */}
+        <div className="contents lg:flex lg:flex-col lg:min-h-0 lg:gap-3">
+          <div
+            className={`absolute z-[500] overflow-hidden rounded-lg border border-border bg-card shadow-lg transition-all duration-200 ease-out bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:static lg:inset-auto lg:z-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:shadow-sm ${
+              mapExpanded ? 'inset-x-3 top-3' : 'right-3 h-36 w-36'
+            }`}
+          >
             <LeafletMap
               center={mapCenter}
               bbox={CITIES[location]?.bbox}
               zoom={10}
               onMapClick={handleMapClick}
-              className="w-full h-full min-h-[400px]"
+              onReady={handleGuessMapReady}
+              className="w-full h-full"
             />
+
+            {/* Collapsed, the map is only a preview: this cover turns the whole
+                minimap into one tap target instead of letting a stray touch
+                drop a pin the player cannot see at that size. */}
+            {!mapExpanded && (
+              <button
+                type="button"
+                onClick={() => setMapExpanded(true)}
+                aria-label="Expand the guess map"
+                className="absolute inset-0 z-[1200] flex flex-col items-center justify-center gap-1 bg-background/35 text-xs font-semibold text-foreground backdrop-blur-[1px] lg:hidden"
+              >
+                <Maximize2 className="size-4" aria-hidden="true" />
+                {guessCoordinates ? 'Edit guess' : 'Tap to guess'}
+              </button>
+            )}
+
+            {mapExpanded && (
+              <button
+                type="button"
+                onClick={() => setMapExpanded(false)}
+                aria-label="Collapse the guess map"
+                className="absolute top-2 right-2 z-[1200] flex size-11 items-center justify-center rounded-full border border-border bg-card/90 text-foreground shadow-md backdrop-blur lg:hidden"
+              >
+                <Minimize2 className="size-4" aria-hidden="true" />
+              </button>
+            )}
           </div>
-          <div className="flex gap-2">
+
+          <div className="absolute inset-x-0 bottom-0 z-[600] flex gap-2 border-t border-border bg-card/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:pb-0 lg:backdrop-blur-none">
             <Button
               onClick={handleSubmitGuess}
               disabled={!guessCoordinates || loading}
               className="flex-1 min-h-12 py-4 text-base font-bold bg-brand text-brand-foreground hover:bg-brand-hover"
               size="lg"
             >
-              {loading ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Click the map first'}
+              {loading ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Place a guess first'}
             </Button>
             <Button
               onClick={handleSkipGuess}
@@ -453,91 +506,97 @@ export default function GameClient() {
 
       {/* Result Modal */}
       <Dialog open={showResult} onOpenChange={() => setShowResult(false)}>
-        <DialogContent className="sm:max-w-xl" key={showResult ? 'open' : 'closed'}>
+        <DialogContent
+          className="sm:max-w-xl max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
+          key={showResult ? 'open' : 'closed'}
+        >
           <DialogHeader>
             <DialogTitle className="text-center text-2xl font-bold">Round Result</DialogTitle>
           </DialogHeader>
 
-          <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
-            {/* Score circle */}
-            <div className="flex flex-col items-center gap-2">
-              <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)}`}>
-                {score}
+          {/* Scrollable body: everything between the title and the actions. */}
+          <div className="overflow-y-auto -mx-1 px-1 space-y-4">
+            <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
+              {/* Score circle */}
+              <div className="flex flex-col items-center gap-2">
+                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold ${getScoreBg(score)}`}>
+                  {score}
+                </div>
+                <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  {getScoreLabel(score)}
+                </span>
               </div>
-              <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                {getScoreLabel(score)}
-              </span>
+
+              <div>
+                <Badge variant="outline" className="text-lg font-semibold px-3 py-1 tabular-nums">
+                  {formatDistance(distance)} away
+                </Badge>
+              </div>
+
+              <p className="text-muted-foreground text-sm">{getResultMessage(score, distance)}</p>
+
+              {/* Leaderboard ranks */}
+              {(globalScore !== null || cityScore !== null) && (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {cityScore !== null && (
+                    <div className="bg-brand-subtle text-brand-subtle-foreground rounded-lg p-2">
+                      <p className="font-semibold">{cityNames[location]}</p>
+                      <p className="tabular-nums">Total: {cityScore}</p>
+                      {cityRank && <p className="text-xs opacity-80 tabular-nums">Rank #{cityRank}</p>}
+                    </div>
+                  )}
+                  {globalScore !== null && (
+                    <div className="bg-muted text-foreground rounded-lg p-2">
+                      <p className="font-semibold">Global</p>
+                      <p className="tabular-nums">Total: {globalScore}</p>
+                      {globalRank && <p className="text-xs text-muted-foreground tabular-nums">Rank #{globalRank}</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(globalDistanceRank !== null || cityDistanceRank !== null) && (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {cityDistanceRank !== null && (
+                    <div className="bg-muted rounded-lg p-2">
+                      <p className="font-medium text-foreground">{cityNames[location]} Distance</p>
+                      <p className="text-muted-foreground tabular-nums">Rank #{cityDistanceRank}</p>
+                    </div>
+                  )}
+                  {globalDistanceRank !== null && (
+                    <div className="bg-muted rounded-lg p-2">
+                      <p className="font-medium text-foreground">Global Distance</p>
+                      <p className="text-muted-foreground tabular-nums">Rank #{globalDistanceRank}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {leaderboardMessage && (
+                <p className="text-sm text-green-700 dark:text-green-400 font-medium">{leaderboardMessage}</p>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                {username || 'Anonymous'} • {cityNames[location] || location}
+              </p>
             </div>
 
-            <div>
-              <Badge variant="outline" className="text-lg font-semibold px-3 py-1 tabular-nums">
-                {formatDistance(distance)} away
-              </Badge>
-            </div>
-
-            <p className="text-muted-foreground text-sm">{getResultMessage(score, distance)}</p>
-
-            {/* Leaderboard ranks */}
-            {(globalScore !== null || cityScore !== null) && (
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {cityScore !== null && (
-                  <div className="bg-brand-subtle text-brand-subtle-foreground rounded-lg p-2">
-                    <p className="font-semibold">{cityNames[location]}</p>
-                    <p className="tabular-nums">Total: {cityScore}</p>
-                    {cityRank && <p className="text-xs opacity-80 tabular-nums">Rank #{cityRank}</p>}
-                  </div>
+            {/* Result Map */}
+            <div className="rounded-lg overflow-hidden border border-border">
+              <div
+                ref={resultMapRef}
+                key={`map-${sessionId}`}
+                className="h-52 w-full bg-muted"
+                style={{ minHeight: '208px' }}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 tabular-nums">
+                {exactLocation && (
+                  <span>Actual: {exactLocation.lat.toFixed(4)}, {exactLocation.lng.toFixed(4)}</span>
                 )}
-                {globalScore !== null && (
-                  <div className="bg-muted text-foreground rounded-lg p-2">
-                    <p className="font-semibold">Global</p>
-                    <p className="tabular-nums">Total: {globalScore}</p>
-                    {globalRank && <p className="text-xs text-muted-foreground tabular-nums">Rank #{globalRank}</p>}
-                  </div>
+                {guessCoordinates && (
+                  <span>Guess: {guessCoordinates[0].toFixed(4)}, {guessCoordinates[1].toFixed(4)}</span>
                 )}
               </div>
-            )}
-
-            {(globalDistanceRank !== null || cityDistanceRank !== null) && (
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {cityDistanceRank !== null && (
-                  <div className="bg-muted rounded-lg p-2">
-                    <p className="font-medium text-foreground">{cityNames[location]} Distance</p>
-                    <p className="text-muted-foreground tabular-nums">Rank #{cityDistanceRank}</p>
-                  </div>
-                )}
-                {globalDistanceRank !== null && (
-                  <div className="bg-muted rounded-lg p-2">
-                    <p className="font-medium text-foreground">Global Distance</p>
-                    <p className="text-muted-foreground tabular-nums">Rank #{globalDistanceRank}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {leaderboardMessage && (
-              <p className="text-sm text-green-700 dark:text-green-400 font-medium">{leaderboardMessage}</p>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              {username || 'Anonymous'} • {cityNames[location] || location}
-            </p>
-          </div>
-
-          {/* Result Map */}
-          <div className="rounded-lg overflow-hidden border border-border">
-            <div
-              ref={resultMapRef}
-              key={`map-${sessionId}`}
-              className="h-52 w-full bg-muted"
-              style={{ minHeight: '208px' }}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground px-3 py-1.5 bg-muted/50 tabular-nums">
-              {exactLocation && (
-                <span>Actual: {exactLocation.lat.toFixed(4)}, {exactLocation.lng.toFixed(4)}</span>
-              )}
-              {guessCoordinates && (
-                <span>Guess: {guessCoordinates[0].toFixed(4)}, {guessCoordinates[1].toFixed(4)}</span>
-              )}
             </div>
           </div>
 

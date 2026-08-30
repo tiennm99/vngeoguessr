@@ -22,6 +22,9 @@ export const metadata = {
 // widgets, matching the token palette in globals.css.
 export const viewport = {
   colorScheme: "light dark",
+  // The game screen is a fixed, non-scrolling surface, so the layout must own
+  // the whole display and pad itself against the notch and home indicator.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f8f9fb" },
     { media: "(prefers-color-scheme: dark)", color: "#0d0d0d" },

@@ -62,7 +62,10 @@ function PanoramaViewer({ imageUrl, onReady, onError }) {
           defaultZoomLvl: -60,
           navbar: ["zoom", "fullscreen"],
           mousewheel: true,
-          touchmoveTwoFingers: true
+          // One finger must rotate the panorama: looking around is the core
+          // verb of the game. Two-finger mode only makes sense when the viewer
+          // sits inside a scrolling page, and the game screen no longer scrolls.
+          touchmoveTwoFingers: false
         });
         
         console.log('PhotoSphere Viewer created successfully');
@@ -140,7 +143,7 @@ function PanoramaViewer({ imageUrl, onReady, onError }) {
   return (
     <div 
       ref={containerRef} 
-      className="w-full h-full min-h-[400px] bg-neutral-900 rounded-lg overflow-hidden"
+      className="w-full h-full bg-neutral-900 overflow-hidden touch-none"
     />
   );
 }

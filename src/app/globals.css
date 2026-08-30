@@ -130,6 +130,19 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* The game screen is a fixed-height surface. Suppressing overscroll stops
+       the rubber-band bounce from firing when a drag reaches the edge of the
+       panorama or the guess map. */
+    overscroll-behavior-y: none;
+  }
+}
+
+/* The mobile game screen pins its own action bar over the bottom of the
+   full-bleed panorama, which would bury the viewer's navbar. One-finger drag
+   and pinch-zoom replace what that navbar offered, so hide it below lg. */
+@media (max-width: 1023px) {
+  .psv-navbar {
+    display: none;
   }
 }
 
