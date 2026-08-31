@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { submitScore, submitDistanceRecord } from '../../../lib/leaderboard.js';
+import { submitRoundScore, submitDistanceRecord } from '../../../lib/leaderboard.js';
 import { getGameSession, deleteGameSession } from '../../../lib/session.js';
-import { calculateDistance, calculateScore } from '../../../lib/game.js';
+import { calculateDistance, calculateScore, bandsForBbox, SCORE_BANDS } from '../../../lib/game.js';
 import { publicRegion } from '../../../lib/region-request.js';
+import { getRegion, isRegion } from '../../../lib/regions.js';
 
 export async function POST(request) {
   try {
@@ -59,8 +60,18 @@ export async function POST(request) {
       numTargetLat, numTargetLng
     );
 
+    // Score against the ladder stretched to the region the player CHOSE, not
+    // the district the panorama resolved to: picking the whole country means
+    // guessing over 331,000 km2, and the district-scale ladder would zero
+    // almost every honest guess. The picked region is not a secret, so this
+    // reveals nothing.
+    const pickedCode = session.pickedRegion ?? session.cityCode ?? null;
+    const scoreBands = pickedCode && isRegion(pickedCode)
+      ? bandsForBbox(getRegion(pickedCode).bbox)
+      : SCORE_BANDS;
+
     // Calculate score based on distance (server-side)
-    const finalScore = calculateScore(distance);
+    const finalScore = calculateScore(distance, scoreBands);
 
     // The region the panorama was actually in, resolved server-side when the
     // round was created. Never read from the request: a client that could name
@@ -87,7 +98,11 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    const leaderboardResult = await submitScore(username.trim(), finalScore, scoringRegion);
+    // Boards are credited per level from the raw distance, each against its
+    // own regional ladder -- NOT with finalScore, which is graded on the
+    // picked region's ladder and would let a country round buy district-board
+    // points at country precision.
+    const leaderboardResult = await submitRoundScore(username.trim(), distance, scoringRegion);
     const distanceResult = await submitDistanceRecord(username.trim(), distance, scoringRegion);
 
     // Log the submission for anti-cheat monitoring
@@ -107,6 +122,9 @@ export async function POST(request) {
       gameResult: {
         distance,
         score: finalScore,
+        // The ladder this round was scored against, so the reveal can show how
+        // close the guess needed to be for each point value.
+        bands: scoreBands,
         // One entry per level credited, outermost last. The client renders
         // these directly rather than a fixed global/city pair.
         levels: leaderboardResult.levels,

@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  SCORE_BANDS,
+  bandsForBbox,
+  bandsForDiagonal,
   calculateDistance,
   calculateScore,
   formatDistance,
 } from '../src/lib/game.js';
+import { getRegion } from '../src/lib/regions.js';
 
 describe('calculateScore', () => {
   // The bands are the whole scoring rule, so each boundary is pinned on both
@@ -23,6 +27,49 @@ describe('calculateScore', () => {
     [50000, 0],
   ])('scores %dm as %d', (distance, expected) => {
     expect(calculateScore(distance)).toBe(expected);
+  });
+
+  it('scores against a supplied ladder', () => {
+    const doubled = bandsForDiagonal(20_000);
+    expect(calculateScore(150, doubled)).toBe(4);
+    expect(calculateScore(150)).toBe(3);
+  });
+});
+
+describe('bandsForDiagonal', () => {
+  it('keeps the base ladder for a district-sized region or smaller', () => {
+    expect(bandsForDiagonal(5_000)).toEqual(SCORE_BANDS);
+    expect(bandsForDiagonal(10_000)).toEqual(SCORE_BANDS);
+  });
+
+  it('stretches thresholds proportionally, preserving points', () => {
+    expect(bandsForDiagonal(20_000)).toEqual([
+      { maxMeters: 100, points: 5 },
+      { maxMeters: 200, points: 4 },
+      { maxMeters: 400, points: 3 },
+      { maxMeters: 1000, points: 2 },
+      { maxMeters: 2000, points: 1 },
+    ]);
+  });
+});
+
+describe('bandsForBbox', () => {
+  it('falls back to the base ladder without a bbox', () => {
+    expect(bandsForBbox(null)).toBe(SCORE_BANDS);
+    expect(bandsForBbox(undefined)).toBe(SCORE_BANDS);
+  });
+
+  it('widens the ladder for the whole country', () => {
+    // A 1km miss must not be a zero across 331,000 km2 -- that is the whole
+    // point of scaling. The exact figure tracks the generated bbox, so pin
+    // the property, not the number.
+    const bands = bandsForBbox(getRegion('VN').bbox);
+    expect(bands[0].maxMeters).toBeGreaterThan(SCORE_BANDS[0].maxMeters * 50);
+    expect(bands.map((band) => band.points)).toEqual([5, 4, 3, 2, 1]);
+    // Still an ordered ladder.
+    for (let i = 1; i < bands.length; i += 1) {
+      expect(bands[i].maxMeters).toBeGreaterThan(bands[i - 1].maxMeters);
+    }
   });
 });
 

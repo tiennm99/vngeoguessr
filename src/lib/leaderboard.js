@@ -8,6 +8,7 @@ import {
   zRemRangeByRank,
 } from './upstash.js';
 import { ancestorsOf, getRegion, isRegion, COUNTRY_CODE } from './regions.js';
+import { calculateScore, bandsForBbox } from './game.js';
 
 // Leaderboard logical key constants (prefix is applied inside the adapter).
 //
@@ -130,14 +131,14 @@ export async function getLeaderboard(regionCode = null, limit = 100, type = 'sco
  * Add a score to one region's board and return the new total and rank.
  * @param {Object} h Upstash handle.
  * @param {string} regionCode Region code.
- * @param {number} score Points to add.
+ * @param {number} points Points to add at this level.
  * @param {string} username Player.
  * @returns {Promise<Object>} Level result.
  */
-async function creditScore(h, regionCode, score, username) {
+async function creditScore(h, regionCode, points, username) {
   const key = getRegionLeaderboardKey(regionCode);
   const existing = await zScore(h, key, username);
-  const total = (existing || 0) + score;
+  const total = (existing || 0) + points;
 
   await zAdd(h, key, total, username);
   // Trim to the top MAX_LEADERBOARD_SIZE. The set is ascending, so drop the
@@ -153,6 +154,8 @@ async function creditScore(h, regionCode, score, username) {
     code: regionCode,
     name: getRegion(regionCode).name,
     username,
+    // What this round added at this level.
+    points,
     score: trimmed ? null : Number(total),
     rank: trimmed ? null : rank + 1,
     trimmed,
@@ -160,12 +163,49 @@ async function creditScore(h, regionCode, score, username) {
 }
 
 /**
- * Submit a score to a region and every region above it.
+ * Credit every level above a region, each by its own point value.
+ * @param {Object} h Upstash handle.
+ * @param {string} username Trimmed player name.
+ * @param {string} regionCode Leaf region the panorama was in.
+ * @param {Function} pointsFor Region code -> points to add at that level.
+ * @returns {Promise<Object>} Per-level results with named aliases.
+ */
+async function fanOutScore(h, username, regionCode, pointsFor) {
+  // In parallel: the levels are independent keys and no level reads another's
+  // state, so serialising them would add two round trips of latency to every
+  // guess for nothing. The four calls WITHIN a level stay ordered.
+  const levels = await Promise.all(
+    ancestorsOf(regionCode).map((code) => creditScore(h, code, pointsFor(code), username))
+  );
+
+  // Named aliases alongside the array: the chain is district -> province ->
+  // country for a leaf, but only province -> country when a panorama fell
+  // outside every district polygon, so callers cannot index by position.
+  const byLevel = (level) =>
+    levels.find((entry) => getRegion(entry.code).level === level) ?? null;
+
+  return {
+    success: true,
+    levels,
+    district: byLevel('district'),
+    province: byLevel('province'),
+    global: byLevel('country'),
+    // `city` is the pre-tree name for the province level. Kept so /api/guess
+    // keeps reporting a rank until the API surface moves to `levels`.
+    city: byLevel('province'),
+  };
+}
+
+/**
+ * Submit a known point value to a region and every region above it.
  *
- * Fans out over the ancestor chain, so a guess in District 7 credits the
- * district, Ho Chi Minh, and Vietnam by the same amount.
+ * Every level is credited by the same amount. NOT for round scoring: the game
+ * route goes through submitRoundScore, which grades each board by its own
+ * regional ladder -- a flat fan-out here is exactly the country-round
+ * asymmetry that change removed. This primitive exists for tests and manual
+ * backfills that already hold a per-board point value.
  * @param {string} username Player username.
- * @param {number} score Score achieved (0-5).
+ * @param {number} score Points to add (0-5).
  * @param {string} regionCode Region the panorama was in.
  * @returns {Promise<Object>} Per-level results.
  */
@@ -178,36 +218,58 @@ export async function submitScore(username, score, regionCode) {
     }
     requireRegion(regionCode);
 
-    const trimmedUsername = username.trim();
     const numScore = Number(score);
-
-    // In parallel: the levels are independent keys and no level reads another's
-    // state, so serialising them would add two round trips of latency to every
-    // guess for nothing. The four calls WITHIN a level stay ordered.
-    const levels = await Promise.all(
-      ancestorsOf(regionCode).map((code) => creditScore(h, code, numScore, trimmedUsername))
-    );
-
-    // Named aliases alongside the array: the chain is district -> province ->
-    // country for a leaf, but only province -> country when a panorama fell
-    // outside every district polygon, so callers cannot index by position.
-    const byLevel = (level) =>
-      levels.find((entry) => getRegion(entry.code).level === level) ?? null;
-
+    const result = await fanOutScore(h, username.trim(), regionCode, () => numScore);
     return {
-      success: true,
-      levels,
-      district: byLevel('district'),
-      province: byLevel('province'),
-      global: byLevel('country'),
-      // `city` is the pre-tree name for the province level. Kept so /api/guess
-      // keeps reporting a rank until the API surface moves to `levels`.
-      city: byLevel('province'),
-      message: `Score added at ${levels.length} levels (+${numScore})`,
+      ...result,
+      message: `Score added at ${result.levels.length} levels (+${numScore})`,
     };
   } catch (error) {
     console.error('Error submitting score:', error);
     throw new Error(error.message || 'Failed to submit score');
+  }
+}
+
+/**
+ * Score one round's distance onto every board above a region, each board by
+ * its own regional ladder.
+ *
+ * A 2km miss is a poor district guess but an excellent country one, so each
+ * level converts the distance with its own bbox-scaled bands: the district
+ * board only pays for district precision, however wide a region the player
+ * picked. This is what keeps every board's points meaning one thing.
+ * @param {string} username Player username.
+ * @param {number} distance Distance achieved in metres.
+ * @param {string} regionCode Region the panorama was in.
+ * @returns {Promise<Object>} Per-level results, each with the points added.
+ */
+export async function submitRoundScore(username, distance, regionCode) {
+  try {
+    const h = getUpstash();
+
+    if (!username || distance === undefined || !regionCode) {
+      throw new Error('Missing required fields: username, distance, regionCode');
+    }
+    requireRegion(regionCode);
+
+    // Rejected, not coerced: Number(null) and Number('') are 0, and a
+    // 0-metre distance is a maximum-score fan-out to every board.
+    if (typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0) {
+      throw new Error(`Invalid distance: ${distance}`);
+    }
+    const numDistance = distance;
+    const result = await fanOutScore(h, username.trim(), regionCode, (code) =>
+      calculateScore(numDistance, bandsForBbox(getRegion(code).bbox))
+    );
+    return {
+      ...result,
+      message: `Score added at ${result.levels.length} levels (${result.levels
+        .map((level) => `+${level.points}`)
+        .join(', ')})`,
+    };
+  } catch (error) {
+    console.error('Error submitting round score:', error);
+    throw new Error(error.message || 'Failed to submit round score');
   }
 }
 

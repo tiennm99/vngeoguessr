@@ -7,6 +7,7 @@ vi.mock('@upstash/redis', async (importOriginal) => {
 import {
   getLeaderboard,
   submitScore,
+  submitRoundScore,
   submitDistanceRecord,
 } from '../src/lib/leaderboard.js';
 import { resetStore, storedKeys } from './redis-harness.js';
@@ -244,6 +245,42 @@ describe('fan-out up the region tree', () => {
     expect(keys).not.toContain('vngeoguessr:leaderboard:city:vn');
   });
 
+  it('scores a round per level, each board by its own ladder', async () => {
+    // 2.2km off in District 7: nothing on the district board, full points on
+    // the country board. One flat number at every level is exactly the
+    // asymmetry submitRoundScore exists to remove.
+    const result = await submitRoundScore('mai', 2200, 'TPHCM-Q7');
+
+    // Literal expectations, not a recomputation through bandsForBbox -- that
+    // would repeat the production expression and could never fail. These pin
+    // the generated tree's actual ladders; a boundary rebuild that moves them
+    // SHOULD fail here and be re-pinned deliberately.
+    expect(result.levels.map((l) => [l.code, l.points])).toEqual([
+      ['TPHCM-Q7', 0],
+      ['TPHCM', 2],
+      ['VN', 5],
+    ]);
+    expect(result.message).toBe('Score added at 3 levels (+0, +2, +5)');
+    expect((await getLeaderboard('VN'))[0].score).toBe(5);
+    expect((await getLeaderboard('TPHCM-Q7'))[0].score).toBe(0);
+  });
+
+  it('scores a perfect round at full points on every level', async () => {
+    const result = await submitRoundScore('mai', 0, 'TPHCM-Q7');
+    expect(result.levels.map((l) => l.points)).toEqual([5, 5, 5]);
+  });
+
+  it.each([null, '', 'abc', -1, Infinity])(
+    'rejects %j as a distance instead of paying full points for it',
+    async (distance) => {
+      // Number(null) and Number('') are 0, and 0 metres is a maximum-score
+      // fan-out -- absent input must throw, not top every board.
+      await expect(submitRoundScore('mai', distance, 'TPHCM-Q7')).rejects.toThrow(
+        /Missing required fields|Invalid distance/
+      );
+    }
+  );
+
   it('fans distance records out with one shared id', async () => {
     const result = await submitDistanceRecord('mai', 250, 'TPHCM-Q7');
     expect(result.levels.map((l) => l.code)).toEqual(['TPHCM-Q7', 'TPHCM', 'VN']);
@@ -263,6 +300,7 @@ describe('region validation', () => {
 
   it.each([
     ['submitScore', () => submitScore('mai', 3, 'NOPE')],
+    ['submitRoundScore', () => submitRoundScore('mai', 100, 'NOPE')],
     ['submitDistanceRecord', () => submitDistanceRecord('mai', 100, 'NOPE')],
     ['getLeaderboard', () => getLeaderboard('NOPE')],
   ])('%s rejects an unknown region', async (_name, call) => {

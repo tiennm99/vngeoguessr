@@ -7,6 +7,8 @@ vi.mock('@upstash/redis', async (importOriginal) => {
 import { POST } from '../src/app/api/guess/route.js';
 import { storeGameSession } from '../src/lib/session.js';
 import { getLeaderboard } from '../src/lib/leaderboard.js';
+import { bandsForBbox, calculateDistance, calculateScore } from '../src/lib/game.js';
+import { getRegion } from '../src/lib/regions.js';
 import { resetStore, storedKeys } from './redis-harness.js';
 
 // Scoring reads the region from the session and nowhere else. This is the
@@ -133,6 +135,39 @@ describe('POST /api/guess', () => {
     // One distance record, not ten: the entry id embeds a timestamp, so
     // duplicates would each take their own slot on a 200-entry board.
     expect(await getLeaderboard('TPHCM-Q7', 100, 'distance')).toHaveLength(1);
+  });
+
+  it('scores against the ladder of the PICKED region, not the district', async () => {
+    // The session was created for a province round, so the district-scale
+    // ladder does not apply: a miss of a couple of kilometres across a whole
+    // province is a good guess, not a zero.
+    await seedSession('s7');
+    const guessLat = HCMC.lat + 0.02; // roughly 2.2km north
+    const body = await (
+      await guess({ username: 'mai', sessionId: 's7', guessLat, guessLng: HCMC.lng })
+    ).json();
+
+    const expectedBands = bandsForBbox(getRegion('TPHCM').bbox);
+    const distance = calculateDistance(guessLat, HCMC.lng, HCMC.lat, HCMC.lng);
+    expect(body.gameResult.bands).toEqual(expectedBands);
+    expect(body.gameResult.score).toBe(calculateScore(distance, expectedBands));
+    // The property the change exists for: the district ladder would zero this.
+    expect(body.gameResult.score).toBeGreaterThan(0);
+    expect(calculateScore(distance)).toBe(0);
+
+    // Each BOARD is credited by its own ladder, not the picked region's: the
+    // 2.2km miss earns country points on the country board and nothing on the
+    // district board, so a wide round cannot buy narrow-board points.
+    const districtPoints = calculateScore(distance, bandsForBbox(getRegion('TPHCM-Q7').bbox));
+    const countryPoints = calculateScore(distance, bandsForBbox(getRegion('VN').bbox));
+    expect(countryPoints).toBeGreaterThan(districtPoints);
+    const perLevel = Object.fromEntries(
+      body.gameResult.levels.map((level) => [level.code, level.points])
+    );
+    expect(perLevel['TPHCM-Q7']).toBe(districtPoints);
+    expect(perLevel.VN).toBe(countryPoints);
+    expect((await getLeaderboard('VN'))[0].score).toBe(countryPoints);
+    expect((await getLeaderboard('TPHCM-Q7'))[0].score).toBe(districtPoints);
   });
 
   it('rejects an expired or unknown session', async () => {

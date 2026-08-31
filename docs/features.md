@@ -44,13 +44,30 @@
   using Turf.js
 
 ## Scoring System
-Distance-based points (0-5 scale):
+Distance-based points (0-5 scale), region-relative. The base ladder (used
+as-is only by regions whose bbox diagonal is at or under the 10km reference —
+about a third of the districts; every larger region stretches it):
 - **0-50m**: 5 points
 - **50m-100m**: 4 points
 - **100m-200m**: 3 points
 - **200m-500m**: 2 points
 - **500m-1km**: 1 point
-- **1km+**: 0 points
+- **beyond**: 0 points
+
+Playing a larger region stretches every threshold in proportion to the picked
+region's bbox diagonal (reference: 10km, `bandsForBbox` in `src/lib/game.js`),
+so a country round is not a guaranteed string of zeros. The ladder a round was
+scored against is returned in `gameResult.bands` and shown on the result
+dialog. Scores earned before this change stay on the boards under the old
+absolute ladder.
+
+The headline score uses the picked region's ladder; the leaderboards do not.
+Each board is credited from the raw distance against its own region's ladder
+(`submitRoundScore` in `src/lib/leaderboard.js`): a 2km miss on a country round
+earns country points on the Vietnam board and nothing on the district board.
+Without this, a country round would buy district-board points at country
+precision. Each level's added points are returned as `points` on its
+`gameResult.levels` entry.
 
 ## Leaderboards
 - **Rollup fan-out**: one guess credits the district its panorama sat in, then
