@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDistance } from '../../lib/game';
 import { useCountUp } from '../../lib/use-count-up';
 import ResultMap from './ResultMap';
@@ -58,11 +58,27 @@ export default function RoundResultDialog({
       <DialogContent
         className="sm:max-w-xl max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
         key={open ? 'open' : 'closed'}
+        // The round's session was consumed on submit, so closing this dialog
+        // would strand the player in a dead round whose re-submit reads as
+        // "Round Not Recorded". No X, and Esc/overlay are no-ops upstream: the
+        // only ways forward are Next Round and Menu.
+        showCloseButton={false}
       >
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold">
             {result?.failed ? 'Round Not Recorded' : 'Round Result'}
           </DialogTitle>
+          {/* Carries the round outcome so screen readers hear it once via
+              aria-describedby when the dialog opens -- a live region would
+              race the dialog mount, and the visual count-up must not be
+              announced frame by frame. */}
+          <DialogDescription className="sr-only">
+            {result?.failed
+              ? 'The guess could not be saved and nothing was scored.'
+              : result && Number.isFinite(result.distance)
+                ? `Scored ${score} of 5 points, ${formatDistance(result.distance)} away.`
+                : ''}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Scrollable body: everything between the title and the actions. */}
@@ -81,7 +97,7 @@ export default function RoundResultDialog({
             </div>
           ) : result ? (
             <>
-              <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
+              <div className="text-center space-y-4 animate-fade-in-up">
                 {/* Score circle */}
                 <div className="flex flex-col items-center gap-2 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
                   <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold tabular-nums shadow-md ring-4 ring-background ${getScoreBg(score)}`}>
@@ -97,6 +113,36 @@ export default function RoundResultDialog({
                     {formatDistance(result.distance)} away
                   </Badge>
                 </div>
+
+                {/* The ladder this round was scored against. Thresholds scale
+                    with the picked region, so "how close did I need to be?"
+                    has no fixed answer worth memorising. Older stubbed or
+                    cached results carry no bands; then there is no strip. */}
+                {Array.isArray(result.bands) && result.bands.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-1.5 text-xs animate-fade-in-up" style={{ animationDelay: '280ms' }}>
+                    {result.bands.map((band) => (
+                      <span
+                        key={band.points}
+                        className={`rounded-md px-2 py-1 tabular-nums ${
+                          band.points === score
+                            ? 'bg-brand text-brand-foreground font-semibold'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {`≤${formatDistance(band.maxMeters)} = ${band.points}`}
+                      </span>
+                    ))}
+                    <span
+                      className={`rounded-md px-2 py-1 tabular-nums ${
+                        score === 0
+                          ? 'bg-brand text-brand-foreground font-semibold'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      beyond = 0
+                    </span>
+                  </div>
+                )}
 
                 <p className="text-muted-foreground text-sm animate-fade-in-up" style={{ animationDelay: '320ms' }}>
                   {getResultMessage(score)}
@@ -123,6 +169,9 @@ export default function RoundResultDialog({
                         <p className="font-semibold">{entry.name}</p>
                         <p className="tabular-nums">
                           {entry.score === null ? 'Below top 200' : `Total: ${entry.score}`}
+                          {/* Each board judges the round by its own regional
+                              ladder, so what it added is worth naming. */}
+                          {typeof entry.points === 'number' ? ` (+${entry.points})` : ''}
                         </p>
                         {entry.rank && (
                           <p className="text-xs tabular-nums opacity-80">Rank #{entry.rank}</p>

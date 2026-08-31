@@ -28,20 +28,28 @@ test('plays a round to the reveal and into the next one', async ({ page }) => {
 
   const armed = page.getByRole('button', { name: 'Submit Guess' });
   await expect(armed).toBeEnabled();
+  // Registered before submit: the next round's image is prefetched while the
+  // result dialog is open, and this is the only proof the swap really loads
+  // a different panorama.
+  const nextRoundImage = page.waitForRequest((request) => request.url().includes('round=2'));
   await armed.click();
 
   // The reveal: score, formatted distance, and the resolved region path the
   // client could not have known before the guess.
   const dialog = page.getByRole('dialog', { name: /Round Result/ });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('123m away')).toBeVisible();
+  // exact: the sr-only dialog description ("... 123m away.") also contains it.
+  await expect(dialog.getByText('123m away', { exact: true })).toBeVisible();
+  // The ladder the round was scored against, with the achieved band present.
+  await expect(dialog.getByText('≤442m = 5')).toBeVisible();
   await expect(dialog.getByText('Vietnam › Ho Chi Minh › District 7')).toBeVisible();
-  await expect(dialog.getByText('Score added at 3 levels (+3)')).toBeVisible();
+  await expect(dialog.getByText('Score added at 3 levels (+4, +5, +5)')).toBeVisible();
   await expect(dialog.getByText('District 7', { exact: true })).toBeVisible();
 
-  // Next round resets to a fresh, unguessed state.
+  // Next round resets to a fresh, unguessed state and swaps in a new image.
   await dialog.getByRole('button', { name: 'Next Round' }).click();
   await expect(dialog).toBeHidden();
+  await nextRoundImage;
   await expect(page.getByRole('button', { name: /Place a guess first/ })).toBeDisabled();
 });
 

@@ -19,7 +19,7 @@ export const PANO_IMAGE_URL = 'https://pano.invalid/e2e-round.png';
 export const USERNAME_STORAGE_KEY = 'vngeoguessr_username';
 
 /** /api/new-game response for one TPHCM round. */
-export function newGameResponse(sessionId) {
+export function newGameResponse(sessionId, round) {
   return {
     success: true,
     sessionId,
@@ -29,23 +29,40 @@ export function newGameResponse(sessionId) {
       path: ['Vietnam', 'Ho Chi Minh'],
       level: 'province',
     },
-    imageData: { url: PANO_IMAGE_URL, isPano: true },
+    // A distinct URL per round, as in production (the session id is NOT the
+    // distinguisher there -- the route reuses it across rounds): a fixed URL
+    // would let a broken next-round image swap pass unnoticed.
+    imageData: { url: `${PANO_IMAGE_URL}?round=${round}`, isPano: true },
   };
 }
 
-/** /api/guess response: a 3-point round revealed as District 7. */
+/** /api/guess response: a 123m round on a TPHCM pick, revealed as District 7. */
 export function guessResponse(username) {
-  const scoreLevel = (code, name, rank) => ({ code, name, username, score: 3, rank, trimmed: false });
+  // `points` is what this round added at that level (each board judges by its
+  // own ladder); `score` is the accumulated total. Values mirror what the
+  // real route computed for a 123m guess when this stub was written: 5 on the
+  // TPHCM (picked) ladder, +4 on District 7's own ladder, +5 above it.
+  const scoreLevel = (code, name, rank, points) =>
+    ({ code, name, username, points, score: 3, rank, trimmed: false });
   const distanceLevel = (code, name, rank) => ({ code, name, username, distance: 123, rank });
   return {
     success: true,
     gameResult: {
       distance: 123,
-      score: 3,
+      score: 5,
+      // The picked region's ladder as the real route returns it for TPHCM
+      // (bbox-scaled from the generated tree at the time of writing).
+      bands: [
+        { maxMeters: 442, points: 5 },
+        { maxMeters: 885, points: 4 },
+        { maxMeters: 1770, points: 3 },
+        { maxMeters: 4425, points: 2 },
+        { maxMeters: 8849, points: 1 },
+      ],
       levels: [
-        scoreLevel('TPHCM-Q7', 'District 7', 1),
-        scoreLevel('TPHCM', 'Ho Chi Minh', 2),
-        scoreLevel('VN', 'Vietnam', 5),
+        scoreLevel('TPHCM-Q7', 'District 7', 1, 4),
+        scoreLevel('TPHCM', 'Ho Chi Minh', 2, 5),
+        scoreLevel('VN', 'Vietnam', 5, 5),
       ],
       distanceLevels: [
         distanceLevel('TPHCM-Q7', 'District 7', 1),
@@ -64,7 +81,7 @@ export function guessResponse(username) {
       cityDistanceRank: 3,
       exactLocation: { lat: 10.7411, lng: 106.7218 },
     },
-    leaderboard: { message: 'Score added at 3 levels (+3)' },
+    leaderboard: { message: 'Score added at 3 levels (+4, +5, +5)' },
     distance: { message: 'Distance record: 123m' },
     message: 'Game result processed successfully',
   };
@@ -95,7 +112,10 @@ export async function stubGameApis(page, username) {
   let round = 0;
   await page.route('**/api/new-game**', async (route) => {
     round += 1;
-    await route.fulfill({ json: newGameResponse(`e2e-session-${round}`) });
+    // Echo a requested sessionId exactly as the real route does -- production
+    // reuses one id across a player's consecutive rounds.
+    const requested = new URL(route.request().url()).searchParams.get('sessionId');
+    await route.fulfill({ json: newGameResponse(requested || `e2e-session-${round}`, round) });
   });
   await page.route('**/api/guess', async (route) => {
     await route.fulfill({ json: guessResponse(username) });

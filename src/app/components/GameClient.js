@@ -11,10 +11,32 @@ import RoundResultDialog from './RoundResultDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getUsername } from '../../lib/username';
+import { setLastRegion } from '../../lib/last-region';
 // The revealed path comes from /api/guess (the RESOLVED district), not from
 // regionPath(pickedRegion) -- computing it client-side from what the player
 // chose would make the reveal meaningless for a country round.
 import { getRegion, isRegion } from '../../lib/regions';
+
+/**
+ * Ask the server for a new round. Throws on failure; touches no state, so the
+ * result-screen prefetch can call it without disturbing the round on screen.
+ * @param {string} locationCode Region to play.
+ * @param {string|null} currentSessionId Session id to reuse, or null for a new one.
+ * @returns {Promise<Object>} The /api/new-game payload.
+ */
+async function fetchNewRound(locationCode, currentSessionId) {
+  // Encoded: an unencoded value carrying its own '&sessionId=' would let a
+  // shared link choose the session key a victim's round is stored under.
+  const params = new URLSearchParams({ region: locationCode });
+  if (currentSessionId) params.set('sessionId', currentSessionId);
+
+  const response = await fetch(`/api/new-game?${params.toString()}`);
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(data.error || 'No images found');
+  }
+  return data;
+}
 
 export default function GameClient() {
   const searchParams = useSearchParams();
@@ -22,8 +44,22 @@ export default function GameClient() {
 
   const [location, setLocation] = useState('TPHCM');
   const [imageData, setImageData] = useState(null);
+  // Bumped once per applied round and used as the viewer's key. The image URL
+  // is not enough: a small district can serve the same panorama twice in a
+  // row, and without a remount the viewer never fires 'ready' again, which is
+  // what clears roundLoading.
+  const [roundKey, setRoundKey] = useState(0);
   const [sessionId, setSessionId] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Three loading concerns that must not share a flag: the first load owns the
+  // whole screen, a between-rounds load keeps the game chrome up, and a guess
+  // submit only spins the button. One flag for all three is how submitting a
+  // guess used to unmount the panorama viewer.
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [roundLoading, setRoundLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  // A failed round fetch, shown in place with a retry. Never an alert(): that
+  // left an empty screen whose only way out was the browser back button.
+  const [loadError, setLoadError] = useState(null);
   const [initialized, setInitialized] = useState(false);
   const [guessCoordinates, setGuessCoordinates] = useState(null);
   const [showResult, setShowResult] = useState(false);
@@ -51,54 +87,75 @@ export default function GameClient() {
   const regionName = pickedRegion ? pickedRegion.name : 'Vietnam';
 
   const initializingRef = useRef(false);
+  // The next round, fetched while the result dialog is open so Next Round can
+  // swap it in without a wait. Holds a promise; consumed exactly once.
+  const prefetchRef = useRef(null);
+  // Bumped by every action that starts a round load. A load compares the
+  // epoch it started under before applying: once the watchdog re-enables the
+  // controls, a slow fetch can otherwise resolve AFTER the player has moved
+  // on and replace the round they are looking at.
+  const roundEpochRef = useRef(0);
+  // The epoch of the round currently applied to the screen; see applyRound.
+  const appliedEpochRef = useRef(0);
 
-  const getRandomImage = useCallback(async (locationCode, currentSessionId = null) => {
+  const applyRound = useCallback((data) => {
+    setSessionId(data.sessionId);
+    setImageData({
+      url: data.imageData.url,
+      isPano: data.imageData.isPano
+    });
+    setRoundKey((key) => key + 1);
+    // A no-op on every happy path (round resets already cleared it), but a
+    // load that lands late -- released early by the watchdog -- must not
+    // inherit a pin the player placed on the panorama it is replacing.
+    setGuessCoordinates(null);
+    // Marks which epoch the round on screen belongs to, so a late 'ready'
+    // from the PREVIOUS round's still-mounted viewer cannot clear the
+    // loading flag of the round that is replacing it.
+    appliedEpochRef.current = roundEpochRef.current;
+    setLoadError(null);
+  }, []);
+
+  const loadRound = useCallback(async (locationCode, currentSessionId, epoch) => {
     try {
-      // Encoded: an unencoded value carrying its own '&sessionId=' would let a
-      // shared link choose the session key a victim's round is stored under.
-      const params = new URLSearchParams({ region: locationCode });
-      if (currentSessionId) params.set('sessionId', currentSessionId);
-      const url = `/api/new-game?${params.toString()}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (data.success) {
-        setSessionId(data.sessionId);
-        setImageData({
-          url: data.imageData.url,
-          isPano: data.imageData.isPano
-        });
-        setLoading(false);
-      } else {
-        throw new Error(data.error || 'No images found');
-      }
+      const data = await fetchNewRound(locationCode, currentSessionId);
+      // Superseded while in flight: the newer action owns the screen and the
+      // roundLoading flag, so touch nothing and report nothing to clear.
+      if (epoch !== roundEpochRef.current) return true;
+      applyRound(data);
+      return true;
     } catch (error) {
+      if (epoch !== roundEpochRef.current) return true;
       console.error('Error fetching image:', error);
       setImageData(null);
       setSessionId(null);
-      setLoading(false);
-      alert(`Failed to load street view image: ${error.message || 'No images found'}`);
+      setLoadError(error.message || 'No images found');
+      return false;
     }
-  }, []);
+  }, [applyRound]);
 
   const loadLibrariesAndInitialize = useCallback(async (locationCode) => {
     if (initializingRef.current) return;
     initializingRef.current = true;
-    setLoading(true);
+    setInitialLoading(true);
 
     try {
-      const center = isRegion(locationCode) ? getRegion(locationCode).center : null;
+      const code = locationCode.toUpperCase();
+      const center = isRegion(code) ? getRegion(code).center : null;
       if (center) setMapCenter(center);
-      await getRandomImage(locationCode);
+      roundEpochRef.current += 1;
+      const loaded = await loadRound(locationCode, null, roundEpochRef.current);
+      // Only a region that actually served a round is worth offering as
+      // "Continue in ..." on the home page.
+      if (loaded && isRegion(code)) setLastRegion(code);
       setInitialized(true);
     } catch (error) {
       console.error('Failed to initialize:', error);
-      setLoading(false);
     } finally {
       initializingRef.current = false;
+      setInitialLoading(false);
     }
-  }, [getRandomImage]);
+  }, [loadRound]);
 
   useEffect(() => {
     if (initialized) return;
@@ -141,21 +198,53 @@ export default function GameClient() {
   };
 
   const handlePanoramaReady = useCallback(() => {
-    setLoading(false);
+    // Only the round of the current epoch may clear the flag; the outgoing
+    // viewer stays mounted while its replacement loads and can fire late.
+    if (appliedEpochRef.current !== roundEpochRef.current) return;
+    setRoundLoading(false);
   }, []);
 
   const handlePanoramaError = useCallback((error) => {
     console.error('Panorama error:', error);
-    setLoading(false);
+    if (appliedEpochRef.current !== roundEpochRef.current) return;
+    setRoundLoading(false);
   }, []);
+
+  // roundLoading normally ends at the viewer's 'ready', but a texture load
+  // that stalls fires neither 'ready' nor 'panorama-error', and the flag
+  // disables every control except Back. Give the wait a ceiling: after it,
+  // the controls come back while the viewer keeps loading underneath.
+  useEffect(() => {
+    if (!roundLoading) return undefined;
+    const timer = setTimeout(() => setRoundLoading(false), 15_000);
+    return () => clearTimeout(timer);
+  }, [roundLoading]);
 
   const handleMapClick = (coordinates) => {
     setGuessCoordinates([coordinates.lat, coordinates.lng]);
   };
 
+  // Start fetching the next round while the player reads the result, and warm
+  // the browser cache with its image. The wasted lookup when they leave from
+  // the dialog is one API call and one self-expiring session.
+  const startPrefetch = (locationCode, currentSessionId) => {
+    const promise = fetchNewRound(locationCode, currentSessionId).then((data) => {
+      if (typeof window !== 'undefined' && data.imageData?.url) {
+        const image = new window.Image();
+        image.src = data.imageData.url;
+      }
+      return data;
+    });
+    // Consumed (and error-handled) in handleNextRound; this keeps an abandoned
+    // prefetch from surfacing as an unhandled rejection.
+    promise.catch(() => {});
+    prefetchRef.current = promise;
+  };
+
   const handleSubmitGuess = async () => {
-    if (!guessCoordinates || !imageData) return;
-    setLoading(true);
+    if (!guessCoordinates || !imageData || submitting) return;
+    setSubmitting(true);
+    const currentSession = sessionId;
 
     try {
       const submitted = await submitGameResult(guessCoordinates);
@@ -165,6 +254,7 @@ export default function GameClient() {
           failed: false,
           distance: submitted.distance,
           score: submitted.score,
+          bands: submitted.bands ?? null,
           exactLocation: submitted.exactLocation,
           scoreLevels: submitted.levels ?? [],
           distanceLevels: submitted.distanceLevels ?? [],
@@ -184,8 +274,9 @@ export default function GameClient() {
       setResult({ failed: true });
     }
 
-    setLoading(false);
+    setSubmitting(false);
     setShowResult(true);
+    startPrefetch(location, currentSession);
   };
 
   // Everything a round accumulates. Both Next Round and Skip come through here,
@@ -197,16 +288,41 @@ export default function GameClient() {
     setResult(null);
   };
 
-  const handleNextRound = () => {
+  const handleNextRound = async () => {
+    // Radix keeps the dialog interactive through its exit animation, so a
+    // double-click would issue a second fetch and burn a session.
+    if (roundLoading) return;
+    roundEpochRef.current += 1;
+    const epoch = roundEpochRef.current;
     setShowResult(false);
     resetRoundState();
     const currentSession = sessionId;
     setSessionId(null);
-    getRandomImage(location, currentSession);
+    const prefetched = prefetchRef.current;
+    prefetchRef.current = null;
+    setRoundLoading(true);
+
+    if (prefetched) {
+      try {
+        const data = await prefetched;
+        if (epoch !== roundEpochRef.current) return;
+        applyRound(data);
+        // roundLoading stays up until the viewer's 'ready' clears it -- the
+        // fetch finishing is not the panorama being visible.
+        return;
+      } catch {
+        // The prefetch failed; fall through to a fresh fetch, unless the
+        // player already moved on while it was failing.
+        if (epoch !== roundEpochRef.current) return;
+      }
+    }
+
+    const loaded = await loadRound(location, currentSession, epoch);
+    if (!loaded) setRoundLoading(false);
   };
 
   const handleSkipGuess = async () => {
-    if (!imageData) return;
+    if (!imageData && !loadError) return;
 
     try {
       if (sessionId) {
@@ -221,16 +337,33 @@ export default function GameClient() {
     }
 
     resetRoundState();
+    prefetchRef.current = null;
+    roundEpochRef.current += 1;
     const currentSession = sessionId;
     setSessionId(null);
-    getRandomImage(location, currentSession);
+    // Skip is also the way out of the error panel; leaving the error up would
+    // suppress the spinner and read as a hang while the new round loads.
+    setLoadError(null);
+    setRoundLoading(true);
+    const loaded = await loadRound(location, currentSession, roundEpochRef.current);
+    if (!loaded) setRoundLoading(false);
+  };
+
+  const handleRetryLoad = async () => {
+    setLoadError(null);
+    roundEpochRef.current += 1;
+    setRoundLoading(true);
+    const loaded = await loadRound(location, null, roundEpochRef.current);
+    if (!loaded) setRoundLoading(false);
   };
 
   const handleGoBack = () => {
     router.push('/');
   };
 
-  if (loading) {
+  // Only the very first load owns the screen. Everything after it keeps the
+  // game chrome mounted -- tearing it down destroys the panorama viewer.
+  if (initialLoading) {
     return (
       <div className="h-dvh flex items-center justify-center vn-gradient-bg">
         <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
@@ -283,10 +416,27 @@ export default function GameClient() {
           floating over it; lg and up keeps the original two-column split. */}
       <div className="relative flex-1 min-h-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:p-3">
         {/* Panorama Viewer */}
-        <div className="absolute inset-0 bg-neutral-900 overflow-hidden lg:static lg:rounded-lg">
-          {imageData ? (
+        <div className="absolute inset-0 bg-neutral-900 overflow-hidden lg:relative lg:rounded-lg">
+          {loadError ? (
+            <div className="w-full h-full flex items-center justify-center p-6" role="alert">
+              <div className="text-center space-y-4 max-w-sm">
+                <p className="text-neutral-100 text-lg font-semibold">
+                  Couldn&apos;t load a street view image
+                </p>
+                <p className="text-neutral-400 text-sm">{loadError}</p>
+                <div className="flex justify-center gap-3">
+                  <Button onClick={handleRetryLoad} disabled={roundLoading}>
+                    Try again
+                  </Button>
+                  <Button onClick={handleGoBack} variant="outline">
+                    Back to menu
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : imageData ? (
             <PanoramaViewer
-              key={imageData.url}
+              key={roundKey}
               imageUrl={imageData.url}
               onReady={handlePanoramaReady}
               onError={handlePanoramaError}
@@ -294,6 +444,19 @@ export default function GameClient() {
           ) : (
             <div className="w-full h-full flex items-center justify-center" role="status" aria-live="polite">
               <p className="text-neutral-300">Loading panorama...</p>
+            </div>
+          )}
+
+          {/* Between-rounds indicator, over the outgoing panorama rather than
+              in place of the whole screen. */}
+          {roundLoading && !loadError && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center bg-neutral-900/60"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="w-10 h-10 border-4 border-neutral-600 border-t-brand rounded-full animate-spin" aria-hidden="true" />
+              <span className="sr-only">Loading next round</span>
             </div>
           )}
         </div>
@@ -314,16 +477,16 @@ export default function GameClient() {
           <div className="absolute inset-x-0 bottom-0 z-[600] flex gap-2 border-t border-border bg-card/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:pb-0 lg:backdrop-blur-none">
             <Button
               onClick={handleSubmitGuess}
-              disabled={!guessCoordinates || loading}
+              disabled={!guessCoordinates || !imageData || !sessionId || submitting || roundLoading}
               className="flex-1"
               size="lg"
-              loading={loading}
+              loading={submitting}
             >
-              {loading ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Place a guess first'}
+              {submitting ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Place a guess first'}
             </Button>
             <Button
               onClick={handleSkipGuess}
-              disabled={loading}
+              disabled={submitting || roundLoading}
               variant="outline"
               className="px-5"
             >
@@ -335,7 +498,9 @@ export default function GameClient() {
 
       <RoundResultDialog
         open={showResult}
-        onOpenChange={() => setShowResult(false)}
+        // The dialog cannot be dismissed into a dead round: the session was
+        // consumed on submit, so the only ways out are Next Round and Menu.
+        onOpenChange={() => {}}
         result={result}
         guessCoordinates={guessCoordinates}
         username={username}
