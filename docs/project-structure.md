@@ -27,7 +27,10 @@ Next.js 16 App Router structure:
 
 #### Game Pages
 - `game/page.js` - Main game interface
-- `debug/page.js` - Development debugging tools
+- `debug/page.js` - Debug hub: lists every debug tool as a peer
+- `debug/layout.js` - Shared shell for all debug pages: app bar, DebugNav, theme
+- `debug/DebugNav.js` - Segmented peer navigation shown on every debug page
+- `debug/bbox/page.js` - Bbox visualization and live Mapillary probing
 - `debug/coverage/page.js` - Panorama coverage map, per region
 - `debug/coverage/CoverageMap.js` - Leaflet layer for that page
 

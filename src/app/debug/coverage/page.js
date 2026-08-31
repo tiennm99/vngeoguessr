@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { ArrowLeft, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import PanoramaViewer from '../../components/PanoramaViewer';
@@ -134,22 +133,16 @@ export default function CoveragePage() {
   );
 
   return (
-    <div className="flex h-dvh flex-col vn-gradient-bg">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="sm" aria-label="Back to debug tools">
-            <Link href="/debug">
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Debug</span>
-            </Link>
-          </Button>
-          <h1 className="text-lg font-bold text-foreground">
-            Panorama coverage
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              {getRegion(region).name}
-            </span>
-          </h1>
-        </div>
+    <div className="flex h-full flex-col">
+      {/* Same title pattern as the other debug pages, with the tool's own
+          controls beside it. The shared debug layout owns the app chrome. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/60 px-4 py-2">
+        <h1 className="text-xl font-bold text-foreground">
+          Panorama coverage
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
+            {getRegion(region).name}
+          </span>
+        </h1>
 
         <RegionSelect
           level={level}
@@ -158,7 +151,7 @@ export default function CoveragePage() {
           onRegionChange={setRegion}
           levels={['province', 'district']}
         />
-      </header>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card/60 px-4 py-2 text-sm">
         {error && (
