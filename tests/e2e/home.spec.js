@@ -35,6 +35,20 @@ test('lists an uncovered district as disabled, with the reason', async ({ page }
   await expect(page.getByRole('link', { name: /^Cu Chi$/ })).toHaveCount(0);
 });
 
+test('shows the build commit in the debug footer and copies it on click', async ({ page, context }) => {
+  // The dev server resolves the sha from git, so this asserts the real wiring:
+  // config env -> layout -> footer -> clipboard.
+  const stamp = page.getByRole('button', { name: 'Copy build commit' });
+  await expect(stamp).toBeVisible();
+  await expect(stamp).toHaveText(/^[0-9a-f]{7}$/);
+
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await stamp.click();
+  await expect(stamp).toHaveText('copied!');
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toMatch(/^[0-9a-f]{40}$/);
+});
+
 test('shows the stubbed leaderboard in the modal', async ({ page }) => {
   await page.getByRole('button', { name: /Leaderboard/i }).click();
   await expect(page.getByText('top-player')).toBeVisible();
