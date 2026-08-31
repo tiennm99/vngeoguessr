@@ -14,8 +14,21 @@ tests and no `@testing-library` dependency - every suite is lib/API level.
 **Closed since 2026-08-30:** `eslint.config.mjs` now adds `no-undef: error` and
 `no-unused-vars: warn` on top of `next/core-web-vitals`, with browser+node
 globals. That kills the original failure (six `useState` declarations deleted,
-ten setter call sites surviving green). Lint currently emits 4 pre-existing
-`no-unused-vars` warnings; treat any new one as a signal.
+ten setter call sites surviving green). Verified 2026-08-31: lint is 0 errors /
+16 warnings, all `react-hooks/set-state-in-effect` or `react-hooks/refs` and all
+matching an established local pattern (localStorage read in an effect, callbacks
+mirrored into refs). Re-count with `npx eslint . -f json` rather than trusting a
+remembered number; treat a warning of a NEW rule id as the signal.
+
+**Partly closed 2026-08-31:** a Playwright lane exists (`npm run test:e2e`), but
+every API is stubbed in `tests/e2e/helpers.js`, whose own header says the stubs
+mirror the real route shapes and must be updated with any contract change. That
+is a manual promise no gate enforces: the `gameResult.bands` field was added to
+`/api/guess` and the stub was not updated, so the UI block gated on it rendered
+in zero tests. The stub also serves the SAME panorama URL every round, so
+`PanoramaViewer`'s `key={imageData.url}` never changes and "next round loaded"
+assertions pass without a viewer remount. On any diff touching an API response
+shape or the round transition, open `helpers.js` and check it moved too.
 
 **Still open, verified 2026-08-30 on the Phase 6 docs review:**
 - React prop/state contracts. `no-undef` does not see a prop a parent forgot to
