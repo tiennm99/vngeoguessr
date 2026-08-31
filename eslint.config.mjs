@@ -1,20 +1,13 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import coreWebVitals from "eslint-config-next/core-web-vitals";
 import globals from "globals";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
+// eslint-config-next ships native flat config since Next 16, so the old
+// FlatCompat bridge (@eslint/eslintrc) is gone.
 const eslintConfig = [
   {
     ignores: [".next/**", ".next-check/**", "src/data/**"],
   },
-  ...compat.extends("next/core-web-vitals"),
+  ...coreWebVitals,
   {
     // next/core-web-vitals enables neither no-undef nor no-unused-vars, and
     // this is a JavaScript project with no type checker, so a deleted state
@@ -28,6 +21,13 @@ const eslintConfig = [
     rules: {
       "no-undef": "error",
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      // Next 16 turned these React-Compiler-era rules on as errors. This app's
+      // hits are deliberate: setState-in-effect is the localStorage/hydration
+      // sync pattern (theme, username, count-up), and the ref reads feed
+      // imperative Leaflet/PhotoSphere containers that render nothing. Kept
+      // visible as warnings; revisit if the React Compiler is ever adopted.
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/refs": "warn",
     },
   },
 ];
