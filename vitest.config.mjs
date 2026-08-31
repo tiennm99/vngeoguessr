@@ -9,6 +9,9 @@ export default defineConfig({
     env: {
       UPSTASH_REDIS_REST_URL: 'http://fake-upstash.test',
       UPSTASH_REDIS_REST_TOKEN: 'fake-token',
+      // lib/pano-db.js refuses to build a handle without this. The tests mock
+      // the Neon SDK itself (PGlite behind it), so the value is never dialled.
+      DATABASE_URL: 'postgres://fake-neon.test/fake',
       // Pinned so the assertions on physical keys hold regardless of what the
       // developer's .env sets.
       KEY_PREFIX: 'vngeoguessr:',

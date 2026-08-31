@@ -8,10 +8,12 @@
 - `npm run build:check` - Same build for local verification, into `.next-check`
 - `npm start` - Start production server
 - `npm run lint` - Run ESLint
-- `npm test` - Run the test suite against the in-memory Redis fake
+- `npm test` - Run the test suite against the in-memory Redis and Postgres fakes
 - `npm run test:watch` - Re-run tests on change
 - `npm run test:integration` - Run the same suite against a local Redis
 - `npm run redis:up` / `npm run redis:down` - Start/stop that local Redis
+- `npm run test:e2e` - Playwright browser smoke tests, fully stubbed, no env
+  needed (first time: `npx playwright install chromium`)
 
 ## Important Development Guidelines
 
@@ -43,6 +45,11 @@
 - Or `KV_REST_API_URL` + `KV_REST_API_TOKEN` (Vercel Marketplace)
 - Optional: `KEY_PREFIX` (default: `vngeoguessr:`) for multi-tenant DB sharing
 
+**Postgres (required)**:
+- `DATABASE_URL` (or the `POSTGRES_URL` alias) - Neon connection string holding
+  the panorama index. Provision Neon from the Vercel Marketplace and pull the
+  vars with `vercel env pull`, then seed with `npm run data:seed`
+
 **Mapillary (required)**:
 - `MAPILLARY_ACCESS_TOKEN` - Mapillary API token for image fetching
 
@@ -67,9 +74,23 @@ The suite runs against two backing stores, from one set of test files:
 Running both is what keeps the fake honest. A behaviour the fake gets wrong
 shows up as a green unit run and a red integration run.
 
-Everything above `src/lib/` (UI, panorama viewer, map interaction, Mapillary
-calls) is still manual: inform the user when work is complete. Do NOT start
-development servers - user handles testing manually.
+The panorama queries run against PGlite -- real Postgres in-process -- mocked in
+at the `@neondatabase/serverless` boundary (`tests/mock-neon.js`), in both
+lanes; only Neon's own endpoint speaks the production driver's protocol, so
+there is no separate integration lane for it. Fixture rows come from
+`tests/pano-fixtures.js`. The data-quality invariants that used to run in
+`tests/pano-index.test.js` against the committed JSON now run inside
+`scripts/seed-pano-db.mjs`, which refuses to upload artifacts that violate
+them (`npm run data:seed -- --check` runs just that gate).
+
+The UI has a Playwright smoke lane: `npm run test:e2e` runs `tests/e2e/*.spec.js`
+in Chromium against a dev server it starts (or reuses) itself. Every `/api/*`
+call and the panorama image are stubbed at the browser boundary
+(`tests/e2e/helpers.js`), so it needs no Redis, Neon, Mapillary, or `.env`.
+It covers the region picker, the username modal, and one full round to the
+reveal. Anything beyond those flows (real panoramas, real scoring round-trips)
+is still manual: inform the user when work is complete. Do NOT start
+development servers - user handles manual testing themselves.
 
 ### When the dev server needs restarting
 
@@ -126,13 +147,16 @@ sends; the path form Upstash also supports (`GET /set/key/value`) returns 404.
 
 ### Rebuilding the generated region data
 
-`src/data/regions/`, `src/data/boundaries/` and `src/data/panos/` are generated.
-Run the scripts in this order -- each reads what the previous one wrote:
+`src/data/regions/` and `src/data/boundaries/` are generated and committed;
+the panorama index is generated into `data-build/panos/` (gitignored) and
+served from Postgres. Run the scripts in this order -- each reads what the
+previous one wrote:
 
 ```bash
 npm run data:boundaries    # OSM/Nominatim -> boundaries + region tree
-npm run data:panos         # Mapillary z14 tiles -> per-province pano index
+npm run data:panos         # Mapillary z14 tiles -> per-province pano artifacts
 npm run data:districts     # clip + partition panos by district; writes counts.js
+npm run data:seed          # validate the artifacts and upload them to Neon
 ```
 
 Each underlying script's header comment carries its flags and its cost; read it
@@ -145,6 +169,12 @@ before running. Two things worth knowing up front:
 - `npm run data:panos` spends Mapillary tile requests against a 50,000/day cap.
   `npm run data:districts` spends none -- it only re-partitions indexes that
   already exist, and refuses to rewrite `counts.js` on a partial run.
+- `npm run data:seed` spends none either. The full run stages into
+  `panoramas_next`, verifies, and renames into place, keeping the previous
+  generation as `panoramas_old`; `-- --province=DN` reseeds one province in
+  place; `-- --check` validates the artifacts without touching the database.
+  Deploy the app and the seed in either order: the schema is unchanged, and
+  running processes keep serving their cached counts until they recycle.
 
 ### Migrating leaderboards
 

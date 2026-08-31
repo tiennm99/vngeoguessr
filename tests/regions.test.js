@@ -210,6 +210,7 @@ describe('client safety', () => {
         const normalised = target.replace(/\\/g, '/');
         expect(normalised, `${file} imports ${specifier}`).not.toContain('data/panos');
         expect(normalised, `${file} imports ${specifier}`).not.toContain('pano-index');
+        expect(normalised, `${file} imports ${specifier}`).not.toContain('pano-db');
         if (target.endsWith('.js')) walk(target);
       }
     };
@@ -234,7 +235,7 @@ describe('client safety', () => {
     // the answers (or 1.4MB of polygons) to the browser, whichever module the
     // import went through.
     const CLIENT_DIRECTIVE = /^\s*['"]use client['"]/;
-    const FORBIDDEN = ['data/panos', 'pano-index', 'data/boundaries'];
+    const FORBIDDEN = ['data/panos', 'pano-index', 'pano-db', 'data/boundaries'];
 
     const collectSourceFiles = (dir, out) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {

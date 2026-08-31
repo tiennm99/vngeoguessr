@@ -23,7 +23,7 @@
 
 ### 4. Location Display Process
 - **Pick from the index**: the server draws a random panorama id from the
-  prebuilt index for the selected region (`pickRandomPano` in
+  prebuilt index in Postgres for the selected region (`pickRandomPano` in
   `src/lib/pano-index.js`). A country draw picks a province uniformly first, so
   the round is not dominated by whichever province has the most panoramas
 - **Resolve the image**: one Mapillary lookup by id, ~230ms. Up to three

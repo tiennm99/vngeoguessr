@@ -8,14 +8,16 @@
 - `eslint.config.mjs` - ESLint configuration
 - `postcss.config.mjs` - PostCSS configuration
 - `jsconfig.json` - JavaScript project configuration
-- `vitest.config.mjs` / `vitest.integration.config.mjs` - The two test lanes
+- `vitest.config.mjs` / `vitest.integration.config.mjs` - The two vitest lanes
+- `playwright.config.mjs` - The browser smoke-test lane (`tests/e2e/`)
 - `docker-compose.yml` - Local Redis + SRH for the integration lane
+- `data-build/` (gitignored) - Local pipeline artifacts awaiting `data:seed`
 - `README.md` - Public-facing project readme
 
 ## Source Code (`src/`)
 
 ### App Router (`src/app/`)
-Next.js 15 App Router structure:
+Next.js 16 App Router structure:
 
 #### Pages
 - `page.js` - Homepage: region picker and leaderboard modal
@@ -69,7 +71,7 @@ the shadcn CLI when a screen needs them, rather than keeping unused ones around.
 - `tabs.jsx` - Tab navigation
 
 ### Generated Data (`src/data/`)
-All three directories are build output. Do not hand-edit; see *Rebuilding the
+Both directories are build output. Do not hand-edit; see *Rebuilding the
 generated region data* in [development.md](development.md).
 
 - `regions/index.js` - The 67-node tree: code, name, parent, level, children,
@@ -79,16 +81,18 @@ generated region data* in [development.md](development.md).
   only, never a coordinate
 - `boundaries/<province>/*.json` - Simplified outlines, one file per region,
   behind a generated `boundaries/index.js` barrel
-- `panos/<province>.json` - Panorama ids, coordinates, and district assignment,
-  behind a generated `panos/index.js` barrel. **Server-side only** - roughly
-  28MB of exact answers
+
+The panorama index itself is not in the repo: the pipeline writes artifacts to
+`data-build/panos/` (gitignored) and `scripts/seed-pano-db.mjs` uploads them to
+Neon Postgres, which is what the app queries at runtime.
 
 ### Utility Libraries (`src/lib/`)
 - `utils.js` - Utility functions including `cn()` for class name merging
 - `regions.js` - Client-safe region tree traversal. Imports nothing from
-  `data/panos/` or `pano-index.js`; `tests/regions.test.js` enforces that
-- `pano-index.js` - **Server-side only.** Picks a panorama for a region and
-  reports which district it landed in
+  `pano-index.js` or `pano-db.js`; `tests/regions.test.js` enforces that
+- `pano-index.js` - **Server-side only.** Picks a panorama for a region from
+  Postgres and reports which district it landed in
+- `pano-db.js` - **Server-side only.** Neon HTTP adapter behind pano-index.js
 - `region-request.js` - Resolves and validates a region code from a request
 - `game.js` - Scoring, distance, formatting, username storage
 - `leaderboard.js` - Leaderboard operations, including the district to province
@@ -102,11 +106,13 @@ generated region data* in [development.md](development.md).
 Each carries a header comment with its flags and its cost.
 
 - `build-region-boundaries.mjs` - OSM/Nominatim to boundaries and the region tree
-- `build-pano-index.mjs` - Mapillary z14 tiles to a per-province panorama index
+- `build-pano-index.mjs` - Mapillary z14 tiles to per-province panorama artifacts
 - `assign-pano-districts.mjs` - Clips and partitions panoramas by district
+- `seed-pano-db.mjs` - Validates the artifacts and uploads them to Neon
 - `migrate-leaderboards.mjs` - Backfills the two boards whose code changed
 - `build-check.mjs` - Production build into `.next-check`
 - `lib/assign-districts.mjs` - District assignment shared by the two pano scripts
+- `lib/pano-schema.mjs` - Panorama table DDL shared by the seed and the tests
 - `lib/leaderboard-migration.mjs` - Copy, verify, regression-check and restore
 
 ## Tests (`tests/`)
@@ -116,11 +122,15 @@ Vitest, mostly one file per `src/lib/` module, plus a route test for
 underlying `src/lib/` logic (`leaderboard.js`, `mapillary.js`) is still
 covered. `fake-upstash-redis.js`, `mock-upstash.js`, `redis-harness.js` and
 `wait-for-srh.js` are the shared harness that lets the same files run against
-either the in-memory fake or a real Redis.
+either the in-memory fake or a real Redis. `fake-neon.js`, `mock-neon.js` and
+`pano-fixtures.js` are the equivalent for the panorama store: PGlite behind the
+Neon SDK boundary, loaded with small synthetic rows.
 
-Nothing here exercises the React components: there is no component-test
-dependency, so `GameClient.js`, `RegionPicker.js`, `RegionSelect.js` and the
-coverage page are covered by manual testing only.
+`tests/e2e/` holds the Playwright smoke specs (`*.spec.js`, so vitest never
+collects them): the homepage picker, the username modal, and one full round,
+all against browser-level stubs in `tests/e2e/helpers.js` with a fixture
+panorama in `tests/e2e/fixtures/`. Deeper UI behavior (`RegionSelect.js`, the
+coverage page, real panoramas) remains manual testing only.
 
 ## Documentation (`/docs/`)
 - `project-overview.md` - Project overview, administrative basis, coverage note

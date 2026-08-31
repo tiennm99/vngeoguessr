@@ -20,6 +20,9 @@ export default defineConfig({
       // Matches SRH_TOKEN in docker-compose.yml.
       UPSTASH_REDIS_REST_TOKEN: 'vngeoguessr-local-token',
       KEY_PREFIX: 'vngeoguessr:',
+      // Only Redis has a real integration lane; the Neon SDK stays mocked with
+      // PGlite here too, so the handle guard needs a value, not a service.
+      DATABASE_URL: 'postgres://fake-neon.test/fake',
     },
   },
 });

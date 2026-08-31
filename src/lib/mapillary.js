@@ -1,8 +1,8 @@
 // Mapillary API access.
 //
-// Locations come from the prebuilt indexes in lib/pano-index.js, so the only
-// call left here is a lookup by image id. That endpoint answers in ~230ms and
-// works everywhere.
+// Locations come from the prebuilt index served by lib/pano-index.js, so the
+// only call left here is a lookup by image id. That endpoint answers in ~230ms
+// and works everywhere.
 //
 // It replaced a dart-throw over /images?bbox=, which was measured returning
 // HTTP 500 in every dense district — District 1 and central Ha Noi failed on
@@ -95,10 +95,13 @@ export async function fetchRegionPanorama(regionCode) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let candidate;
     try {
-      candidate = pickRandomPano(regionCode, tried);
+      candidate = await pickRandomPano(regionCode, tried);
     } catch (error) {
-      // The pool ran dry -- a small district whose few images have all been
-      // deleted upstream. A caller-visible failure, not a 500.
+      // Only a dry pool is a soft failure -- a small district whose few images
+      // have all been deleted upstream. The pick now talks to Postgres, so
+      // anything else here is infrastructure (connection, missing table mid-
+      // reseed) and must surface as a 500, not read as missing coverage.
+      if (!String(error.message).startsWith('No panoramas left')) throw error;
       return { success: false, error: error.message };
     }
     tried.add(candidate.id);

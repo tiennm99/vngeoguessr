@@ -1,13 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('@upstash/redis', async (importOriginal) => {
   const { upstashModule } = await import('./mock-upstash.js');
   return upstashModule(importOriginal);
+});
+vi.mock('@neondatabase/serverless', async () => {
+  const { neonModule } = await import('./mock-neon.js');
+  return neonModule();
 });
 
 import { GET, POST } from '../src/app/api/new-game/route.js';
 import { getGameSession } from '../src/lib/session.js';
 import { getRegion, provinceOf } from '../src/lib/regions.js';
 import { resetStore } from './redis-harness.js';
+import { seedPanoFixtures } from './pano-fixtures.js';
 
 // The district a panorama sits in is the answer to the round. It is resolved
 // server-side and stored on the session, and no response before the guess may
@@ -16,6 +21,12 @@ import { resetStore } from './redis-harness.js';
 const ORIGINAL_TOKEN = process.env.MAPILLARY_ACCESS_TOKEN;
 
 const request = (query) => new Request(`http://localhost/api/new-game?${query}`);
+
+// The panorama pool behind the Neon mock. Fully district-assigned on purpose:
+// these tests assert that province and country draws resolve to a district.
+beforeAll(async () => {
+  await seedPanoFixtures(false);
+});
 
 beforeEach(async () => {
   await resetStore();

@@ -27,9 +27,10 @@ For detailed information about this project, refer to the documentation files in
 - **JavaScript Only**: No TypeScript files (.ts, .tsx)
 - **Function Parameters**: Use individual parameters, not object destructuring
 - **File Modifications**: Only modify source code, `/docs`, and `/plans`
-- **Generated Data**: `src/data/` is build output. Change the scripts in
-  `scripts/`, never the files
-- **Client Safety**: `src/lib/pano-index.js` and `src/data/panos/` are
+- **Generated Data**: `src/data/` is build output; the panorama index lives in
+  Neon Postgres, seeded from gitignored `data-build/panos/` artifacts. Change
+  the scripts in `scripts/`, never the generated files
+- **Client Safety**: `src/lib/pano-index.js` and `src/lib/pano-db.js` are
   server-only. Client components use `src/lib/regions.js`
 - **Security**: Never expose secrets or keys
 - **Testing**: Run `npm test` for changes under `src/lib/` or `src/data/`; inform user when complete - they handle manual testing of the UI
@@ -43,3 +44,13 @@ When working on this codebase, always:
    district a panorama resolved to
 4. Use existing patterns and libraries already present in the codebase
 5. Highlight any configuration file changes for manual processing
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

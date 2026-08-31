@@ -19,6 +19,9 @@
 # testing
 /coverage
 
+# pipeline artifacts: panorama indexes live in Postgres, seeded from here
+/data-build/
+
 # next.js
 /.next/
 /.next-check/
@@ -50,3 +53,7 @@ next-env.d.ts
 
 # leaderboard migration backups -- contain player names and scores
 leaderboard-backup-*.json
+
+# playwright
+/playwright-report/
+/test-results/

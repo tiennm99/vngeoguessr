@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
 import { getRegion } from '../../../lib/regions.js';
 import { resolvePlayableRegion, publicRegion } from '../../../lib/region-request.js';
 import { fetchRegionPanorama } from '../../../lib/mapillary.js';
 import { storeGameSession, getGameSession } from '../../../lib/session.js';
 
-// Generate a unique session ID using uuid
+// Generate a unique session ID
 function generateSessionId() {
-  return uuidv4();
+  return crypto.randomUUID();
 }
 
 export async function GET(request) {
@@ -87,8 +86,6 @@ export async function GET(request) {
     if (error.message.includes('without a resolved region')) {
       errorMessage = 'Panorama index is missing its district assignments. ' +
         'Run scripts/assign-pano-districts.mjs.';
-    } else if (error.message.includes('No panorama index')) {
-      errorMessage = `No panorama data available for "${pickedName}".`;
     } else if (error.message.includes('Mapillary authentication failed')) {
       errorMessage = 'Mapillary authentication failed. Please check API token.';
     } else if (error.message.includes('fetch')) {

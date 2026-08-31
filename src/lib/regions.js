@@ -2,9 +2,9 @@
 //
 // Client-safe by construction. This module imports the generated tree and the
 // generated panorama counts and NOTHING else -- in particular never
-// pano-index.js or src/data/panos/, which together are ~25MB of exact
-// panorama coordinates. A client component that reached those would ship every
-// answer to the browser. tests/regions.test.js enforces the boundary.
+// pano-index.js or pano-db.js, which reach the exact panorama coordinates in
+// Postgres. A client component that reached those would ship every answer to
+// the browser. tests/regions.test.js enforces the boundary.
 //
 // Scores roll upward: a guess resolves to the leaf its panorama sits in, and
 // credits that leaf, its province, and the country. ancestorsOf() is what the

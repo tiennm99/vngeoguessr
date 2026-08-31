@@ -9,5 +9,7 @@
 import { fileURLToPath } from 'node:url';
 
 export const BOUNDARY_DIR = fileURLToPath(new URL('../../src/data/boundaries', import.meta.url));
-export const PANO_DIR = fileURLToPath(new URL('../../src/data/panos', import.meta.url));
+// Local pipeline artifacts, not committed and not bundled: the app reads
+// panoramas from Postgres, seeded from these files by seed-pano-db.mjs.
+export const PANO_DIR = fileURLToPath(new URL('../../data-build/panos', import.meta.url));
 export const TREE_DIR = fileURLToPath(new URL('../../src/data/regions', import.meta.url));

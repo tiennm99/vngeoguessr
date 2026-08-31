@@ -156,7 +156,7 @@ describe('client safety', () => {
   // imported by client components, so its import graph must never reach the
   // panorama data, the pano index, or the boundary barrel.
   const SPECIFIER = /(?:\bfrom|\bimport|\brequire)\s*\(?\s*['"]([^'"]+)['"]/g;
-  const FORBIDDEN = ['data/panos', 'pano-index', 'data/boundaries'];
+  const FORBIDDEN = ['data/panos', 'pano-index', 'pano-db', 'data/boundaries'];
 
   const resolveSpecifier = (fromFile, specifier) => {
     if (specifier.startsWith('@/')) return resolve('src', specifier.slice(2));

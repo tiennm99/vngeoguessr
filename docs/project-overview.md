@@ -2,7 +2,7 @@
 
 VNGeoGuessr is a GeoGuessr clone focused on Vietnamese locations. Players pick a
 place on a three-level region tree, view a real street panorama, and guess where
-it was taken. Built with Next.js 15.5, React 19 and Tailwind CSS 4.
+it was taken. Built with Next.js 16, React 19 and Tailwind CSS 4.
 
 ## Key Characteristics
 
@@ -12,9 +12,10 @@ it was taken. Built with Next.js 15.5, React 19 and Tailwind CSS 4.
 - **Rollup scoring**: a guess is credited to the district its panorama actually
   sits in, then rolled upward to that district's province and to Vietnam. One
   round writes to three score boards and three distance boards.
-- **Prebuilt panorama indexes**: each province ships a list of known Mapillary
-  panorama ids with the district each one falls in, built offline. The game
-  picks from that list instead of searching Mapillary at request time.
+- **Prebuilt panorama index**: a Postgres table of known Mapillary panorama
+  ids with the district each one falls in, built offline and seeded to Neon.
+  The game draws from that table instead of searching Mapillary at request
+  time.
 - **Anti-cheat security**: sessions live in Redis; the exact coordinates and the
   resolved district are server-side secrets until the guess is submitted.
 - **Interactive gameplay**: click-to-guess on a Leaflet map.
@@ -47,24 +48,25 @@ Absent coverage has three distinct causes. Only one is a defect:
 
 **Not yet added** — any province outside the five. Roadmap, not a bug. Adding one
 is an entry in the `REGIONS` config of `scripts/build-region-boundaries.mjs`, a
-boundary build, a panorama index build, and a district assignment run. No
-application code changes: every UI surface reads the generated tree.
+boundary build, a panorama index build, a district assignment run, and a
+database seed (`npm run data:seed`). No application code changes: every UI
+surface reads the generated tree.
 
 **No street imagery** — a district inside a covered province where Mapillary
 holds no panoramas, or too few to play, typically rural. The tree lists it;
 `isPlayable()` in `src/lib/regions.js` is what keeps it out of play --
 `resolvePlayableRegion()` rejects it server-side before a session is created,
 and `RegionPicker` renders it disabled. Expected, and it may resolve on its own: re-running the
-panorama index build picks up new Mapillary coverage. A district that is playable
-but sparse is flagged `thin` and labelled "few streets".
+panorama index build and reseeding picks up new Mapillary coverage. A district
+that is playable but sparse is flagged `thin` and labelled "few streets".
 
 **Missing from the boundary** — a district whose OpenStreetMap lookup did not
 resolve, so it never entered the province union and its panoramas were clipped
 away. **Cu Chi** in Ho Chi Minh City is the known case: `"missingParts": 1` in
 `src/data/boundaries/tphcm/tphcm.json`, and `TPHCM-CUCHI` carries no `bbox` in
 the tree. Fixable: resolve the query, rebuild the boundary, re-run that
-province's panorama index. It costs Mapillary tile requests against a
-50,000/day cap, which is why it is not done automatically.
+province's panorama index, reseed the database. It costs Mapillary tile
+requests against a 50,000/day cap, which is why it is not done automatically.
 
 Before treating an empty district as a bug, check `missingParts` in its
 province's boundary file — that is what distinguishes the third case from the

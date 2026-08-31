@@ -1,33 +1,15 @@
 import { NextResponse } from 'next/server';
 import { REGION_BOUNDARIES } from '../../../../data/boundaries/index.js';
-import { getRegionPanos, countPanos, getProvinceIndex } from '../../../../lib/pano-index.js';
+import { getRegionPanoSample, countPanos, getProvinceMeta } from '../../../../lib/pano-index.js';
 import { getRegion, isRegion, provinceOf } from '../../../../lib/regions.js';
 
 // Serves a region's outline and its panorama locations for the coverage debug
 // page. Works at province or district level; the country has no polygon of its
-// own. Points come back for the requested viewport only: Ha Noi holds 225,966
-// of them, which is 15.4MB of JSON and far more than a map can draw, so the
-// whole index is never sent at once.
+// own. Points come back for the requested viewport only, sampled in SQL: Ha Noi
+// holds 225,966 of them, which is 15.4MB of JSON and far more than a map can
+// draw, so the whole index is never sent at once.
 const DEFAULT_LIMIT = 12000;
 const MAX_LIMIT = 40000;
-
-/**
- * Take an evenly spaced sample without clustering it in one corner.
- * @param {Object[]} items Source list, spatially sorted by the build.
- * @param {number} limit Maximum to return.
- * @returns {Object[]} Sampled list.
- */
-function sampleEvenly(items, limit) {
-  if (items.length <= limit) return items;
-  // A fixed stride over the list rather than a random draw: the index is sorted
-  // by latitude, so every stride covers the whole region.
-  const stride = items.length / limit;
-  const out = [];
-  for (let i = 0; out.length < limit && Math.floor(i) < items.length; i += stride) {
-    out.push(items[Math.floor(i)]);
-  }
-  return out;
-}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -50,9 +32,6 @@ export async function GET(request) {
   }
 
   const region = getRegion(code);
-  // A district's panoramas come from its province's index, filtered by the
-  // district each one was assigned to.
-  const allPanos = getRegionPanos(code);
 
   const limit = Math.min(
     MAX_LIMIT,
@@ -61,17 +40,19 @@ export async function GET(request) {
 
   // bbox is west,south,east,north, matching the order the rest of the app uses.
   const bboxParam = searchParams.get('bbox');
-  let inView = allPanos;
+  let west = null;
+  let south = null;
+  let east = null;
+  let north = null;
   if (bboxParam) {
-    const [west, south, east, north] = bboxParam.split(',').map(Number);
-    if ([west, south, east, north].every(Number.isFinite)) {
-      inView = allPanos.filter(
-        (p) => p.lat >= south && p.lat <= north && p.lng >= west && p.lng <= east
-      );
+    const parts = bboxParam.split(',').map(Number);
+    if (parts.length === 4 && parts.every(Number.isFinite)) {
+      [west, south, east, north] = parts;
     }
   }
 
-  const panos = sampleEvenly(inView, limit);
+  const sample = await getRegionPanoSample(code, west, south, east, north, limit);
+  const meta = await getProvinceMeta(provinceOf(code) ?? code);
 
   return NextResponse.json({
     success: true,
@@ -85,17 +66,17 @@ export async function GET(request) {
     // every viewport query gave the client a new object each time, which made
     // the map refit to the region and cancel whatever the user had zoomed into.
     boundary: bboxParam ? undefined : boundary,
-    // When the province's panorama index was built. The page shows it so a
+    // When the province's panorama index was seeded. The page shows it so a
     // sparse-looking district can be told apart from a stale snapshot.
-    generatedAt: getProvinceIndex(provinceOf(code) ?? code).generatedAt,
+    generatedAt: meta?.generatedAt ?? null,
     counts: {
-      total: countPanos(code),
-      inView: inView.length,
-      shown: panos.length,
+      total: await countPanos(code),
+      inView: sample.inView,
+      shown: sample.panos.length,
       // True when the viewport holds more points than were sent, so the page
       // can say the dots are a sample rather than the whole picture.
-      sampled: panos.length < inView.length,
+      sampled: sample.panos.length < sample.inView,
     },
-    panos,
+    panos: sample.panos,
   });
 }

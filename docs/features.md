@@ -36,7 +36,7 @@
 - **Server-resolved region**: the district a panorama sits in is decided at
   session creation and never sent to the client; a `regionCode` in the guess
   request body is ignored
-- **UUID Session IDs**: unique session identifiers using uuid v4
+- **UUID Session IDs**: unique session identifiers via `crypto.randomUUID()`
 - **30-minute Expiry**: automatic Redis session cleanup
 - **Single-use sessions**: the session is claimed with an atomic `DEL` before any
   score is written, so a replayed or concurrent submit scores exactly once

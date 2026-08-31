@@ -27,7 +27,8 @@ For detailed information about this project, see the documentation in `/docs/`:
 ### Prerequisites
 - Node.js 24+
 - npm 11+
-- Redis server (for leaderboards)
+- Redis server (sessions and leaderboards)
+- Postgres database (panorama index; Neon in production)
 
 ### Development
 
@@ -52,11 +53,11 @@ Open [http://localhost:3000](http://localhost:3000) to play the game.
 
 ## 🏗️ Built With
 
-- **Frontend**: Next.js 15 + React 19 + Tailwind CSS 4
+- **Frontend**: Next.js 16 + React 19 + Tailwind CSS 4
 - **Street View**: Mapillary API + PhotoSphere Viewer
 - **Maps**: Leaflet + OpenStreetMap
 - **Geographic Data**: Nominatim API + Turf.js
-- **Storage**: Upstash Redis (leaderboards and game sessions)
+- **Storage**: Neon Postgres (panorama index) + Upstash Redis (leaderboards and game sessions)
 - **UI Components**: shadcn/ui
 
 ## 🎯 How to Play

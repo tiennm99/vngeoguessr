@@ -5,7 +5,7 @@
 //
 // Client-safe by construction: imports regions.js and nothing else. The walk
 // test in tests/geo-search.test.js enforces that this module never grows a
-// path to pano-index.js, src/data/panos/, or the boundary barrel.
+// path to pano-index.js, pano-db.js, or the boundary barrel.
 
 import { allRegions, getRegion, ancestorsOf, COUNTRY_CODE } from './regions.js';
 

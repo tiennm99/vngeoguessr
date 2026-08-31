@@ -1,10 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+vi.mock('@neondatabase/serverless', async () => {
+  const { neonModule } = await import('./mock-neon.js');
+  return neonModule();
+});
+
 import { fetchRegionPanorama } from '../src/lib/mapillary.js';
-import { getRegionPanos } from '../src/lib/pano-index.js';
 import { provinceOf } from '../src/lib/regions.js';
+import { seedPanoFixtures, fixtureIds } from './pano-fixtures.js';
 
 // These stub fetch wholesale, which is safe only because nothing here touches
 // Redis -- against a real instance the Upstash client speaks over fetch too.
+// The panorama pool comes from the PGlite fake behind the Neon mock.
 //
 // The district a guess is credited to is resolved here and nowhere else, so
 // these tests pin the two behaviours that carry it: the leaf must come from the
@@ -25,6 +31,10 @@ function imageBody(id) {
     geometry: { coordinates: [106.7, 10.77] },
   };
 }
+
+beforeAll(async () => {
+  await seedPanoFixtures(false);
+});
 
 beforeEach(() => {
   process.env.MAPILLARY_ACCESS_TOKEN = 'test-token';
@@ -55,7 +65,7 @@ describe('fetchRegionPanorama', () => {
 
     // The reported district must be the one holding the SECOND id.
     const winner = seenIds[1];
-    expect(getRegionPanos(result.data.regionCode).some((p) => p.id === winner)).toBe(true);
+    expect(fixtureIds(result.data.regionCode)).toContain(winner);
     expect(provinceOf(result.data.regionCode)).toBe('TPHCM');
   });
 
