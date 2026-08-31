@@ -3,6 +3,15 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+// Bundled from the leaflet package rather than fetched from a CDN: a blocked
+// or slow CDN would make the guess pin invisible while clicks still register.
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// A static image import is a {src} object under webpack but a bare URL string
+// under Turbopack dev; Leaflet needs the string either way.
+const imageUrl = (image) => (typeof image === 'string' ? image : image.src);
 
 export default function LeafletMap({
   center,
@@ -34,9 +43,9 @@ export default function LeafletMap({
         // Fix default marker icons issue
         delete L.Icon.Default.prototype._getIconUrl;
         L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+          iconRetinaUrl: imageUrl(markerIcon2x),
+          iconUrl: imageUrl(markerIcon),
+          shadowUrl: imageUrl(markerShadow),
         });
 
         // Create map

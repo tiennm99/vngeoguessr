@@ -3,7 +3,8 @@
 import { Medal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDistance, calculateScore } from '../../lib/game';
+import { formatDistance, calculateScore, bandsForBbox } from '../../lib/game';
+import { getRegion, isRegion } from '../../lib/regions';
 
 // Keyed by the round score the distance would earn, so the tint tracks the
 // scoring ladder instead of re-typing its thresholds.
@@ -14,8 +15,10 @@ const DISTANCE_COLORS = {
   2: 'text-orange-700 dark:text-orange-300',
 };
 
-function getDistanceColor(distance) {
-  return DISTANCE_COLORS[calculateScore(distance)] ?? 'text-red-700 dark:text-red-300';
+// Graded against the BOARD's own regional ladder, mirroring how the boards
+// are credited: 2km is red on a district board and green on the country one.
+function getDistanceColor(distance, bands) {
+  return DISTANCE_COLORS[calculateScore(distance, bands)] ?? 'text-red-700 dark:text-red-300';
 }
 
 function getScoreColor(score) {
@@ -38,8 +41,12 @@ function getMedalClass(rank) {
   }
 }
 
-export default function LeaderboardList({ data, loading, currentUsername, type }) {
+export default function LeaderboardList({ data, loading, currentUsername, type, regionCode }) {
   const isDistance = type === 'distance';
+  // The base ladder covers a caller that names no region.
+  const distanceBands = isRegion(regionCode)
+    ? bandsForBbox(getRegion(regionCode).bbox)
+    : bandsForBbox(null);
 
   if (loading) {
     return (
@@ -105,7 +112,7 @@ export default function LeaderboardList({ data, loading, currentUsername, type }
               </div>
             </div>
             <Badge variant="secondary" className={`text-lg font-bold tabular-nums ${
-              isDistance ? getDistanceColor(entry.distance) : getScoreColor(entry.score)
+              isDistance ? getDistanceColor(entry.distance, distanceBands) : getScoreColor(entry.score)
             }`}>
               {isDistance ? formatDistance(entry.distance) : entry.score}
             </Badge>

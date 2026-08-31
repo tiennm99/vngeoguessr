@@ -26,13 +26,8 @@ export default function ResultMap({ guessCoordinates, exactLocation }) {
         await import('leaflet/dist/leaflet.css');
         if (disposed) return;
 
-        delete L.Icon.Default.prototype._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        });
-
+        // No default-icon config: every marker on this map uses a divIcon, so
+        // the default marker images are never requested.
         const map = L.map(containerRef.current, {
           preferCanvas: true,
           attributionControl: true
