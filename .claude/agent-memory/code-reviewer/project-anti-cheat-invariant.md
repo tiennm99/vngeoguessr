@@ -5,10 +5,13 @@ metadata:
   type: project
 ---
 
-The panorama indexes under `src/data/panos/` are ~29 MB of exact round answers. The
-team's stated invariant is that `src/lib/regions.js` (client-imported) must never
-transitively reach them, enforced by the "client safety" import walk in
-`tests/regions.test.js`.
+The panorama index is the exact round answers. As of 2026-08-31 it is a Neon
+Postgres table (`panoramas`), reached through `src/lib/pano-db.js` and
+`src/lib/pano-index.js`; the old ~29 MB `src/data/panos/*.json` are deleted and
+the pipeline now writes gitignored `data-build/panos/`. The team's stated
+invariant is that `src/lib/regions.js` (client-imported) must never transitively
+reach them, enforced by the "client safety" import walk in `tests/regions.test.js`
+and `tests/geo-search.test.js`, whose forbidden list now includes `pano-db`.
 
 **Why:** a client that can map a panorama id to coordinates scores perfectly every round.
 
@@ -21,3 +24,7 @@ a district's list complete and unsampled in one request. The user has accepted t
 exposure; do not re-litigate it, but when reviewing changes near regions/pano-index/
 new-game, check whether the change makes extraction cheaper, and never treat a passing
 import-walk test as proof the property holds.
+
+Since the move to Postgres that route also has a cost dimension: each unauthenticated
+call runs a `row_number() OVER (ORDER BY lat, id)` over the whole region (226k rows for
+HN) on metered Neon compute. Extraction now bills the project, not just leaks.

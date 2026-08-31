@@ -34,6 +34,15 @@ ten setter call sites surviving green). Lint currently emits 4 pre-existing
   sessions" (they are Redis), and Node 18+ against `engines: >=24`. Check README
   explicitly on any docs pass; it is never reached by editing `/docs/`.
 
+**Opened 2026-08-31 by the Neon migration:** production SQL now runs against a
+driver no gate exercises. `npm test` and `npm run test:integration` both mock
+`@neondatabase/serverless` and run PGlite instead, so parameter serialisation,
+type inference (`= ANY($n)` on an untyped param, `count(*)` needing `::int`) and
+query plans are only ever proven by a manual smoke test against real Neon. There
+is also no perf gate: an unindexed `ORDER BY ... OFFSET` or a window-function
+sort over 226k rows passes every check. Ask for the index list whenever a diff
+adds a query.
+
 **How to apply:** when a diff removes or renames state, props, helpers, or
 imports, grep the whole file. For any React change, state plainly in the report
 which criteria are runtime-only. For any doc change, verify each load-bearing
