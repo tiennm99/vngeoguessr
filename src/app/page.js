@@ -139,13 +139,20 @@ export default function Home() {
         <DonateQRModal isOpen={showDonateModal} onClose={() => setShowDonateModal(false)} />
         <UsernameModal isOpen={showUsernameModal} onSubmit={handleUsernameSubmit} onClose={() => setShowUsernameModal(false)} />
 
-        {/* Debug Button */}
+        {/* Debug Button. Safe-area offset keeps it clear of the home
+            indicator; hover/active states give the press the feedback the
+            bare outline variant lacked. z-40 keeps it under dialogs. */}
         <Button
           asChild
           variant="outline"
-          className="fixed bottom-6 right-6 size-12 rounded-full bg-card text-muted-foreground shadow-sm transition-colors duration-200 z-50"
+          className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-40 size-12 rounded-full bg-card text-muted-foreground shadow-sm transition-all duration-200 hover:border-brand/40 hover:text-foreground hover:shadow-md active:scale-95"
         >
-          <Link href="/debug" aria-label="Open debug tools" className="flex items-center justify-center">
+          <Link
+            href="/debug"
+            aria-label="Open debug tools"
+            title="Debug tools"
+            className="flex items-center justify-center"
+          >
             <Wrench className="size-5" aria-hidden="true" />
           </Link>
         </Button>
