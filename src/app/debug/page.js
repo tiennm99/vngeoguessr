@@ -13,7 +13,7 @@ import dynamic from 'next/dynamic';
 // Dynamic import for client-side only components
 const LeafletMap = dynamic(() => import('../components/LeafletMap'), {
   ssr: false,
-  loading: () => <div className="w-full h-full bg-gray-300 animate-pulse rounded"></div>
+  loading: () => <div className="w-full h-full bg-muted animate-pulse rounded"></div>
 });
 
 export default function DebugPage() {
@@ -155,17 +155,16 @@ export default function DebugPage() {
   }, [parsedBbox]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600">
-      <div className="min-h-screen bg-black/20 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-8">
+    <div className="min-h-dvh vn-gradient-bg">
+      <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <header className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-white">Debug Tool</h1>
-              <p className="text-white/80">Bbox Visualization & Mapillary Testing</p>
+              <h1 className="text-3xl font-bold text-foreground">Debug Tool</h1>
+              <p className="text-muted-foreground">Bbox Visualization & Mapillary Testing</p>
               <Link
                 href="/debug/coverage"
-                className="mt-2 inline-block text-sm font-semibold text-white underline underline-offset-4 hover:opacity-80"
+                className="mt-2 inline-block text-sm font-semibold text-brand underline underline-offset-4 hover:opacity-80"
               >
                 Panorama coverage map →
               </Link>
@@ -177,13 +176,13 @@ export default function DebugPage() {
 
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Controls Panel */}
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-card border-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white">Bbox Input</CardTitle>
+                <CardTitle className="text-xl font-bold text-card-foreground">Bbox Input</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="bbox" className="text-white">
+                  <Label htmlFor="bbox">
                     Bounding Box (minLng,minLat,maxLng,maxLat)
                   </Label>
                   <Input
@@ -193,7 +192,7 @@ export default function DebugPage() {
                     placeholder="105.8,21.0,105.9,21.1"
                     className="mt-1"
                   />
-                  <p className="text-xs text-white/60 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Format: longitude1,latitude1,longitude2,latitude2
                   </p>
                 </div>
@@ -219,10 +218,10 @@ export default function DebugPage() {
                 </div>
 
                 {parsedBbox && (
-                  <Card className="bg-black/20">
+                  <Card className="bg-muted/50">
                     <CardContent className="p-4">
-                      <h4 className="text-white font-semibold mb-2">Parsed Bbox:</h4>
-                      <div className="text-sm text-white/80 space-y-1">
+                      <h4 className="text-foreground font-semibold mb-2">Parsed Bbox:</h4>
+                      <div className="text-sm text-muted-foreground space-y-1">
                         <div>Min: {parsedBbox.minLng.toFixed(6)}, {parsedBbox.minLat.toFixed(6)}</div>
                         <div>Max: {parsedBbox.maxLng.toFixed(6)}, {parsedBbox.maxLat.toFixed(6)}</div>
                         <div>Size: {((parsedBbox.maxLng - parsedBbox.minLng) * 111).toFixed(2)}km × {((parsedBbox.maxLat - parsedBbox.minLat) * 111).toFixed(2)}km</div>
@@ -232,19 +231,20 @@ export default function DebugPage() {
                 )}
 
                 {mapillaryResults && (
-                  <Card className="bg-black/20">
+                  <Card className="bg-muted/50">
                     <CardContent className="p-4">
-                      <h4 className="text-white font-semibold mb-2">Mapillary Results:</h4>
+                      <h4 className="text-foreground font-semibold mb-2">Mapillary Results:</h4>
                       {mapillaryResults.success ? (
                         <div className="space-y-2">
-                          <Badge className="bg-green-600">
+                          {/* Same success green the round result uses; not a theme token. */}
+                          <Badge className="bg-green-600 text-white">
                             Found {mapillaryResults.data.length} images
                           </Badge>
-                          <div className="text-sm text-white/80 space-y-1">
+                          <div className="text-sm text-muted-foreground space-y-1">
                             <div>Panoramic images: {mapillaryResults.data.filter(img => img.is_pano).length}</div>
                             <div>Regular images: {mapillaryResults.data.filter(img => !img.is_pano).length}</div>
                             {mapillaryResults.analysis && (
-                              <div className="pt-1 border-t border-white/20">
+                              <div className="pt-1 border-t border-border">
                                 <div>Area: {mapillaryResults.analysis.bboxArea.widthKm}km × {mapillaryResults.analysis.bboxArea.heightKm}km</div>
                                 <div>Density: {(mapillaryResults.data.length / (parseFloat(mapillaryResults.analysis.bboxArea.widthKm) * parseFloat(mapillaryResults.analysis.bboxArea.heightKm))).toFixed(1)} images/km²</div>
                               </div>
@@ -265,12 +265,12 @@ export default function DebugPage() {
             </Card>
 
             {/* Map Panel */}
-            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card className="bg-card border-border shadow-sm">
               <CardHeader>
-                <CardTitle className="text-white">Map Visualization</CardTitle>
+                <CardTitle className="text-xl font-bold text-card-foreground">Map Visualization</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-96 bg-gray-200 rounded-lg overflow-hidden">
+                <div className="h-96 bg-muted rounded-lg overflow-hidden">
                   <LeafletMap
                     center={mapCenter}
                     zoom={mapZoom}
@@ -278,7 +278,7 @@ export default function DebugPage() {
                     className="w-full h-full"
                   />
                 </div>
-                <p className="text-xs text-white/60 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   Red rectangle shows the bbox area. Center marker shows the bbox center point.
                 </p>
               </CardContent>
@@ -286,9 +286,9 @@ export default function DebugPage() {
           </div>
 
           {/* Sample Bboxes */}
-          <Card className="mt-8 bg-white/10 backdrop-blur-md border-white/20">
+          <Card className="mt-8 bg-card border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-white">Sample Bboxes</CardTitle>
+              <CardTitle className="text-xl font-bold text-card-foreground">Sample Bboxes</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -313,7 +313,6 @@ export default function DebugPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
       </div>
     </div>
   );
