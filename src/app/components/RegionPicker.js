@@ -1,7 +1,9 @@
 "use client";
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { getLastRegion } from '../../lib/last-region';
 import {
   Accordion,
   AccordionContent,
@@ -14,6 +16,7 @@ import {
   coverageOf,
   getRegion,
   isPlayable,
+  isRegion,
   isThin,
   isUnresolved,
   provinces,
@@ -97,9 +100,26 @@ function UnavailableRow({ code }) {
  * so the common case stays one click while 61 districts stay reachable.
  */
 export default function RegionPicker() {
+  // Read in an effect, not during render: localStorage does not exist on the
+  // server and a hydration mismatch is worse than the row appearing a frame
+  // late. Only one row keeps the accent style -- two competing primary
+  // actions is worse than none -- so this renders un-emphasised.
+  const [lastRegion, setLastRegionState] = useState(null);
+
+  useEffect(() => {
+    const code = getLastRegion();
+    if (code && code !== COUNTRY_CODE && isRegion(code) && isPlayable(code)) {
+      setLastRegionState(code);
+    }
+  }, []);
+
   return (
     <div className="grid gap-3">
       <PlayRow code={COUNTRY_CODE} label="Play anywhere in Vietnam" emphasis />
+
+      {lastRegion && (
+        <PlayRow code={lastRegion} label={`Continue in ${getRegion(lastRegion).name}`} />
+      )}
 
       <Accordion type="multiple" className="grid gap-2">
         {provinces().map((province) => {

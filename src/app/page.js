@@ -11,12 +11,27 @@ import DonateQRModal from './components/DonateQRModal';
 import LeaderboardModal from './components/LeaderboardModal';
 import RegionPicker from './components/RegionPicker';
 import { getUsername, setUsername } from '../lib/username';
+import { SCORE_BANDS, formatDistance } from '../lib/game';
 
 const STEP_LABELS = [
   'Choose a region: the whole country, a province, or one district',
   'View 360° street panorama',
   'Place your guess on the map',
   'Earn points based on accuracy!'
+];
+
+// Derived from the scoring ladder rather than re-typed: these are the
+// district-round bands, and a hardcoded copy is how the table silently
+// drifts from what the server actually awards. "1km" reads better than the
+// "1.00km" a result badge shows, so round labels drop the trailing zeros.
+const label = (meters) => formatDistance(meters).replace('.00km', 'km');
+const SCORING_ROWS = [
+  ...SCORE_BANDS.map((band, index) => {
+    const from = index === 0 ? '0m' : label(SCORE_BANDS[index - 1].maxMeters);
+    const pts = band.points === 1 ? '1 pt' : `${band.points} pts`;
+    return `${from}-${label(band.maxMeters)} = ${pts}`;
+  }),
+  `${label(SCORE_BANDS[SCORE_BANDS.length - 1].maxMeters)}+ = 0 pts`,
 ];
 
 export default function Home() {
@@ -96,13 +111,15 @@ export default function Home() {
                 <div className="mt-6 pt-4 border-t border-border">
                   <p className="text-muted-foreground text-xs mb-2 uppercase tracking-wider font-medium">Scoring</p>
                   <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                    <span>0-50m = 5 pts</span>
-                    <span>50-100m = 4 pts</span>
-                    <span>100-200m = 3 pts</span>
-                    <span>200-500m = 2 pts</span>
-                    <span>500m-1km = 1 pt</span>
-                    <span>1km+ = 0 pts</span>
+                    {SCORING_ROWS.map((row) => (
+                      <span key={row}>{row}</span>
+                    ))}
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground/80">
+                    Base scale — every region stretches these distances to
+                    match its own size, from compact districts up to the
+                    whole country.
+                  </p>
                 </div>
               </CardContent>
             </Card>
