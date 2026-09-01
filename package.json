@@ -18,7 +18,6 @@
     "data:panos": "node scripts/build-pano-index.mjs",
     "data:districts": "node scripts/assign-pano-districts.mjs",
     "data:repartition": "npm run data:boundaries -- --regenerate && npm run data:districts",
-    "leaderboard:migrate": "node scripts/migrate-leaderboards.mjs",
     "data:seed": "node scripts/seed-pano-db.mjs",
     "test:e2e": "playwright test"
   },

@@ -88,9 +88,9 @@ precision. Each level's added points are returned as `points` on its
   `leaderboard:vietnam` / `distance:vietnam` keys rather than starting a new
   `leaderboard:city:vn`. `HN`, `DN` and `TPHCM` kept their codes, so their boards
   carried over untouched. Only two codes moved — Da Lat's board was backfilled
-  into Lam Dong's and Duc Hoa's into Long An's by
-  `scripts/migrate-leaderboards.mjs`, which copies rather than moves. No score
-  was reset
+  into Lam Dong's and Duc Hoa's into Long An's by a one-shot copy script
+  (applied and verified 2026-09-01, then removed; it survives in git history).
+  No score was reset
 - **Redis Sorted Sets**: persistent leaderboard data using ZADD/ZRANGE
 - **Top 200 Entries**: automatic trimming per leaderboard
 - **Real-time Ranking**: rank calculated with ZREVRANK/ZRANK

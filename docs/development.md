@@ -184,21 +184,6 @@ before running. Two things worth knowing up front:
   Deploy the app and the seed in either order: the schema is unchanged, and
   running processes keep serving their cached counts until they recycle.
 
-### Migrating leaderboards
-
-`scripts/migrate-leaderboards.mjs` backfills the two boards whose region code
-changed (Da Lat into Lam Dong, Duc Hoa into Long An). It is **dry-run by
-default** and copies rather than moves, so the source boards survive.
-
-Deploy first, then migrate. The new code writes to the new keys immediately; a
-migration run before the deploy would copy a board that is still being written
-to under its old name. Run `npm run leaderboard:migrate` with no flags for a
-dry run; add `--apply --confirm-prefix=<key prefix>` to write (the confirm
-flag must echo the deployment's own `KEY_PREFIX`, or the script refuses), and
-`--restore=<backup.json> --confirm-prefix=<key prefix>` to undo from the
-backup file the apply run wrote. `--dry-run` is a guard, not a mode switch --
-combining it with `--apply` throws instead of guessing which one you meant.
-
 ## Styling Conventions
 
 One design system for every page, including debug pages. It is Tailwind 4 +

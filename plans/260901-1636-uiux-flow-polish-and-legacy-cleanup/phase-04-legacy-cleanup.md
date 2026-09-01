@@ -58,15 +58,17 @@ compat that must NOT be touched.
 ## Todo
 
 - [x] Step 1 (ungated) — fallbacks removed 2026-09-01, compat test deleted
-- [ ] Operator runs backfill; verify output (dry run 2026-09-01 confirmed NOT yet applied)
-- [ ] Steps 2-3
-- [x] `npm test`, `npm run lint`, `npm run build` green (after step 1)
+- [x] Operator ran backfill 2026-09-01; dry-run re-check showed every destination
+      matching its source (5/18/6/101 members, replacing same counts)
+- [x] Steps 2-3 — scripts, test, npm script deleted; docs updated; grep sweep
+      clean (only the permanent-compat comments remain)
+- [x] `npm test` (233), `npm run lint`, `npm run build` green
 
 ## Success Criteria
 
-- [ ] No `cityCode` session fallback in API routes; tests reflect current shape
-- [ ] Migration scripts gone only after verified backfill
-- [ ] Permanent compat untouched (assert `?city=` and legacy response fields
+- [x] No `cityCode` session fallback in API routes; tests reflect current shape
+- [x] Migration scripts gone only after verified backfill
+- [x] Permanent compat untouched (assert `?city=` and legacy response fields
       still work via existing tests)
 
 ## Risk Assessment

@@ -120,11 +120,9 @@ Each carries a header comment with its flags and its cost.
 - `build-pano-index.mjs` - Mapillary z14 tiles to per-province panorama artifacts
 - `assign-pano-districts.mjs` - Clips and partitions panoramas by district
 - `seed-pano-db.mjs` - Validates the artifacts and uploads them to Neon
-- `migrate-leaderboards.mjs` - Backfills the two boards whose code changed
 - `build-check.mjs` - Production build into `.next-check`
 - `lib/assign-districts.mjs` - District assignment shared by the two pano scripts
 - `lib/pano-schema.mjs` - Panorama table DDL shared by the seed and the tests
-- `lib/leaderboard-migration.mjs` - Copy, verify, regression-check and restore
 
 ## Tests (`tests/`)
 Vitest, mostly one file per `src/lib/` module, plus a route test for

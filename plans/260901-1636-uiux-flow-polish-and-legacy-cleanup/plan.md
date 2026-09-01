@@ -1,7 +1,7 @@
 ---
 title: "UI/UX flow polish and legacy cleanup"
 description: "Newbie-friendly flow, consistent presentation, migration-era code removal"
-status: in-progress
+status: completed
 priority: P1
 effort: "2-3d"
 tags: [ui-ux, cleanup]

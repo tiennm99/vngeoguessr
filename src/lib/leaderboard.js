@@ -63,14 +63,6 @@ function getDistanceLeaderboardKey(regionCode) {
   return `${DISTANCE_CITY_PREFIX}${regionCode.toLowerCase()}`;
 }
 
-// Both key builders, so scripts/lib/leaderboard-migration.mjs derives the keys
-// it copies from the same code the app writes through. Hardcoding the prefixes
-// there would let a change here silently point the migration at old names.
-export const leaderboardKeys = {
-  score: getRegionLeaderboardKey,
-  distance: getDistanceLeaderboardKey,
-};
-
 /**
  * Get a leaderboard for one region.
  * @param {string|null} regionCode Region code, or null for the country.
