@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// Build stamp rendered on every page: which commit is this deployment?
+// Footer credit plus build stamp, rendered on every page: who made this, and
+// which commit is this deployment?
 //
 // Bottom-center, styled as a link; clicking copies the FULL sha (the label
 // shows the short form). z-40 keeps it under dialogs (z-50) and under the
@@ -30,7 +31,18 @@ export default function DebugFooter() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-40 flex justify-center">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-40 flex items-center justify-center gap-1">
+      <a
+        href="https://miti99.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="pointer-events-auto flex min-h-11 items-center rounded-md px-2 text-[11px] leading-none text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+      >
+        Made by <span className="underline underline-offset-2 mx-1">miti99</span> with{' '}
+        <span aria-hidden="true" className="ml-1">❤️</span>
+        <span className="sr-only">love</span>
+      </a>
+      <span className="text-[11px] leading-none text-muted-foreground" aria-hidden="true">·</span>
       {/* The visual is deliberately tiny, so the tap target comes from
           padding: ~44px tall, well past the label's own box. min-w in ch
           keeps the width stable when the 7-char sha swaps for the 7-char
