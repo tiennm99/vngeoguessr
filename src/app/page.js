@@ -134,6 +134,22 @@ export default function Home() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Data attribution. mb clears the fixed build-stamp footer. */}
+          <p className="mt-10 mb-8 text-center text-xs text-muted-foreground/80">
+            Imagery ©{' '}
+            <a href="https://www.mapillary.com/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+              Mapillary
+            </a>{' '}
+            (CC BY-SA 4.0) · Map data ©{' '}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
+              OpenStreetMap contributors
+            </a>{' '}
+            ·{' '}
+            <Link href="/credits" className="underline underline-offset-2 hover:text-foreground">
+              Credits
+            </Link>
+          </p>
         </div>
 
         <DonateQRModal isOpen={showDonateModal} onClose={() => setShowDonateModal(false)} />

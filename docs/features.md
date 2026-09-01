@@ -22,9 +22,17 @@
 - **Panoramas only**: non-panoramic images are filtered out when the index is
   built, so every indexed point is a panorama. The flag itself is not stored
 - **Thumbnail display**: `thumb_2048_url`, falling back to `thumb_original_url`
+- **Attribution overlay**: every panorama shows the Mapillary logo (linking to
+  the Mapillary homepage, never the per-image page — the image id is the
+  round's answer) and a CC BY-SA 4.0 link, as the Mapillary Terms of Use
+  require. `/credits` lists all data sources and licenses; the home page
+  footer links to it
 
 ## Interactive Maps
-- **Leaflet Integration**: OpenStreetMap-based interactive mapping
+- **Leaflet Integration**: OpenStreetMap-based interactive mapping. Tiles come
+  from Geoapify when `NEXT_PUBLIC_GEOAPIFY_KEY` is set at build time (free
+  tier allows commercial use), falling back to the OSM public server
+  otherwise; the choice is centralized in `src/lib/map-tiles.js`
 - **Click-to-Place**: Intuitive guess marker placement
 - **Map Search**: search box on the guess map finds districts (offline,
   diacritic- and alias-aware: `quận 7`, `q7`, `hoàn kiếm`) and streets/places

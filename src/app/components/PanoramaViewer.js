@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, memo } from 'react';
+import Image from 'next/image';
 import { Viewer } from '@photo-sphere-viewer/core';
 import '@photo-sphere-viewer/core/index.css';
 
@@ -97,10 +98,32 @@ function PanoramaViewer({ imageUrl, onReady, onError }) {
   }, [imageUrl]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full bg-neutral-900 overflow-hidden touch-none"
-    />
+    <div className="relative w-full h-full bg-neutral-900 overflow-hidden touch-none">
+      <div ref={containerRef} className="w-full h-full" />
+      {/* Imagery attribution required by the Mapillary Terms of Use: the logo,
+          visibly displayed, linking to the Mapillary homepage. Deliberately
+          NOT the per-image page — the image id resolves the round's answer,
+          and the server keeps it secret. Top-left: the navbar owns the bottom
+          edge and the floating guess map owns the bottom-right. */}
+      <div className="absolute top-2 left-2 z-10 flex items-center gap-2 rounded-md bg-black/50 px-2 py-1">
+        <a
+          href="https://www.mapillary.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Imagery from Mapillary"
+        >
+          <Image src="/mapillary-logo.svg" alt="Mapillary" width={61} height={14} className="h-3 w-auto" />
+        </a>
+        <a
+          href="https://creativecommons.org/licenses/by-sa/4.0/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] leading-none text-white/80 hover:text-white"
+        >
+          CC BY-SA 4.0
+        </a>
+      </div>
+    </div>
   );
 }
 
