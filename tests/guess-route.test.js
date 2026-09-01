@@ -103,18 +103,6 @@ describe('POST /api/guess', () => {
     expect((await getLeaderboard('TPHCM-Q7'))[0].score).toBe(5);
   });
 
-  it('scores a session created before the tree at province level', async () => {
-    // Sessions live 30 minutes, so a deploy strands some in the old shape.
-    // They have no district and must still score rather than throw.
-    await seedSession('s5', { regionCode: undefined, cityCode: 'TPHCM' });
-    const body = await (
-      await guess({ username: 'mai', sessionId: 's5', guessLat: HCMC.lat, guessLng: HCMC.lng })
-    ).json();
-
-    expect(body.success).toBe(true);
-    expect(body.gameResult.levels.map((l) => l.code)).toEqual(['TPHCM', 'VN']);
-  });
-
   it('lets exactly one of many concurrent submits score', async () => {
     // Read-then-delete is not a guard: ten requests all read a live session,
     // all delete it, and all write. DEL is atomic, so gating on its count is

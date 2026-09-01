@@ -65,7 +65,7 @@ export async function POST(request) {
     // guessing over 331,000 km2, and the district-scale ladder would zero
     // almost every honest guess. The picked region is not a secret, so this
     // reveals nothing.
-    const pickedCode = session.pickedRegion ?? session.cityCode ?? null;
+    const pickedCode = session.pickedRegion ?? null;
     const scoreBands = pickedCode && isRegion(pickedCode)
       ? bandsForBbox(getRegion(pickedCode).bbox)
       : SCORE_BANDS;
@@ -76,11 +76,7 @@ export async function POST(request) {
     // The region the panorama was actually in, resolved server-side when the
     // round was created. Never read from the request: a client that could name
     // its own region could farm any district's board.
-    //
-    // The `?? cityCode` fallback carries sessions created before this deploy.
-    // They have no district, so they credit province and country only. Sessions
-    // live 30 minutes, so this can be dropped a release from now.
-    const scoringRegion = session.regionCode ?? session.cityCode;
+    const scoringRegion = session.regionCode;
 
     // Claim the session before writing, and score only if this request is the
     // one that removed it. DEL is atomic, so exactly one of N concurrent

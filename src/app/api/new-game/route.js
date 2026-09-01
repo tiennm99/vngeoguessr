@@ -122,7 +122,7 @@ export async function POST(request) {
         // Only what the player picked. Neither exactLocation nor regionCode is
         // exposed: the caller owns this session id, so either one would hand
         // them the answer to their own round.
-        pickedRegion: session.pickedRegion ?? session.cityCode ?? null,
+        pickedRegion: session.pickedRegion ?? null,
         createdAt: session.createdAt
       }
     });
