@@ -40,13 +40,17 @@ export default function Home() {
   const [showDonateModal, setShowDonateModal] = useState(false);
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [username, setUsernameState] = useState('');
-  // The Play destination held while the name prompt is up. The prompt appears
-  // at the first Play click -- when the name is about to matter -- rather than
-  // ambushing on landing, so the landing page introduces the game first.
+  // The Play destination held while the name prompt is up, so navigation
+  // resumes after the name is settled.
   const [pendingHref, setPendingHref] = useState(null);
 
+  // With no stored name the prompt opens right on landing: every path out of
+  // it (save, skip, or dismiss) leaves a name behind, so the suggestion to
+  // pick one comes before Play instead of interrupting it.
   useEffect(() => {
-    setUsernameState(getUsername() || '');
+    const stored = getUsername() || '';
+    setUsernameState(stored);
+    if (!stored) setShowUsernameModal(true);
   }, []);
 
   const saveUsername = (newUsername) => {
@@ -67,6 +71,18 @@ export default function Home() {
   // shows on the leaderboard and stays editable from the header chip.
   const handleUsernameSkip = () => {
     handleUsernameSubmit(generateRandomUsername());
+  };
+
+  // Dismissing the prompt (Esc, overlay click) with no saved name still needs
+  // a leaderboard name, so cancel falls back to the same generated name as
+  // Skip. With a saved name it is a plain close.
+  const handleUsernameClose = () => {
+    if (!getUsername()) {
+      handleUsernameSkip();
+      return;
+    }
+    setShowUsernameModal(false);
+    setPendingHref(null);
   };
 
   // Returns true when the click is intercepted: no saved name yet, so the
@@ -192,7 +208,7 @@ export default function Home() {
           isOpen={showUsernameModal}
           onSubmit={handleUsernameSubmit}
           onSkip={handleUsernameSkip}
-          onClose={() => { setShowUsernameModal(false); setPendingHref(null); }}
+          onClose={handleUsernameClose}
           initialValue={username}
         />
 
