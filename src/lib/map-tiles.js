@@ -23,8 +23,10 @@ export function getTileConfig() {
       url: `https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${geoapifyKey}`,
       options: {
         maxZoom: 19,
+        // Geoapify's free plan requires all three credits for non-osm-carto
+        // styles: Geoapify, OpenMapTiles (the tile schema), and OSM (the data).
         attribution:
-          'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a> | © OpenStreetMap contributors',
+          'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a> | <a href="https://openmaptiles.org/" target="_blank" rel="noopener noreferrer">© OpenMapTiles</a> | <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>',
       },
     };
   }
@@ -32,7 +34,9 @@ export function getTileConfig() {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     options: {
       maxZoom: 19,
-      attribution: '© OpenStreetMap contributors',
+      // OSM's attribution guideline asks for a link to the copyright page.
+      attribution:
+        '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>',
     },
   };
 }

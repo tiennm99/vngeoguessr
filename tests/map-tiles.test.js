@@ -17,17 +17,18 @@ afterEach(() => {
 });
 
 describe('getTileConfig', () => {
-  it('falls back to the OSM public server, byte-identical to the pre-migration values', async () => {
+  it('falls back to the OSM public server with a linked OSM credit', async () => {
     vi.stubEnv('NEXT_PUBLIC_GEOAPIFY_KEY', '');
     const { getTileConfig } = await importFresh();
 
-    // These exact values were hardcoded in all three maps before the
-    // migration; the keyless mode must never drift from them.
+    // Same tile source the maps hardcoded before the migration; the credit
+    // now links to the copyright page, per OSM's attribution guideline.
     expect(getTileConfig()).toEqual({
       url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       options: {
         maxZoom: 19,
-        attribution: '© OpenStreetMap contributors',
+        attribution:
+          '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>',
       },
     });
   });
@@ -41,11 +42,14 @@ describe('getTileConfig', () => {
       'https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=test-key'
     );
     expect(tiles.options.maxZoom).toBe(19);
-    // Geoapify's free tier requires a visible "Powered by Geoapify" credit;
-    // OSM data attribution must survive the provider swap.
+    // Geoapify's free plan requires all three credits for non-osm-carto
+    // styles: Geoapify, OpenMapTiles (schema), and OSM (data).
     expect(tiles.options.attribution).toContain('Powered by');
     expect(tiles.options.attribution).toContain('https://www.geoapify.com/');
+    expect(tiles.options.attribution).toContain('© OpenMapTiles');
+    expect(tiles.options.attribution).toContain('https://openmaptiles.org/');
     expect(tiles.options.attribution).toContain('© OpenStreetMap contributors');
+    expect(tiles.options.attribution).toContain('https://www.openstreetmap.org/copyright');
   });
 
   it('returns a fresh object per call, so Leaflet cannot mutate shared state', async () => {
