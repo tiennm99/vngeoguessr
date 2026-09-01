@@ -2,15 +2,16 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Beer } from 'lucide-react';
 import PanoramaViewer from './PanoramaViewer';
 import ThemeToggle from './ThemeToggle';
 import DonateQRModal from './DonateQRModal';
+import FirstRoundHint from './FirstRoundHint';
 import GuessMapPanel from './GuessMapPanel';
 import RoundResultDialog from './RoundResultDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getUsername } from '../../lib/username';
+import { generateRandomUsername, getUsername, setUsername } from '../../lib/username';
 import { setLastRegion } from '../../lib/last-region';
 // The revealed path comes from /api/guess (the RESOLVED district), not from
 // regionPath(pickedRegion) -- computing it client-side from what the player
@@ -71,6 +72,12 @@ export default function GameClient() {
   const [showDonate, setShowDonate] = useState(false);
   const [username, setUsernameState] = useState('');
   const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]);
+  // This visit's tally, client-side only: rounds submitted and points earned
+  // since the page loaded. The result dialog shows leaderboard totals, but
+  // those arrive per-board and per-region; this is the simple "how am I doing
+  // right now" feedback loop, reset by a reload on purpose.
+  const [sessionRounds, setSessionRounds] = useState(0);
+  const [sessionPoints, setSessionPoints] = useState(0);
   // On phones the guess map floats over the panorama as a corner minimap and
   // only takes over the screen once tapped. Desktop keeps both side by side and
   // ignores this flag entirely.
@@ -170,7 +177,16 @@ export default function GameClient() {
 
   const submitGameResult = async (guessCoords) => {
     if (!guessCoords || !sessionId) return null;
-    const playerName = username || 'Anonymous';
+    // A deep-linked player may reach their first submit without ever visiting
+    // the home page's name prompt. Generate and persist a name here so the
+    // leaderboard shows something they can recognise and later edit, rather
+    // than a shared "Anonymous" bucket.
+    let playerName = username;
+    if (!playerName) {
+      playerName = generateRandomUsername();
+      setUsername(playerName);
+      setUsernameState(playerName);
+    }
 
     try {
       const response = await fetch('/api/guess', {
@@ -250,6 +266,8 @@ export default function GameClient() {
       const submitted = await submitGameResult(guessCoordinates);
 
       if (submitted) {
+        setSessionRounds((rounds) => rounds + 1);
+        setSessionPoints((points) => points + (submitted.score ?? 0));
         setResult({
           failed: false,
           distance: submitted.distance,
@@ -365,7 +383,7 @@ export default function GameClient() {
   // game chrome mounted -- tearing it down destroys the panorama viewer.
   if (initialLoading) {
     return (
-      <div className="h-dvh flex items-center justify-center vn-gradient-bg">
+      <div className="h-dvh flex items-center justify-center vn-surface">
         <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
           <div className="w-12 h-12 border-4 border-border border-t-brand rounded-full animate-spin mx-auto" aria-hidden="true" />
           <p className="text-foreground text-lg font-medium">Loading panoramic image...</p>
@@ -376,7 +394,7 @@ export default function GameClient() {
   }
 
   return (
-    <div className="h-dvh vn-gradient-bg flex flex-col overflow-hidden">
+    <div className="h-dvh vn-surface flex flex-col overflow-hidden">
       {/* Compact Header */}
       <header className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] bg-card border-b border-border shadow-sm">
         <Button
@@ -395,6 +413,17 @@ export default function GameClient() {
           <Badge variant="brand" className="text-xs">
             {regionName}
           </Badge>
+          {/* This visit's tally; invisible until the first round lands so the
+              header opens no colder than it used to. */}
+          {sessionRounds > 0 && (
+            <Badge
+              variant="secondary"
+              className="text-xs tabular-nums"
+              title={`${sessionPoints} headline points in ${sessionRounds} ${sessionRounds === 1 ? 'round' : 'rounds'} this visit — leaderboards grade each board on its own scale`}
+            >
+              {sessionRounds} {sessionRounds === 1 ? 'round' : 'rounds'} · {sessionPoints} pts
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
@@ -406,7 +435,7 @@ export default function GameClient() {
             aria-label="Buy me a beer"
             className="min-h-11 text-muted-foreground hover:text-foreground"
           >
-            <span className="text-base leading-none" aria-hidden="true">🍺</span>
+            <Beer className="size-4" aria-hidden="true" />
             <span className="hidden sm:inline">Buy me a beer</span>
           </Button>
         </div>
@@ -415,6 +444,7 @@ export default function GameClient() {
       {/* Game Content. Phones get a full-bleed panorama with the guess map
           floating over it; lg and up keeps the original two-column split. */}
       <div className="relative flex-1 min-h-0 lg:grid lg:grid-cols-2 lg:gap-3 lg:p-3">
+        <FirstRoundHint hasGuess={Boolean(guessCoordinates)} mapExpanded={mapExpanded} />
         {/* Panorama Viewer */}
         <div className="absolute inset-0 bg-neutral-900 overflow-hidden lg:relative lg:rounded-lg">
           {loadError ? (
@@ -489,6 +519,8 @@ export default function GameClient() {
               disabled={submitting || roundLoading}
               variant="outline"
               className="px-5"
+              title="Skip this location — no penalty"
+              aria-label="Skip this location — no penalty"
             >
               Skip
             </Button>

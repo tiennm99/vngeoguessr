@@ -70,6 +70,17 @@ export default function GuessMapPanel({
         <MapSearchBox map={mapInstance} rootCode={regionCode} expanded={expanded} />
       </div>
 
+      {/* Desktop counterpart of the phone cover's "Tap to guess": until a pin
+          exists, nothing on a bare map says it is clickable. Non-interactive
+          so it never steals the click it is inviting. */}
+      {!hasGuess && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-[1100] hidden justify-center lg:flex">
+          <span className="rounded-lg bg-background/80 px-3 py-1.5 text-xs font-medium text-foreground shadow-md backdrop-blur">
+            Click to place your guess
+          </span>
+        </div>
+      )}
+
       {/* Collapsed, the map is only a preview: this cover turns the whole
           minimap into one tap target instead of letting a stray touch
           drop a pin the player cannot see at that size. */}

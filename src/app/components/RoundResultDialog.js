@@ -3,36 +3,47 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronDown } from 'lucide-react';
 import { formatDistance } from '../../lib/game';
 import { useCountUp } from '../../lib/use-count-up';
-import ResultMap from './ResultMap';
+import ResultMap, { MARKER_COLORS } from './ResultMap';
 
-const getScoreBg = (s) => {
-  if (s >= 5) return 'bg-green-600';
-  if (s >= 4) return 'bg-emerald-600';
-  if (s >= 3) return 'bg-amber-600';
-  if (s >= 2) return 'bg-orange-600';
-  if (s >= 1) return 'bg-red-500';
-  return 'bg-neutral-500';
+// Background and text move together: the semantic tokens flip to lighter
+// fills with dark text in dark mode, so a hardcoded text-white cannot ride
+// along on the wrapper.
+const getScoreClasses = (s) => {
+  if (s >= 4) return 'bg-success text-success-foreground';
+  if (s >= 2) return 'bg-warning text-warning-foreground';
+  if (s >= 1) return 'bg-danger text-danger-foreground';
+  return 'bg-muted-foreground text-background';
 };
 
-// Colour alone must not carry the result; every band also gets a word.
-const getScoreLabel = (s) => {
-  if (s >= 5) return 'Pinpoint';
-  if (s >= 4) return 'Excellent';
-  if (s >= 3) return 'Good';
-  if (s >= 2) return 'Fair';
-  if (s >= 1) return 'Far';
-  return 'Missed';
+// Colour alone must not carry the result; every band also gets a word, and the
+// message below the map is derived from the same band so the two never
+// disagree about how good the round was.
+const SCORE_WORDING = [
+  { label: 'Missed', message: 'Nice try! Better luck next time!' },
+  { label: 'Far', message: 'Quite far — keep trying!' },
+  { label: 'Fair', message: 'Fair guess — getting closer!' },
+  { label: 'Good', message: 'Good job! Nice work!' },
+  { label: 'Excellent', message: 'Excellent! Almost spot on!' },
+  { label: 'Pinpoint', message: 'Outstanding! Pinpoint accuracy!' },
+];
+
+const scoreWording = (score) => {
+  const index = Math.min(Math.max(Math.trunc(score), 0), SCORE_WORDING.length - 1);
+  return SCORE_WORDING[index];
 };
 
-// Get result message based on score
-const getResultMessage = (score) => {
-  if (score > 4) return "Excellent! Outstanding guess!";
-  if (score > 2) return "Good job! Nice work!";
-  if (score > 0) return "Not bad! Keep trying!";
-  return "Nice try! Better luck next time!";
-};
+// A tiny uppercase caption; every grouped block in this dialog gets one so no
+// number appears without a name.
+function SectionCaption({ children }) {
+  return (
+    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      {children}
+    </p>
+  );
+}
 
 // The end-of-round reveal. `result` is null until a round has been submitted;
 // `result.failed` marks a round the server never recorded, which is presented
@@ -52,6 +63,11 @@ export default function RoundResultDialog({
   // The result is the payoff of a round, so the score lands by counting up
   // rather than arriving already finished.
   const shownScore = useCountUp(score, open);
+
+  const hasScoreLevels = (result?.scoreLevels?.length ?? 0) > 0;
+  const hasDistanceLevels = result?.distanceLevels?.some((entry) => entry.rank) ?? false;
+  const hasBands = Array.isArray(result?.bands) && result.bands.length > 0;
+  const hasLeaderboardSection = hasScoreLevels || hasDistanceLevels || hasBands;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,7 +97,10 @@ export default function RoundResultDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Scrollable body: everything between the title and the actions. */}
+        {/* Scrollable body: everything between the title and the actions.
+            Order is the payoff order -- score, distance, the map, the reveal
+            -- with the leaderboard bookkeeping collapsed below them so the
+            whole story fits one phone viewport. */}
         <div className="overflow-y-auto -mx-1 px-1 space-y-4">
           {result?.failed ? (
             // A failed submission is not a zero-point round. Showing the
@@ -100,11 +119,11 @@ export default function RoundResultDialog({
               <div className="text-center space-y-4 animate-fade-in-up">
                 {/* Score circle */}
                 <div className="flex flex-col items-center gap-2 animate-fade-in-up" style={{ animationDelay: '120ms' }}>
-                  <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-white text-3xl font-extrabold tabular-nums shadow-md ring-4 ring-background ${getScoreBg(score)}`}>
+                  <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full text-3xl font-extrabold tabular-nums shadow-md ring-4 ring-background ${getScoreClasses(score)}`}>
                     {shownScore}
                   </div>
                   <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    {getScoreLabel(score)}
+                    {scoreWording(score).label}
                   </span>
                 </div>
 
@@ -114,99 +133,149 @@ export default function RoundResultDialog({
                   </Badge>
                 </div>
 
-                {/* The ladder this round was scored against. Thresholds scale
-                    with the picked region, so "how close did I need to be?"
-                    has no fixed answer worth memorising. Older stubbed or
-                    cached results carry no bands; then there is no strip. */}
-                {Array.isArray(result.bands) && result.bands.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-1.5 text-xs animate-fade-in-up" style={{ animationDelay: '280ms' }}>
-                    {result.bands.map((band) => (
-                      <span
-                        key={band.points}
-                        className={`rounded-md px-2 py-1 tabular-nums ${
-                          band.points === score
-                            ? 'bg-brand text-brand-foreground font-semibold'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {`≤${formatDistance(band.maxMeters)} = ${band.points}`}
-                      </span>
-                    ))}
-                    <span
-                      className={`rounded-md px-2 py-1 tabular-nums ${
-                        score === 0
-                          ? 'bg-brand text-brand-foreground font-semibold'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      beyond = 0
-                    </span>
-                  </div>
-                )}
-
                 <p className="text-muted-foreground text-sm animate-fade-in-up" style={{ animationDelay: '320ms' }}>
-                  {getResultMessage(score)}
-                </p>
-
-                {/* Where the panorama actually was. The reveal: for a province or
-                    country round the player did not know this until now. */}
-                {result.resolvedPath && (
-                  <p className="text-sm text-muted-foreground">
-                    {result.resolvedPath.join(' › ')}
-                  </p>
-                )}
-
-                {/* One row per level the guess credited. A district round shows
-                    three; a round whose panorama fell outside every district
-                    shows two. */}
-                {result.scoreLevels.length > 0 && (
-                  <div className="grid gap-2 text-sm sm:grid-cols-3">
-                    {result.scoreLevels.map((entry) => (
-                      <div
-                        key={entry.code}
-                        className="rounded-lg bg-brand-subtle p-2 text-brand-subtle-foreground"
-                      >
-                        <p className="font-semibold">{entry.name}</p>
-                        <p className="tabular-nums">
-                          {entry.score === null ? 'Below top 200' : `Total: ${entry.score}`}
-                          {/* Each board judges the round by its own regional
-                              ladder, so what it added is worth naming. */}
-                          {typeof entry.points === 'number' ? ` (+${entry.points})` : ''}
-                        </p>
-                        {entry.rank && (
-                          <p className="text-xs tabular-nums opacity-80">Rank #{entry.rank}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {result.distanceLevels.some((entry) => entry.rank) && (
-                  <div className="grid gap-2 text-xs sm:grid-cols-3">
-                    {result.distanceLevels
-                      .filter((entry) => entry.rank)
-                      .map((entry) => (
-                        <div key={entry.code} className="rounded-lg bg-muted p-2">
-                          <p className="font-medium text-foreground">{entry.name} distance</p>
-                          <p className="tabular-nums text-muted-foreground">Rank #{entry.rank}</p>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {result.leaderboardMessage && (
-                  <p className="text-sm text-green-700 dark:text-green-400 font-medium">{result.leaderboardMessage}</p>
-                )}
-
-                <p className="text-xs text-muted-foreground">
-                  {username || 'Anonymous'} • {regionName}
+                  {scoreWording(score).message}
                 </p>
               </div>
 
-              <ResultMap
-                guessCoordinates={guessCoordinates}
-                exactLocation={result.exactLocation}
-              />
+              <div className="space-y-1">
+                <ResultMap
+                  guessCoordinates={guessCoordinates}
+                  exactLocation={result.exactLocation}
+                />
+                {/* The two dots on the map, named. Colour is not enough: the
+                    pair must survive red-green colour blindness and the map's
+                    own palette. */}
+                <p className="flex justify-center gap-4 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block size-2.5 rounded-full ring-1 ring-white"
+                      style={{ backgroundColor: MARKER_COLORS.guess }}
+                      aria-hidden="true"
+                    />
+                    Your guess
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block size-2.5 rounded-full ring-1 ring-white"
+                      style={{ backgroundColor: MARKER_COLORS.actual }}
+                      aria-hidden="true"
+                    />
+                    Actual location
+                  </span>
+                </p>
+              </div>
+
+              {/* Where the panorama actually was. The reveal: for a province or
+                  country round the player did not know this until now. */}
+              {result.resolvedPath && (
+                <div className="text-center space-y-0.5">
+                  <SectionCaption>It was in</SectionCaption>
+                  <p className="text-sm font-semibold text-foreground">
+                    {result.resolvedPath.join(' › ')}
+                  </p>
+                </div>
+              )}
+
+              {hasLeaderboardSection && (
+                <details className="group rounded-lg border border-border">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                    Leaderboard results
+                    <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </summary>
+                  <div className="space-y-4 px-3 pb-3 text-center">
+                    {/* The ladder this round was scored against. Thresholds
+                        scale with the picked region, so "how close did I need
+                        to be?" has no fixed answer worth memorising. Older
+                        stubbed or cached results carry no bands; then there is
+                        no strip. */}
+                    {hasBands && (
+                      <div className="space-y-1.5">
+                        <SectionCaption>This round&apos;s scoring ladder</SectionCaption>
+                        <div className="flex flex-wrap justify-center gap-1.5 text-xs">
+                          {result.bands.map((band) => (
+                            <span
+                              key={band.points}
+                              className={`rounded-md px-2 py-1 tabular-nums ${
+                                band.points === score
+                                  ? 'bg-brand text-brand-foreground font-semibold'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {`≤${formatDistance(band.maxMeters)} = ${band.points}`}
+                            </span>
+                          ))}
+                          <span
+                            className={`rounded-md px-2 py-1 tabular-nums ${
+                              score === 0
+                                ? 'bg-brand text-brand-foreground font-semibold'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            beyond = 0
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* One row per level the guess credited. A district round
+                        shows three; a round whose panorama fell outside every
+                        district shows two. */}
+                    {hasScoreLevels && (
+                      <div className="space-y-1.5">
+                        <SectionCaption>Leaderboard points added</SectionCaption>
+                        <div className="grid gap-2 text-sm sm:grid-cols-3">
+                          {result.scoreLevels.map((entry) => (
+                            <div
+                              key={entry.code}
+                              className="rounded-lg bg-brand-subtle p-2 text-brand-subtle-foreground"
+                            >
+                              <p className="font-semibold">{entry.name}</p>
+                              <p
+                                className="tabular-nums"
+                                // Each board judges the round by its own
+                                // regional ladder, so what it added can differ
+                                // from the headline score -- by design.
+                                title="Each board grades your distance on its own scale"
+                              >
+                                {entry.score === null ? 'Below top 200' : `Total: ${entry.score}`}
+                                {typeof entry.points === 'number' ? ` (+${entry.points})` : ''}
+                              </p>
+                              {entry.rank && (
+                                <p className="text-xs tabular-nums opacity-80">Rank #{entry.rank}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {hasDistanceLevels && (
+                      <div className="space-y-1.5">
+                        <SectionCaption>Best-distance ranks</SectionCaption>
+                        <div className="grid gap-2 text-xs sm:grid-cols-3">
+                          {result.distanceLevels
+                            .filter((entry) => entry.rank)
+                            .map((entry) => (
+                              <div key={entry.code} className="rounded-lg bg-muted p-2">
+                                <p className="font-medium text-foreground">{entry.name} distance</p>
+                                <p className="tabular-nums text-muted-foreground">Rank #{entry.rank}</p>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.leaderboardMessage && (
+                      <p className="text-sm text-success font-medium">{result.leaderboardMessage}</p>
+                    )}
+                  </div>
+                </details>
+              )}
+
+              <p className="text-center text-xs text-muted-foreground">
+                {username || 'Anonymous'} • {regionName}
+              </p>
             </>
           ) : null}
         </div>

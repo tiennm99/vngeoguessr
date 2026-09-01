@@ -3,6 +3,17 @@
 import { useEffect, useRef } from 'react';
 import { getTileConfig } from '../../lib/map-tiles';
 
+// Leaflet divIcons need literal colours (they render outside the CSS token
+// cascade), so these mirror the palette by hand: guess blue stays readable on
+// both tile themes, actual green matches --success's hue, the line is
+// --vn-red. The dialog's legend imports these so the dots and their names can
+// never drift apart.
+export const MARKER_COLORS = {
+  guess: '#2563eb',
+  actual: '#22c55e',
+  line: '#da251d',
+};
+
 // The reveal map inside the result dialog: the guess pin, the actual location,
 // and the line between them. Imperative Leaflet rather than LeafletMap because
 // this map is built once per reveal with markers already known, not clicked on.
@@ -39,35 +50,38 @@ export default function ResultMap({ guessCoordinates, exactLocation }) {
 
         const markers = [];
 
-        const redIcon = L.divIcon({
+        // Blue, matching the in-game guess pin, so "your guess" keeps one
+        // colour between screens -- and blue/green survives red-green colour
+        // blindness where the old red/green pair did not.
+        const guessIcon = L.divIcon({
           className: 'custom-div-icon',
-          html: '<div style="background-color: #ef4444; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+          html: `<div style="background-color: ${MARKER_COLORS.guess}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
           iconSize: [20, 20],
           iconAnchor: [10, 10]
         });
 
         const guessMarker = L.marker([guessCoordinates[0], guessCoordinates[1]], {
-          icon: redIcon
+          icon: guessIcon
         }).addTo(map).bindPopup("Your Guess");
         markers.push(guessMarker);
 
         if (exactLocation) {
-          const greenIcon = L.divIcon({
+          const actualIcon = L.divIcon({
             className: 'custom-div-icon',
-            html: '<div style="background-color: #22c55e; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            html: `<div style="background-color: ${MARKER_COLORS.actual}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
             iconSize: [20, 20],
             iconAnchor: [10, 10]
           });
 
           const trueLocationMarker = L.marker([exactLocation.lat, exactLocation.lng], {
-            icon: greenIcon
+            icon: actualIcon
           }).addTo(map).bindPopup("Actual Location");
           markers.push(trueLocationMarker);
 
           L.polyline([
             [exactLocation.lat, exactLocation.lng],
             [guessCoordinates[0], guessCoordinates[1]]
-          ], { color: '#da251d', weight: 3, dashArray: '8 4' }).addTo(map);
+          ], { color: MARKER_COLORS.line, weight: 3, dashArray: '8 4' }).addTo(map);
         }
 
         if (markers.length > 1) {

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ThemeToggle from '../components/ThemeToggle';
 
 export const metadata = {
   title: 'Credits — VNGeoGuessr',
@@ -33,15 +34,18 @@ const LIBRARIES = [
 
 export default function CreditsPage() {
   return (
-    <div className="min-h-dvh vn-gradient-bg">
+    <div className="min-h-dvh vn-surface">
       <div className="container mx-auto px-4 py-6 max-w-3xl">
         <header className="flex flex-wrap justify-between items-center gap-3 mb-10">
           <Link href="/" className="text-2xl font-bold text-foreground tracking-wider">
             VNGeoGuessr
           </Link>
-          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2">
-            Back to game
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2">
+              ← Home
+            </Link>
+          </div>
         </header>
 
         <h1 className="text-3xl font-extrabold text-foreground mb-8 tracking-tight">Credits &amp; Licenses</h1>

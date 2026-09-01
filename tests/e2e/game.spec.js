@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubGameApis, seedUsername } from './helpers.js';
+import { stubGameApis, seedUsername, seedHintSeen } from './helpers.js';
 
 // A full round against stubbed APIs: load the panorama, place a guess on the
 // Leaflet map, submit, read the reveal, start the next round. The panorama is
@@ -8,6 +8,8 @@ import { stubGameApis, seedUsername } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   await seedUsername(page, 'e2e-player');
+  // Not the spec under test here, and the banner would sit over the panorama.
+  await seedHintSeen(page);
   await stubGameApis(page, 'e2e-player');
   await page.goto('/game?region=TPHCM');
 });
@@ -40,9 +42,13 @@ test('plays a round to the reveal and into the next one', async ({ page }) => {
   await expect(dialog).toBeVisible();
   // exact: the sr-only dialog description ("... 123m away.") also contains it.
   await expect(dialog.getByText('123m away', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Vietnam › Ho Chi Minh › District 7')).toBeVisible();
+
+  // The bookkeeping lives behind a collapsed "Leaderboard results" section so
+  // the payoff fits one viewport; open it before asserting its contents.
+  await dialog.getByText('Leaderboard results').click();
   // The ladder the round was scored against, with the achieved band present.
   await expect(dialog.getByText('≤442m = 5')).toBeVisible();
-  await expect(dialog.getByText('Vietnam › Ho Chi Minh › District 7')).toBeVisible();
   await expect(dialog.getByText('Score added at 3 levels (+4, +5, +5)')).toBeVisible();
   await expect(dialog.getByText('District 7', { exact: true })).toBeVisible();
 

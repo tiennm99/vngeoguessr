@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import LeaderboardList from './LeaderboardList';
 import RegionSelect from './RegionSelect';
 import { COUNTRY_CODE, getRegion } from '../../lib/regions';
@@ -91,6 +91,11 @@ export default function LeaderboardModal({ currentUsername }) {
             <DialogTitle className="text-2xl text-center font-bold">
               {region ? getRegion(region).name : 'Leaderboards'}
             </DialogTitle>
+            {/* sr-only: the region select and type toggle right below say the
+                same thing visually; Radix still needs a description. */}
+            <DialogDescription className="sr-only">
+              Score and best-distance leaderboards, by country, province, or district.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <RegionSelect
