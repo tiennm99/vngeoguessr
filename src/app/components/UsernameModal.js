@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,9 +13,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-export default function UsernameModal({ isOpen, onSubmit, onClose }) {
+// Set or change the leaderboard name. With no saved name yet, the secondary
+// action skips into a generated name; when editing an existing name it is a
+// plain Cancel, because "skip" would read as discarding the current name.
+export default function UsernameModal({ isOpen, onSubmit, onSkip, onClose, initialValue }) {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  const hasExistingName = Boolean(initialValue);
+
+  // Re-seed the field each time the dialog opens: it stays mounted between
+  // opens, and an edit session must start from the saved name, not the
+  // leftovers of the previous visit.
+  useEffect(() => {
+    if (isOpen) {
+      setUsername(initialValue || '');
+      setError('');
+    }
+  }, [isOpen, initialValue]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -48,13 +62,22 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
     setUsername('');
   };
 
+  const handleSecondary = () => {
+    if (!hasExistingName && onSkip) onSkip();
+    else onClose();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Welcome to VNGeoGuessr</DialogTitle>
-          <DialogDescription>
-            Enter a username for the leaderboard
+          <DialogTitle className="text-2xl text-center font-bold">
+            {hasExistingName ? 'Change your name' : 'Welcome to VNGeoGuessr'}
+          </DialogTitle>
+          <DialogDescription className="text-center">
+            {hasExistingName
+              ? 'Pick a new name for the leaderboard'
+              : 'Enter a username for the leaderboard'}
           </DialogDescription>
         </DialogHeader>
 
@@ -90,16 +113,16 @@ export default function UsernameModal({ isOpen, onSubmit, onClose }) {
             <Button
               type="button"
               variant="ghost"
-              onClick={onClose}
+              onClick={handleSecondary}
               className="flex-1"
             >
-              Skip
+              {hasExistingName ? 'Cancel' : 'Skip — random name'}
             </Button>
             <Button
               type="submit"
               className="flex-1"
             >
-              Start Playing
+              Save name
             </Button>
           </div>
         </form>

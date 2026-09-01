@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Wrench } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Beer, Wrench } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +11,7 @@ import UsernameModal from './components/UsernameModal';
 import DonateQRModal from './components/DonateQRModal';
 import LeaderboardModal from './components/LeaderboardModal';
 import RegionPicker from './components/RegionPicker';
-import { getUsername, setUsername } from '../lib/username';
+import { generateRandomUsername, getUsername, setUsername } from '../lib/username';
 import { SCORE_BANDS, formatDistance } from '../lib/game';
 
 const STEP_LABELS = [
@@ -35,27 +36,50 @@ const SCORING_ROWS = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [showDonateModal, setShowDonateModal] = useState(false);
   const [showUsernameModal, setShowUsernameModal] = useState(false);
   const [username, setUsernameState] = useState('');
+  // The Play destination held while the name prompt is up. The prompt appears
+  // at the first Play click -- when the name is about to matter -- rather than
+  // ambushing on landing, so the landing page introduces the game first.
+  const [pendingHref, setPendingHref] = useState(null);
 
   useEffect(() => {
-    const existingUsername = getUsername();
-    if (existingUsername) {
-      setUsernameState(existingUsername);
-    } else {
-      setShowUsernameModal(true);
-    }
+    setUsernameState(getUsername() || '');
   }, []);
 
-  const handleUsernameSubmit = (newUsername) => {
+  const saveUsername = (newUsername) => {
     setUsername(newUsername);
     setUsernameState(newUsername);
     setShowUsernameModal(false);
   };
 
+  const handleUsernameSubmit = (newUsername) => {
+    saveUsername(newUsername);
+    if (pendingHref) {
+      setPendingHref(null);
+      router.push(pendingHref);
+    }
+  };
+
+  // Skip = play under a generated name. Persisted like a typed name, so it
+  // shows on the leaderboard and stays editable from the header chip.
+  const handleUsernameSkip = () => {
+    handleUsernameSubmit(generateRandomUsername());
+  };
+
+  // Returns true when the click is intercepted: no saved name yet, so the
+  // prompt opens and navigation resumes after save/skip.
+  const handlePlayClick = (href) => {
+    if (getUsername()) return false;
+    setPendingHref(href);
+    setShowUsernameModal(true);
+    return true;
+  };
+
   return (
-    <div className="min-h-dvh vn-gradient-bg">
+    <div className="min-h-dvh vn-surface">
       <div className="min-h-dvh">
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           {/* Header */}
@@ -63,19 +87,30 @@ export default function Home() {
             <Link href="/" className="text-2xl font-bold text-foreground tracking-wider">
               VNGeoGuessr
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3">
               <ThemeToggle />
-              {username && (
-                <span className="text-muted-foreground text-sm hidden sm:inline">
-                  Playing as <span className="font-semibold text-brand">{username}</span>
-                </span>
-              )}
+              {/* One chip whether or not a name exists: the only way to fix a
+                  typo'd name is reopening this modal, so the entry point must
+                  always be visible -- including on phones, where it truncates
+                  rather than overflowing the header row. */}
+              <button
+                type="button"
+                onClick={() => setShowUsernameModal(true)}
+                className="min-h-11 max-w-44 truncate rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                title={username ? 'Change your name' : 'Set your leaderboard name'}
+              >
+                {username ? (
+                  <>Playing as <span className="font-semibold text-brand">{username}</span></>
+                ) : (
+                  'Set name'
+                )}
+              </button>
               <LeaderboardModal currentUsername={username} />
               <Button
                 onClick={() => setShowDonateModal(true)}
                 variant="outline"
               >
-                <span className="text-base leading-none" aria-hidden="true">🍺</span>
+                <Beer className="size-4" aria-hidden="true" />
                 Buy me a beer
               </Button>
             </div>
@@ -130,7 +165,7 @@ export default function Home() {
                 <CardTitle className="text-xl font-bold text-card-foreground text-center">Where to Play</CardTitle>
               </CardHeader>
               <CardContent>
-                <RegionPicker />
+                <RegionPicker onPlayClick={handlePlayClick} />
               </CardContent>
             </Card>
           </div>
@@ -153,7 +188,13 @@ export default function Home() {
         </div>
 
         <DonateQRModal isOpen={showDonateModal} onClose={() => setShowDonateModal(false)} />
-        <UsernameModal isOpen={showUsernameModal} onSubmit={handleUsernameSubmit} onClose={() => setShowUsernameModal(false)} />
+        <UsernameModal
+          isOpen={showUsernameModal}
+          onSubmit={handleUsernameSubmit}
+          onSkip={handleUsernameSkip}
+          onClose={() => { setShowUsernameModal(false); setPendingHref(null); }}
+          initialValue={username}
+        />
 
         {/* Debug Button. Safe-area offset keeps it clear of the home
             indicator; hover/active states give the press the feedback the

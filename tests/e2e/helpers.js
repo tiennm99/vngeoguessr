@@ -18,6 +18,8 @@ export const PANO_IMAGE_URL = 'https://pano.invalid/e2e-round.png';
 
 export const USERNAME_STORAGE_KEY = 'vngeoguessr_username';
 
+export const HINT_STORAGE_KEY = 'vngeoguessr_hint_seen';
+
 /** /api/new-game response for one TPHCM round. */
 export function newGameResponse(sessionId, round) {
   return {
@@ -151,5 +153,17 @@ export async function seedUsername(page, username) {
   await page.addInitScript(
     ([key, value]) => window.localStorage.setItem(key, value),
     [USERNAME_STORAGE_KEY, username]
+  );
+}
+
+/**
+ * Mark the one-time how-to-play hint as already seen, so specs that are not
+ * about onboarding never race its banner for clicks.
+ * @param {import('@playwright/test').Page} page Playwright page.
+ */
+export async function seedHintSeen(page) {
+  await page.addInitScript(
+    (key) => window.localStorage.setItem(key, '1'),
+    HINT_STORAGE_KEY
   );
 }
