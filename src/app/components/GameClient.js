@@ -383,7 +383,7 @@ export default function GameClient() {
   // game chrome mounted -- tearing it down destroys the panorama viewer.
   if (initialLoading) {
     return (
-      <div className="h-dvh flex items-center justify-center vn-surface">
+      <div className="flex-1 flex items-center justify-center vn-surface">
         <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">
           <div className="w-12 h-12 border-4 border-border border-t-brand rounded-full animate-spin mx-auto" aria-hidden="true" />
           <p className="text-foreground text-lg font-medium">Loading panoramic image...</p>
@@ -394,7 +394,7 @@ export default function GameClient() {
   }
 
   return (
-    <div className="h-dvh vn-surface flex flex-col overflow-hidden">
+    <div className="flex-1 min-h-0 vn-surface flex flex-col overflow-hidden">
       {/* Compact Header */}
       <header className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] bg-card border-b border-border shadow-sm">
         <Button
@@ -504,7 +504,9 @@ export default function GameClient() {
             onMapClick={handleMapClick}
           />
 
-          <div className="absolute inset-x-0 bottom-0 z-[600] flex gap-2 border-t border-border bg-card/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:pb-0 lg:backdrop-blur-none">
+          {/* The global footer strip below owns the home-indicator safe area,
+              so plain p-3 is enough here. */}
+          <div className="absolute inset-x-0 bottom-0 z-[600] flex gap-2 border-t border-border bg-card/95 p-3 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <Button
               onClick={handleSubmitGuess}
               disabled={!guessCoordinates || !imageData || !sessionId || submitting || roundLoading}

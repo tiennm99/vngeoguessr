@@ -34,7 +34,7 @@ const LIBRARIES = [
 
 export default function CreditsPage() {
   return (
-    <div className="min-h-dvh vn-surface">
+    <div className="flex-1 vn-surface">
       <div className="container mx-auto px-4 py-6 max-w-3xl">
         <header className="flex flex-wrap justify-between items-center gap-3 mb-10">
           <Link href="/" className="text-2xl font-bold text-foreground tracking-wider">

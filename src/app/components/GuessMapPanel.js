@@ -44,7 +44,9 @@ export default function GuessMapPanel({
       // Frame the map rather than restyling its tiles: a bright map inset
       // in a padded card with real elevation reads as a lit window on
       // dark chrome, which is how GeoGuessr handles the same problem.
-      className={`absolute z-[500] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[calc(5.25rem+env(safe-area-inset-bottom))] lg:relative lg:inset-auto lg:z-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:p-1.5 ${
+      // bottom-21 clears the action bar, which no longer grows with the home
+      // indicator: the global footer strip below the game owns that inset.
+      className={`absolute z-[500] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[5.25rem] lg:relative lg:inset-auto lg:z-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:p-1.5 ${
         expanded ? 'inset-x-3 top-3' : 'right-3 h-36 w-36'
       }`}
     >

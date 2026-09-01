@@ -50,8 +50,11 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
+      {/* Sticky-footer column: pages fill the viewport via flex-1 and the
+          footer keeps its own strip below them, so it can never overlap the
+          game's panorama, map, or action bar — and nothing covers it. */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex min-h-dvh flex-col`}
       >
         {children}
         <DebugFooter />

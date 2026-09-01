@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 // Footer credit plus build stamp, rendered on every page: who made this, and
 // which commit is this deployment?
 //
-// Bottom-center, styled as a link; clicking copies the FULL sha (the label
-// shows the short form). z-40 keeps it under dialogs (z-50) and under the
-// game screen's action bar and map (z-500+), so on a phone mid-round it ducks
-// behind the controls. The wrapper stays click-transparent; only the button
-// itself takes the pointer.
+// An in-flow strip at the bottom of the body's sticky-footer column, not a
+// fixed overlay: it owns its own row (and the home-indicator safe area), so
+// it never overlaps the game's panorama, map, or action bar, and no layer
+// needs a z-index to win over it. Clicking the sha copies the FULL value
+// (the label shows the short form).
 export default function DebugFooter() {
   const sha = process.env.NEXT_PUBLIC_COMMIT_SHA || 'unknown';
   const [copied, setCopied] = useState(false);
@@ -31,12 +31,12 @@ export default function DebugFooter() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-40 flex items-center justify-center gap-1">
+    <footer className="flex shrink-0 items-center justify-center gap-1 border-t border-border bg-card pb-[env(safe-area-inset-bottom)]">
       <a
         href="https://miti99.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="pointer-events-auto flex min-h-11 items-center rounded-md px-2 text-[11px] leading-none text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+        className="flex min-h-11 items-center rounded-md px-2 text-[11px] leading-none text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         Made by <span className="underline underline-offset-2 mx-1">miti99</span> with{' '}
         <span aria-hidden="true" className="ml-1">❤️</span>
@@ -54,10 +54,10 @@ export default function DebugFooter() {
         aria-label="Copy build commit"
         aria-live="polite"
         title={sha}
-        className="pointer-events-auto flex min-h-11 min-w-[9ch] cursor-pointer select-none items-center justify-center rounded-md px-3 font-mono text-[11px] leading-none text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground active:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+        className="flex min-h-11 min-w-[9ch] cursor-pointer select-none items-center justify-center rounded-md px-3 font-mono text-[11px] leading-none text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground active:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         {copied ? 'copied!' : sha.slice(0, 7)}
       </button>
-    </div>
+    </footer>
   );
 }

@@ -95,8 +95,8 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-dvh vn-surface">
-      <div className="min-h-dvh">
+    <div className="flex-1 vn-surface">
+      <div>
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           {/* Header */}
           <header className="flex flex-wrap justify-between items-center gap-3 mb-10">
@@ -186,8 +186,9 @@ export default function Home() {
             </Card>
           </div>
 
-          {/* Data attribution. mb clears the fixed build-stamp footer. */}
-          <p className="mt-10 mb-8 text-center text-xs text-muted-foreground/80">
+          {/* Data attribution. The build-stamp footer is now its own in-flow
+              strip below the page, so no clearance margin is needed. */}
+          <p className="mt-10 text-center text-xs text-muted-foreground/80">
             Imagery ©{' '}
             <a href="https://www.mapillary.com/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
               Mapillary
@@ -212,13 +213,14 @@ export default function Home() {
           initialValue={username}
         />
 
-        {/* Debug Button. Safe-area offset keeps it clear of the home
-            indicator; hover/active states give the press the feedback the
-            bare outline variant lacked. z-40 keeps it under dialogs. */}
+        {/* Debug Button. The bottom offset clears the global footer strip
+            (min-h-11) plus the home indicator; hover/active states give the
+            press the feedback the bare outline variant lacked. z-40 keeps it
+            under dialogs. */}
         <Button
           asChild
           variant="outline"
-          className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-40 size-12 rounded-full bg-card text-muted-foreground shadow-sm transition-all duration-200 hover:border-brand/40 hover:text-foreground hover:shadow-md active:scale-95"
+          className="fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom))] right-6 z-40 size-12 rounded-full bg-card text-muted-foreground shadow-sm transition-all duration-200 hover:border-brand/40 hover:text-foreground hover:shadow-md active:scale-95"
         >
           <Link
             href="/debug"

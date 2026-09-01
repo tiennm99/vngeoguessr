@@ -6,12 +6,13 @@ import DebugNav from './DebugNav';
 
 // One shell for every debug page, styled like the game screen's app bar, so
 // the hub and both tools share identical chrome and only differ in content.
-// The column is viewport-height with the scroll INSIDE <main>: document-style
+// The column fills the body's sticky-footer layout (viewport minus the global
+// footer strip) with the scroll INSIDE <main>: document-style
 // pages (hub, bbox) scroll there, while the coverage map takes h-full and
 // manages its own panes.
 export default function DebugLayout({ children }) {
   return (
-    <div className="flex h-dvh flex-col vn-surface">
+    <div className="flex flex-1 min-h-0 flex-col vn-surface">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] shadow-sm sm:px-4">
         <div className="flex items-center gap-1">
           <Button
