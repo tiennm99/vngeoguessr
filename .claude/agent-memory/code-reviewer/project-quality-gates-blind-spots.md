@@ -30,6 +30,12 @@ in zero tests. The stub also serves the SAME panorama URL every round, so
 assertions pass without a viewer remount. On any diff touching an API response
 shape or the round transition, open `helpers.js` and check it moved too.
 
+Second instance 2026-09-01 (Geoapify tile migration): the stubs match third-party
+hosts *literally* (`**/tile.openstreetmap.org/**`), so swapping a provider behind
+an env var silently un-stubs the suite - `npm run dev` loads `.env`, so the moment
+a real key exists the "offline" run hits the vendor and spends metered credits.
+Any diff that makes an outbound host configurable must widen the matcher too.
+
 **Still open, verified 2026-08-30 on the Phase 6 docs review:**
 - React prop/state contracts. `no-undef` does not see a prop a parent forgot to
   pass, a stale value left in state when a sibling is cleared, or a Leaflet
@@ -39,7 +45,19 @@ shape or the round transition, open `helpers.js` and check it moved too.
   real one is `isPlayable()` via `resolvePlayableRegion()` (grep the named symbol
   for production callers, not just for existence), and a doc claiming a per-point
   `is_pano` field that is only a build-time filter (open the generated data and
-  look at an actual record).
+  look at an actual record). `docs/project-structure.md` is the worst offender by
+  construction: it enumerates EVERY `src/lib/*.js` and every page one by one, so
+  any new module or route silently falsifies it (missed for `src/lib/map-tiles.js`
+  and `src/app/credits/page.js`, 2026-09-01). Diff the new-file list against it.
+  Two more self-falsifying enumerations found 2026-09-01 (UI/UX polish pass):
+  `docs/development.md` "Styling Conventions" names CSS classes and per-file
+  raw-palette exceptions literally (`vn-gradient-bg`, "score bands and podium
+  colors in RoundResultDialog.js/LeaderboardList.js, always with a `dark:`
+  variant"), so any class rename or token migration turns it into instructions
+  for the pattern just removed; and `docs/game-flow.md` step 1 scripts the player
+  flow beat by beat, so moving *when* a modal fires falsifies it. On any CSS
+  class rename, grep `docs/` for the old name; on any flow-timing change, reread
+  `game-flow.md`.
 
 - `README.md` is outside the doc-update habit. Verified 2026-08-30: the six
   `/docs/` files were rewritten for the region tree while README still described
