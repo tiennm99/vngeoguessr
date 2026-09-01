@@ -49,6 +49,15 @@
   --color-brand-subtle: var(--brand-subtle);
   --color-brand-subtle-foreground: var(--brand-subtle-foreground);
   --color-surface: var(--surface);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-rank-gold: var(--rank-gold);
+  --color-rank-silver: var(--rank-silver);
+  --color-rank-bronze: var(--rank-bronze);
   --shadow-xs: var(--elevation-xs);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
@@ -107,6 +116,24 @@
   /* Page background, one step off --background so cards read as raised. */
   --surface: oklch(0.977 0.002 250);
 
+  /* Semantic result colours. Every good/near/far judgement goes through these
+     rather than raw Tailwind greens and ambers, so light and dark stay tuned
+     in one place. Doubles as text tint (on surface) and chip background (with
+     its -foreground), like --brand does. */
+  --success: oklch(0.55 0.15 150);
+  --success-foreground: #ffffff;
+  /* Deliberately darker than Tailwind amber-600: white text on it must clear
+     large-text contrast, which amber-600 did not. */
+  --warning: oklch(0.6 0.13 75);
+  --warning-foreground: #ffffff;
+  --danger: oklch(0.577 0.245 27.325);
+  --danger-foreground: #ffffff;
+
+  /* Podium metal tints; the rank number always renders beside them. */
+  --rank-gold: oklch(0.77 0.16 85);
+  --rank-silver: oklch(0.71 0.02 260);
+  --rank-bronze: oklch(0.56 0.12 60);
+
   /* Elevation. A single scale for buttons, cards and dialogs so raised things
      agree on how raised they are. */
   --elevation-xs: 0 1px 2px 0 rgb(0 0 0 / 5%);
@@ -164,6 +191,18 @@
   --brand-subtle-foreground: oklch(0.86 0.11 27);
   --surface: oklch(0.115 0 0);
 
+  /* Like --brand: lightened rather than inverted, with dark on-colour text. */
+  --success: oklch(0.75 0.15 150);
+  --success-foreground: oklch(0.145 0 0);
+  --warning: oklch(0.8 0.13 80);
+  --warning-foreground: oklch(0.145 0 0);
+  --danger: oklch(0.704 0.191 22.216);
+  --danger-foreground: oklch(0.145 0 0);
+
+  --rank-gold: oklch(0.83 0.16 85);
+  --rank-silver: oklch(0.75 0.02 260);
+  --rank-bronze: oklch(0.7 0.12 60);
+
   /* Dark shadows read as nothing against a dark ground, so they carry more
      opacity and add a faint top highlight to suggest a lit edge instead. */
   --elevation-xs: 0 1px 2px 0 rgb(0 0 0 / 40%);
@@ -209,7 +248,9 @@
   z-index: 9999 !important;
 }
 
-.vn-gradient-bg {
+/* Page ground, one step off --background. Named for what it is: a flat
+   surface (an earlier iteration was a gradient; the name outlived it). */
+.vn-surface {
   background: var(--surface);
 }
 

@@ -11,7 +11,7 @@ import DebugNav from './DebugNav';
 // manages its own panes.
 export default function DebugLayout({ children }) {
   return (
-    <div className="flex h-dvh flex-col vn-gradient-bg">
+    <div className="flex h-dvh flex-col vn-surface">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] shadow-sm sm:px-4">
         <div className="flex items-center gap-1">
           <Button

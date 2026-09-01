@@ -6,37 +6,24 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistance, calculateScore, bandsForBbox } from '../../lib/game';
 import { getRegion, isRegion } from '../../lib/regions';
 
-// Keyed by the round score the distance would earn, so the tint tracks the
-// scoring ladder instead of re-typing its thresholds.
-const DISTANCE_COLORS = {
-  5: 'text-green-700 dark:text-green-300',
-  4: 'text-blue-700 dark:text-blue-300',
-  3: 'text-yellow-700 dark:text-yellow-300',
-  2: 'text-orange-700 dark:text-orange-300',
-};
-
 // Graded against the BOARD's own regional ladder, mirroring how the boards
-// are credited: 2km is red on a district board and green on the country one.
+// are credited: 2km is amber on a district board and green on the country
+// one. Three semantic states, not a rainbow -- good, close, far -- because
+// finer steps carried no meaning a reader could recover.
 function getDistanceColor(distance, bands) {
-  return DISTANCE_COLORS[calculateScore(distance, bands)] ?? 'text-red-700 dark:text-red-300';
-}
-
-function getScoreColor(score) {
-  if (score >= 50) return 'text-purple-700 dark:text-purple-300';
-  if (score >= 25) return 'text-green-700 dark:text-green-300';
-  if (score >= 15) return 'text-blue-700 dark:text-blue-300';
-  if (score >= 10) return 'text-yellow-700 dark:text-yellow-300';
-  if (score >= 5) return 'text-orange-700 dark:text-orange-300';
-  return 'text-red-700 dark:text-red-300';
+  const score = calculateScore(distance, bands);
+  if (score >= 4) return 'text-success';
+  if (score >= 2) return 'text-warning';
+  return 'text-danger';
 }
 
 // Medal tint for the podium. The rank number stays visible alongside it, so the
 // placing never depends on reading the colour or an emoji glyph.
 function getMedalClass(rank) {
   switch (rank) {
-    case 1: return 'text-amber-500';
-    case 2: return 'text-slate-400';
-    case 3: return 'text-orange-700 dark:text-orange-400';
+    case 1: return 'text-rank-gold';
+    case 2: return 'text-rank-silver';
+    case 3: return 'text-rank-bronze';
     default: return '';
   }
 }
@@ -84,7 +71,7 @@ export default function LeaderboardList({ data, loading, currentUsername, type, 
             key={key}
             className={`flex items-center justify-between p-3 rounded-lg transition-all ${
               isUser
-                ? 'bg-amber-100/70 dark:bg-amber-950/40 border-2 border-amber-500 shadow-md'
+                ? 'bg-brand-subtle/70 border-2 border-brand shadow-md'
                 : entry.rank <= 3
                   ? 'bg-brand-subtle/40 border border-brand/20'
                   : 'bg-muted/50 hover:bg-muted'
@@ -98,10 +85,10 @@ export default function LeaderboardList({ data, loading, currentUsername, type, 
                 <span className="text-base font-bold tabular-nums">#{entry.rank}</span>
               </div>
               <div>
-                <div className={`font-semibold ${isUser ? 'text-amber-900 dark:text-amber-200' : 'text-foreground'}`}>
+                <div className={`font-semibold ${isUser ? 'text-brand-subtle-foreground' : 'text-foreground'}`}>
                   {entry.username}
                   {isUser && (
-                    <Badge className="ml-2 bg-amber-700 text-white text-xs">YOU</Badge>
+                    <Badge className="ml-2 bg-brand text-brand-foreground text-xs">YOU</Badge>
                   )}
                 </div>
                 {isDistance && entry.timestamp && (
@@ -111,8 +98,11 @@ export default function LeaderboardList({ data, loading, currentUsername, type, 
                 )}
               </div>
             </div>
+            {/* Score totals carry no tint: unlike a distance, a running total
+                has no ladder to grade against, and the old size-keyed rainbow
+                encoded nothing a reader could recover. */}
             <Badge variant="secondary" className={`text-lg font-bold tabular-nums ${
-              isDistance ? getDistanceColor(entry.distance, distanceBands) : getScoreColor(entry.score)
+              isDistance ? getDistanceColor(entry.distance, distanceBands) : ''
             }`}>
               {isDistance ? formatDistance(entry.distance) : entry.score}
             </Badge>

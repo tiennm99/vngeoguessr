@@ -8,10 +8,12 @@
 export const THEME_STORAGE_KEY = 'vngeoguessr_theme';
 export const DEFAULT_THEME = 'system';
 
+// Icons live with the toggle component (Lucide, following currentColor);
+// this module stays free of UI imports.
 export const THEMES = [
-  { value: 'light', emoji: '☀️', label: 'Light theme' },
-  { value: 'dark', emoji: '🌙', label: 'Dark theme' },
-  { value: 'system', emoji: '⚙️', label: 'Match system theme' },
+  { value: 'light', label: 'Light theme' },
+  { value: 'dark', label: 'Dark theme' },
+  { value: 'system', label: 'Match system theme' },
 ];
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
