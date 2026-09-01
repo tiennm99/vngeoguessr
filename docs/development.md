@@ -205,7 +205,7 @@ One design system for every page, including debug pages. It is Tailwind 4 +
 shadcn tokens, defined in `src/app/globals.css` (`:root` and `.dark` blocks);
 the theme toggle works only on pages that stay inside it.
 
-- **Page background**: `min-h-dvh vn-gradient-bg` on the page root.
+- **Page background**: `min-h-dvh vn-surface` on the page root.
 - **Surfaces**: shadcn `Card` with `bg-card border-border shadow-sm`; nested
   panels `bg-muted/50`. Never `bg-white/10` glassmorphism or raw hex.
 - **Text**: `text-foreground` for headings, `text-muted-foreground` for
@@ -213,16 +213,20 @@ the theme toggle works only on pages that stay inside it.
   themed surface.
 - **Accent**: the `brand` token family (`text-brand`, `bg-brand-subtle`,
   `text-brand-subtle-foreground`) -- see `RegionPicker.js` for the idiom.
+- **Result semantics**: the `success` / `warning` / `danger` token pairs
+  (each with a `-foreground`) for good/near/far judgements, and `rank-gold` /
+  `rank-silver` / `rank-bronze` for podium tints -- see `RoundResultDialog.js`
+  and `LeaderboardList.js`. Each token carries its own light and dark value in
+  `globals.css`, so call sites never write a `dark:` variant.
 - **Borders/dividers**: `border-border`.
 - **Components**: use the vendored `src/components/ui/` primitives; add
   missing ones with the shadcn CLI rather than hand-rolling.
+- **Icons**: Lucide only; no emoji glyphs in interactive chrome.
 
-Raw palette colors are allowed only where the color itself is the meaning and
-must not follow the theme: score bands and podium colors
-(`RoundResultDialog.js`, `LeaderboardList.js`, always with a `dark:` variant),
-success/error badges (`bg-green-600`), and the `bg-neutral-900` surround
-behind panoramas and full-bleed maps, which stays dark in both themes on
-purpose.
+Raw palette colors are allowed only where the color must not follow the theme:
+the `bg-neutral-900` surround behind panoramas and full-bleed maps (dark in
+both themes on purpose), and the Leaflet marker hexes in `ResultMap.js`
+(`MARKER_COLORS`), which render outside the CSS token cascade.
 
 ## shadcn/ui Configuration
 

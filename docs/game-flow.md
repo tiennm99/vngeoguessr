@@ -4,7 +4,12 @@
 
 ### 1. Username Setup
 - Check localStorage for existing username
-- Display UsernameModal if not set
+- No prompt on landing: UsernameModal opens at the first Play click when no
+  name is stored, then navigation resumes after save or skip
+- Skip (or a deep link straight into `/game`) generates a random
+  `Player-xxxxxx` name and stores it like a typed one
+- The header chip ("Playing as X" / "Set name") reopens the modal to change
+  the name at any time
 - Store username for leaderboard tracking
 
 ### 2. Region Selection

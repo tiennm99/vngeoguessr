@@ -52,7 +52,9 @@ Next.js 16 App Router structure:
 - `RegionSelect.js` - Level buttons plus a grouped select, used where a single
   region has to be chosen from 67
 - `LeaderboardList.js` - Ranked rows for one board
-- `UsernameModal.js` - Username input modal
+- `UsernameModal.js` - Set or change the leaderboard name; skip generates a
+  random `Player-xxxxxx`
+- `FirstRoundHint.js` - One-time how-to-play banner on the game screen
 - `DonateQRModal.js` - Donation QR code modal
 - `ThemeToggle.js` - Light/dark switch
 
@@ -101,7 +103,7 @@ Neon Postgres, which is what the app queries at runtime.
 - `pano-db.js` - **Server-side only.** Neon HTTP adapter behind pano-index.js
 - `region-request.js` - Resolves and validates a region code from a request
 - `game.js` - Scoring ladders (base + region-scaled), distance, formatting
-- `username.js` - Player name in localStorage
+- `username.js` - Player name in localStorage, plus the random-name generator
 - `last-region.js` - Last-played region in localStorage (the home page's
   "Continue in ..." row)
 - `leaderboard.js` - Leaderboard operations, including the district to province
