@@ -8,6 +8,7 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { getTileConfig } from '../../lib/map-tiles';
 
 // A static image import is a {src} object under webpack but a bare URL string
 // under Turbopack dev; Leaflet needs the string either way.
@@ -65,10 +66,8 @@ export default function LeafletMap({
         }
 
         // Add tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        const tiles = getTileConfig();
+        L.tileLayer(tiles.url, tiles.options).addTo(map);
 
         // Handle click events
         map.on('click', (e) => {

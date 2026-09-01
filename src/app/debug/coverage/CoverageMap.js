@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { getTileConfig } from '../../../lib/map-tiles';
 
 // Panorama dots are drawn on a canvas layer, not as DOM markers. Twelve
 // thousand DOM elements would stall the browser; a canvas renderer draws the
@@ -43,10 +44,8 @@ export default function CoverageMap({
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, { preferCanvas: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors',
-    }).addTo(map);
+    const tiles = getTileConfig();
+    L.tileLayer(tiles.url, tiles.options).addTo(map);
     map.setView([16.0, 107.0], 6);
 
     // One renderer for the life of the map. Creating it per data refresh leaked

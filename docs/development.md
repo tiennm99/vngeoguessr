@@ -53,6 +53,14 @@
 **Mapillary (required)**:
 - `MAPILLARY_ACCESS_TOKEN` - Mapillary API token for image fetching
 
+**Map tiles (optional)**:
+- `NEXT_PUBLIC_GEOAPIFY_KEY` - Geoapify API key. When set (at build time), all
+  Leaflet maps serve tiles from Geoapify, whose free tier permits commercial
+  use; unset, they fall back to the OSM public tile server (fine for dev/e2e,
+  not for a commercial deployment). The key is public by design — restrict it
+  to the production domain in the Geoapify dashboard. Provider choice lives in
+  `src/lib/map-tiles.js`
+
 For local Redis without an Upstash account, see *Running Upstash locally* below.
 
 ### Testing & Completion

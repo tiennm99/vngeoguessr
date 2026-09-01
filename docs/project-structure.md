@@ -27,6 +27,7 @@ Next.js 16 App Router structure:
 
 #### Game Pages
 - `game/page.js` - Main game interface
+- `credits/page.js` - Data sources, licenses, and open-source credits
 - `debug/page.js` - Debug hub: lists every debug tool as a peer
 - `debug/layout.js` - Shared shell for all debug pages: app bar, DebugNav, theme
 - `debug/DebugNav.js` - Segmented peer navigation shown on every debug page
@@ -93,6 +94,8 @@ Neon Postgres, which is what the app queries at runtime.
 - `utils.js` - Utility functions including `cn()` for class name merging
 - `regions.js` - Client-safe region tree traversal. Imports nothing from
   `pano-index.js` or `pano-db.js`; `tests/regions.test.js` enforces that
+- `map-tiles.js` - Client-safe tile provider choice: Geoapify when
+  `NEXT_PUBLIC_GEOAPIFY_KEY` is set at build time, OSM public server otherwise
 - `pano-index.js` - **Server-side only.** Picks a panorama for a region from
   Postgres and reports which district it landed in
 - `pano-db.js` - **Server-side only.** Neon HTTP adapter behind pano-index.js

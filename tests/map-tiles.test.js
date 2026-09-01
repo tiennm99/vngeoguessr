@@ -1,0 +1,60 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// The module captures NEXT_PUBLIC_GEOAPIFY_KEY at import time (Next.js inlines
+// it at build time, so runtime mutation is impossible in the app). Each test
+// therefore stubs the env first and imports a fresh copy of the module.
+const importFresh = async () => {
+  vi.resetModules();
+  return import('../src/lib/map-tiles.js');
+};
+
+beforeEach(() => {
+  vi.unstubAllEnvs();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe('getTileConfig', () => {
+  it('falls back to the OSM public server, byte-identical to the pre-migration values', async () => {
+    vi.stubEnv('NEXT_PUBLIC_GEOAPIFY_KEY', '');
+    const { getTileConfig } = await importFresh();
+
+    // These exact values were hardcoded in all three maps before the
+    // migration; the keyless mode must never drift from them.
+    expect(getTileConfig()).toEqual({
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      options: {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors',
+      },
+    });
+  });
+
+  it('serves Geoapify with its required attribution when a key is set', async () => {
+    vi.stubEnv('NEXT_PUBLIC_GEOAPIFY_KEY', 'test-key');
+    const { getTileConfig } = await importFresh();
+
+    const tiles = getTileConfig();
+    expect(tiles.url).toBe(
+      'https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=test-key'
+    );
+    expect(tiles.options.maxZoom).toBe(19);
+    // Geoapify's free tier requires a visible "Powered by Geoapify" credit;
+    // OSM data attribution must survive the provider swap.
+    expect(tiles.options.attribution).toContain('Powered by');
+    expect(tiles.options.attribution).toContain('https://www.geoapify.com/');
+    expect(tiles.options.attribution).toContain('© OpenStreetMap contributors');
+  });
+
+  it('returns a fresh object per call, so Leaflet cannot mutate shared state', async () => {
+    vi.stubEnv('NEXT_PUBLIC_GEOAPIFY_KEY', '');
+    const { getTileConfig } = await importFresh();
+
+    const first = getTileConfig();
+    const second = getTileConfig();
+    expect(first).not.toBe(second);
+    expect(first.options).not.toBe(second.options);
+  });
+});

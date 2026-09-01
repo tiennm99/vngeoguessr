@@ -131,8 +131,13 @@ export async function stubGameApis(page, username) {
   });
   // Leaflet's base tiles are the one request the app makes to a third party.
   // Stub them too, or every run hammers openstreetmap.org and the suite is not
-  // actually offline.
+  // actually offline. Both providers from src/lib/map-tiles.js are stubbed:
+  // the dev server loads .env, so a filled-in NEXT_PUBLIC_GEOAPIFY_KEY would
+  // otherwise send every run to Geoapify and spend metered free-tier credits.
   await page.route('**/tile.openstreetmap.org/**', async (route) => {
+    await route.fulfill({ contentType: 'image/png', body: readFileSync(PANO_FIXTURE) });
+  });
+  await page.route('**/maps.geoapify.com/**', async (route) => {
     await route.fulfill({ contentType: 'image/png', body: readFileSync(PANO_FIXTURE) });
   });
 }

@@ -16,8 +16,12 @@
   `api/debug/mapillary/route.js` keeps the search as a diagnostic, and will
   reproduce those 500s
 - **Leaflet**: Interactive mapping library for guess placement
-- **OpenStreetMap**: Map tile provider for base maps; Nominatim supplies the
-  administrative boundaries via `scripts/build-region-boundaries.mjs`
+- **Map tiles**: `src/lib/map-tiles.js` picks the provider at build time —
+  Geoapify (`NEXT_PUBLIC_GEOAPIFY_KEY` set; free tier permits commercial use)
+  or the OSM public server as the keyless fallback for dev, e2e, and forks
+- **OpenStreetMap**: Map data (© OpenStreetMap contributors, ODbL); Nominatim
+  supplies the administrative boundaries via
+  `scripts/build-region-boundaries.mjs`
 - **@photo-sphere-viewer/core**: 360° panorama viewer
 
 ## Geographic Processing

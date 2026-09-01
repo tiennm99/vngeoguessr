@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
+import { getTileConfig } from '../../lib/map-tiles';
 
 // The reveal map inside the result dialog: the guess pin, the actual location,
 // and the line between them. Imperative Leaflet rather than LeafletMap because
@@ -33,10 +34,8 @@ export default function ResultMap({ guessCoordinates, exactLocation }) {
           attributionControl: true
         });
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        const tiles = getTileConfig();
+        L.tileLayer(tiles.url, tiles.options).addTo(map);
 
         const markers = [];
 
