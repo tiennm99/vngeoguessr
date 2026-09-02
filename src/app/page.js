@@ -214,13 +214,14 @@ export default function Home() {
         />
 
         {/* Debug Button. The bottom offset clears the global footer strip
-            (min-h-11) plus the home indicator; hover/active states give the
-            press the feedback the bare outline variant lacked. z-40 keeps it
-            under dialogs. */}
+            plus the home indicator, derived from --footer-h so it follows a
+            change to the strip; hover/active states give the press the
+            feedback the bare outline variant lacked. --z-fab keeps it under
+            dialogs. */}
         <Button
           asChild
           variant="outline"
-          className="fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom))] right-6 z-40 size-12 rounded-full bg-card text-muted-foreground shadow-sm transition-all duration-200 hover:border-brand/40 hover:text-foreground hover:shadow-md active:scale-95"
+          className="fixed bottom-[calc(var(--footer-h)+1.5rem+env(safe-area-inset-bottom))] right-6 z-(--z-fab) size-12 rounded-full bg-card text-muted-foreground shadow-sm transition-all duration-200 hover:border-brand/40 hover:text-foreground hover:shadow-md active:scale-95"
         >
           <Link
             href="/debug"

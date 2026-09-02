@@ -1,4 +1,8 @@
-@import "tailwindcss";
+/* Scope class detection to src/. Tailwind 4 otherwise scans the whole repo,
+   so prose that merely quotes a class name becomes a real utility: a report in
+   plans/ citing `pb-[env(...)]` was enough to emit invalid CSS and fail the
+   build. All markup lives under src/. */
+@import "tailwindcss" source("../");
 @import "tw-animate-css";
 
 /* Import Leaflet CSS */
@@ -238,14 +242,36 @@
   }
 }
 
-/* Ensure dialogs appear above Leaflet maps */
-[role="dialog"] {
-  z-index: 9999 !important;
+/* The credit strip and the game action bar are fixed-height bands that other
+   elements have to clear. One definition each, so changing a band moves
+   everything that offsets against it. */
+:root {
+  --footer-h: 2.25rem;
+  --action-bar-h: 4.5rem;
 }
 
-/* Ensure dialog overlay appears above Leaflet maps */
+/* One ladder for every layer that floats. Third-party stacks (Leaflet
+   200-1000, Photo Sphere Viewer 50-9999) are not out-bid, they are contained:
+   every pane that hosts one carries `isolate`, so its internal values stay
+   inside it and the numbers below are the only ones that decide the screen.
+   Ordered low to high; nothing here needs !important. */
+:root {
+  --z-pane-chrome: 10;  /* controls painted over a map or panorama */
+  --z-floating: 20;     /* the phone minimap panel */
+  --z-appbar: 30;       /* the game action bar */
+  --z-fab: 40;          /* the landing debug button */
+  --z-overlay: 50;      /* dialog scrim */
+  --z-modal: 60;        /* dialog content */
+  --z-popover: 70;      /* a select or tooltip opened inside a dialog */
+}
+
+/* Radix portals its popper to <body>, outside the dialog it belongs to, so a
+   select inside a modal needs the ladder value rather than DOM order. Radix
+   also copies the content's own computed z-index onto this wrapper inline
+   (see react-popper), which is why select.jsx carries --z-popover too; this
+   rule is the floor for any popper whose content sets none. */
 [data-radix-popper-content-wrapper] {
-  z-index: 9999 !important;
+  z-index: var(--z-popover);
 }
 
 /* Page ground, one step off --background. Named for what it is: a flat

@@ -50,14 +50,19 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      {/* Sticky-footer column: pages fill the viewport via flex-1 and the
-          footer keeps its own strip below them, so it can never overlap the
-          game's panorama, map, or action bar — and nothing covers it. */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased flex min-h-dvh flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-        <DebugFooter />
+        {/* Sticky-footer column: pages fill the viewport via flex-1 and the
+            footer keeps its own strip below them, so it can never overlap the
+            game's panorama, map, or action bar — and nothing covers it. The
+            column is a wrapper rather than <body> itself because Radix portals
+            append to <body>; as flex items they would each become a row under
+            the footer the moment one rendered anything in flow. */}
+        <div className="flex min-h-dvh flex-col">
+          {children}
+          <DebugFooter />
+        </div>
         <Analytics />
         <SpeedInsights />
       </body>

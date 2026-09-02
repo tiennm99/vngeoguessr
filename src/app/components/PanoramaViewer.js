@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Viewer } from '@photo-sphere-viewer/core';
 import '@photo-sphere-viewer/core/index.css';
 
-function PanoramaViewer({ imageUrl, onReady, onError }) {
+function PanoramaViewer({ imageUrl, onReady, onError, topBarSlot }) {
   const containerRef = useRef(null);
   const onReadyRef = useRef(onReady);
   const onErrorRef = useRef(onError);
@@ -98,30 +98,47 @@ function PanoramaViewer({ imageUrl, onReady, onError }) {
   }, [imageUrl]);
 
   return (
-    <div className="relative w-full h-full bg-neutral-900 overflow-hidden touch-none">
+    // Fills its parent by insets, so the caller must position it. `h-full`
+    // would collapse wherever that parent is a flex item, since a flexed
+    // height is indefinite for percentage resolution.
+    <div className="absolute inset-0 bg-neutral-900 overflow-hidden touch-none">
       <div ref={containerRef} className="w-full h-full" />
-      {/* Imagery attribution required by the Mapillary Terms of Use: the logo,
-          visibly displayed, linking to the Mapillary homepage. Deliberately
-          NOT the per-image page — the image id resolves the round's answer,
-          and the server keeps it secret. Top-left: the navbar owns the bottom
-          edge and the floating guess map owns the bottom-right. */}
-      <div className="absolute top-2 left-2 z-10 flex items-center gap-2 rounded-md bg-black/50 px-2 py-1">
-        <a
-          href="https://www.mapillary.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Imagery from Mapillary"
-        >
-          <Image src="/mapillary-logo.svg" alt="Mapillary" width={61} height={14} className="h-3 w-auto" />
-        </a>
-        <a
-          href="https://creativecommons.org/licenses/by-sa/4.0/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[10px] leading-none text-white/80 hover:text-white"
-        >
-          CC BY-SA 4.0
-        </a>
+      {/* The pane's top row: the attribution, plus whatever chrome the host
+          wants beside it. One flow row rather than two overlays in the same
+          corner -- that is how the how-to-play banner ended up covering an
+          attribution the Mapillary Terms of Use require to stay visible, and a
+          flex row cannot reach that state at all.
+          The row itself is click-through so it never eats a panorama drag;
+          slot content marks its own opaque parts `pointer-events-auto`. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-(--z-pane-chrome) flex flex-wrap items-start gap-2 p-2">
+        {/* Imagery attribution required by the Mapillary Terms of Use: the
+            logo, visibly displayed, linking to the Mapillary homepage.
+            Deliberately NOT the per-image page — the image id resolves the
+            round's answer, and the server keeps it secret. */}
+        <div className="pointer-events-auto flex shrink-0 items-center gap-2 rounded-md bg-black/50 px-2 py-1">
+          <a
+            href="https://www.mapillary.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Imagery from Mapillary"
+          >
+            <Image src="/mapillary-logo.svg" alt="Mapillary" width={61} height={14} className="h-3 w-auto" />
+          </a>
+          <a
+            href="https://creativecommons.org/licenses/by-sa/4.0/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] leading-none text-white/80 hover:text-white"
+          >
+            CC BY-SA 4.0
+          </a>
+        </div>
+        {topBarSlot ? (
+          // basis-full below lg: sharing a 375px row with the credit left the
+          // slot ~160px, which wrapped a one-sentence hint into five lines. Its
+          // own row keeps the full width and still cannot reach the credit.
+          <div className="min-w-0 basis-full lg:basis-0 lg:flex-1">{topBarSlot}</div>
+        ) : null}
       </div>
     </div>
   );
