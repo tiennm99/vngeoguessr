@@ -71,8 +71,12 @@ export default function RoundResultDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* svh, not dvh: the dialog is centred with a translate, so a viewport
+          unit that over-reports the visible area (Safari does while its
+          toolbars are on screen) hides Next Round below the fold instead of
+          just cropping the bottom. svh is never larger than what is visible. */}
       <DialogContent
-        className="sm:max-w-xl max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
+        className="sm:max-w-xl max-h-[calc(100svh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden"
         key={open ? 'open' : 'closed'}
         // The round's session was consumed on submit, so closing this dialog
         // would strand the player in a dead round whose re-submit reads as

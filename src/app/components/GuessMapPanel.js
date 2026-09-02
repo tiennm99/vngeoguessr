@@ -67,11 +67,14 @@ export default function GuessMapPanel({
       // home indicator (the global footer strip below the game owns that
       // inset), so one token keeps the collapsed and expanded panels aligned
       // to the same edge.
+      // From lg up the panel is the first track of the parent grid, so the
+      // stretched row -- not a flex-grow on this element -- decides its
+      // height; lg:min-h-0 is what lets it shrink under the action bar.
       // `isolate` at every breakpoint, not just where the panel happens to be
       // absolute: it is what keeps Leaflet's own 200-1000 ladder inside the
       // panel, so the chrome below can sit on the app-wide scale instead of
       // out-bidding a third-party stylesheet.
-      className={`absolute isolate z-(--z-floating) overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[calc(var(--action-bar-h)+0.75rem)] lg:relative lg:inset-auto lg:h-auto lg:w-auto lg:flex-1 lg:min-h-0 lg:p-1.5 ${
+      className={`absolute isolate z-(--z-floating) overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[calc(var(--action-bar-h)+0.75rem)] lg:relative lg:inset-auto lg:h-auto lg:w-auto lg:min-h-0 lg:p-1.5 ${
         expanded ? 'inset-x-3 top-3' : 'right-3 h-[min(9rem,30vh)] w-[min(9rem,30vh)]'
       }`}
     >

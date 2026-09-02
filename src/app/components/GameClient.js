@@ -398,7 +398,7 @@ export default function GameClient() {
       {/* Compact Header. viewportFit:cover hands the layout the display
           cutout on every axis, not just the top: in landscape the notch takes
           a 44-59px bite out of one side, which is exactly where Back sits. */}
-      <header className="flex items-center justify-between gap-2 py-2 pl-[calc(0.75rem+env(safe-area-inset-left))] pr-[calc(0.75rem+env(safe-area-inset-right))] pt-[calc(0.5rem+env(safe-area-inset-top))] sm:pl-[calc(1rem+env(safe-area-inset-left))] sm:pr-[calc(1rem+env(safe-area-inset-right))] bg-card border-b border-border shadow-sm">
+      <header className="flex shrink-0 items-center justify-between gap-2 py-2 pl-[calc(0.75rem+env(safe-area-inset-left))] pr-[calc(0.75rem+env(safe-area-inset-right))] pt-[calc(0.5rem+env(safe-area-inset-top))] sm:pl-[calc(1rem+env(safe-area-inset-left))] sm:pr-[calc(1rem+env(safe-area-inset-right))] bg-card border-b border-border shadow-sm">
         <Button
           onClick={handleGoBack}
           variant="ghost"
@@ -445,7 +445,7 @@ export default function GameClient() {
 
       {/* Game Content. Phones get a full-bleed panorama with the guess map
           floating over it; lg and up keeps the original two-column split. */}
-      <div className="relative flex-1 min-h-0 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:grid lg:grid-cols-2 lg:gap-3 lg:py-3 lg:pl-[calc(0.75rem+env(safe-area-inset-left))] lg:pr-[calc(0.75rem+env(safe-area-inset-right))]">
+      <div className="relative flex-1 min-h-0 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:grid lg:grid-cols-2 lg:grid-rows-1 lg:gap-3 lg:py-3 lg:pl-[calc(0.75rem+env(safe-area-inset-left))] lg:pr-[calc(0.75rem+env(safe-area-inset-right))]">
         {/* Panorama Viewer */}
         {/* `isolate` traps the panorama library's internal ladder (it reaches
             9999) inside this pane, so a dialog scrim can still cover it. */}
@@ -496,8 +496,13 @@ export default function GameClient() {
         </div>
 
         {/* Map and Controls. display:contents on mobile so both children
-            position against the panorama; a flex column from lg up. */}
-        <div className="contents lg:flex lg:flex-col lg:min-h-0 lg:gap-3">
+            position against the panorama; from lg up, two grid tracks -- the
+            map takes what is left, the action bar takes what it needs.
+            Explicit tracks, not a nested flex column: the bar sits four
+            indefinite-height containers deep, and Safari versions before 18
+            resolve that chain by squeezing the auto-sized sibling to nothing,
+            which is how the Submit button went missing on an iPad. */}
+        <div className="contents lg:grid lg:grid-rows-[minmax(0,1fr)_auto] lg:min-h-0 lg:gap-3">
           <GuessMapPanel
             center={mapCenter}
             bbox={pickedRegion?.bbox}
@@ -510,7 +515,7 @@ export default function GameClient() {
 
           {/* The global footer strip below owns the home-indicator safe area,
               so plain p-3 is enough here. */}
-          <div className="absolute inset-x-0 bottom-0 z-(--z-appbar) flex gap-2 border-t border-border bg-card/95 p-3 backdrop-blur lg:static lg:z-auto lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <div className="absolute inset-x-0 bottom-0 z-(--z-appbar) flex shrink-0 gap-2 border-t border-border bg-card/95 p-3 backdrop-blur lg:static lg:z-auto lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
             <Button
               onClick={handleSubmitGuess}
               disabled={!guessCoordinates || !imageData || !sessionId || submitting || roundLoading}
