@@ -190,7 +190,10 @@ One design system for every page, including debug pages. It is Tailwind 4 +
 shadcn tokens, defined in `src/app/globals.css` (`:root` and `.dark` blocks);
 the theme toggle works only on pages that stay inside it.
 
-- **Page background**: `min-h-dvh vn-surface` on the page root.
+- **Page background**: `flex-1 vn-surface` on the page root. `layout.js`
+  wraps every page in a `min-h-dvh` flex column whose last row is the credit
+  footer, so a page fills the viewport minus that strip rather than claiming
+  the whole viewport itself.
 - **Surfaces**: shadcn `Card` with `bg-card border-border shadow-sm`; nested
   panels `bg-muted/50`. Never `bg-white/10` glassmorphism or raw hex.
 - **Text**: `text-foreground` for headings, `text-muted-foreground` for
@@ -207,6 +210,49 @@ the theme toggle works only on pages that stay inside it.
 - **Components**: use the vendored `src/components/ui/` primitives; add
   missing ones with the shadcn CLI rather than hand-rolling.
 - **Icons**: Lucide only; no emoji glyphs in interactive chrome.
+
+### Layering
+
+One z-index ladder for the app, in `globals.css` `:root`, low to high:
+`--z-pane-chrome` (controls over a map or panorama) · `--z-floating` (the phone
+minimap) · `--z-appbar` (the game action bar) · `--z-fab` · `--z-overlay`
+(dialog scrim) · `--z-modal` (dialog content) · `--z-popover` (a select opened
+inside a dialog). Use `z-(--token)`; never an arbitrary `z-[…]`.
+
+Third-party ladders are contained rather than out-bid: Leaflet (200-1000) and
+Photo Sphere Viewer (50-9999) each live inside a pane carrying `isolate`
+(`GuessMapPanel`, its inner map wrapper, and the panorama pane in
+`GameClient.js`), so their values never reach the root stacking context and the
+pane's own chrome can sit on `--z-pane-chrome`.
+
+Two heights other elements measure against are tokens too: `--footer-h` (the
+credit strip) and `--action-bar-h` (the game's submit bar). Offset against
+those, not against the pixel value they happen to hold.
+
+### Fixed-surface layout
+
+The game screen does not scroll, so its vertical budget is the constraint --
+about 271px of content on a 667x375 landscape phone. Chrome that floats over
+the panorama goes in flow where it can (the how-to-play hint rides
+`PanoramaViewer`'s `topBarSlot`, beside the Mapillary credit) and is sized
+against the viewport where it cannot (the collapsed minimap is
+`min(9rem,30vh)`). `viewport.viewportFit` is `cover`, so the game header and
+content box pad themselves with `env(safe-area-inset-left/right)` and the
+footer strip owns `env(safe-area-inset-bottom)`.
+
+Third-party map chrome is sized for a full map, so each state gets what fits.
+On the phone guess map, Leaflet's tile credit and zoom buttons are hidden while
+the minimap is a collapsed thumbnail (behind a cover that swallows clicks, with
+the credit wrapping to five lines) and return when it expands, where the zoom
+control is lifted clear of the two-line credit. The permanent tile attribution
+lives on `/credits`, which carries all three credits the Geoapify free plan
+requires.
+
+Inside these surfaces, size with flex or insets -- never a percentage height.
+Below `layout.js`'s column every ancestor's height comes from flexing against a
+`min-height`, which is indefinite, so `h-full` and `h-[45%]` silently collapse
+to content height. Use `flex-1` for a share of the space and `absolute inset-0`
+to fill a positioned box.
 
 Raw palette colors are allowed only where the color must not follow the theme:
 the `bg-neutral-900` surround behind panoramas and full-bleed maps (dark in

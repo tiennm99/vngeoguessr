@@ -47,14 +47,16 @@ Next.js 16 App Router structure:
 #### React Components (`src/app/components/`)
 - `GameClient.js` - Main game client component
 - `LeafletMap.js` - Interactive map for guess placement
-- `PanoramaViewer.js` - 360 degree street view display
+- `PanoramaViewer.js` - 360 degree street view display; owns the Mapillary
+  attribution and a `topBarSlot` for host chrome sharing that row
 - `RegionPicker.js` - Homepage province accordion, one row per playable region
 - `RegionSelect.js` - Level buttons plus a grouped select, used where a single
   region has to be chosen from 67
 - `LeaderboardList.js` - Ranked rows for one board
 - `UsernameModal.js` - Set or change the leaderboard name; skip generates a
   random `Player-xxxxxx`
-- `FirstRoundHint.js` - One-time how-to-play banner on the game screen
+- `FirstRoundHint.js` - One-time how-to-play banner, rendered in flow into
+  the panorama pane's top row via `PanoramaViewer`'s `topBarSlot`
 - `DonateQRModal.js` - Donation QR code modal
 - `ThemeToggle.js` - Light/dark switch
 
