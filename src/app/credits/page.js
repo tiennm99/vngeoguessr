@@ -89,7 +89,10 @@ export default function CreditsPage() {
                     correctly reflects the deployed tile provider. Truthiness
                     only — the key itself must never render. */}
                 {process.env.NEXT_PUBLIC_GEOAPIFY_KEY ? (
-                  <> Map tiles are served by <ExternalLink href="https://www.geoapify.com/">Geoapify</ExternalLink>.</>
+                  <> Map tiles are served by <ExternalLink href="https://www.geoapify.com/">Geoapify</ExternalLink>,
+                  using the{' '}
+                  <ExternalLink href="https://openmaptiles.org/">OpenMapTiles</ExternalLink>{' '}
+                  schema.</>
                 ) : (
                   <> Map tiles are served by OpenStreetMap.</>
                 )}
