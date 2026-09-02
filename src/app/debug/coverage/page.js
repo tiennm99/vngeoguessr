@@ -15,7 +15,7 @@ const CoverageMap = dynamic(() => import('./CoverageMap'), {
     <div
       role="status"
       aria-live="polite"
-      className="flex h-full w-full items-center justify-center rounded-lg bg-muted text-muted-foreground"
+      className="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground"
     >
       Loading map...
     </div>
@@ -125,6 +125,21 @@ export default function CoveragePage() {
     setPanoLoading(false);
   }, []);
 
+  // The inspector covers part of the map, so Escape closes it -- the X in its
+  // header is the only other way out.
+  useEffect(() => {
+    if (!selected) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      // An open select owns Escape; closing the inspector behind it would make
+      // one keypress do two things.
+      if (document.querySelector('[data-radix-popper-content-wrapper]')) return;
+      closePano();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selected, closePano]);
+
   const handleBoundsChange = useCallback(
     (nextBbox) => {
       load(region, nextBbox);
@@ -133,7 +148,7 @@ export default function CoveragePage() {
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Same title pattern as the other debug pages, with the tool's own
           controls beside it. The shared debug layout owns the app chrome. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/60 px-4 py-2">
@@ -185,8 +200,25 @@ export default function CoveragePage() {
         {loading && <span className="text-xs text-muted-foreground">loading…</span>}
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-2">
-        <div className="min-h-[40dvh] lg:min-h-0">
+      {/* The map is the tool, so it gets the whole surface. From lg the
+          inspector floats over its right edge: the old two-column grid held
+          half the width empty until a point was picked, and reflowing the map
+          on selection moved the very dot the user had just clicked. A phone has
+          neither the width to float into nor the height to split -- 112px of
+          map is not a map -- so there the inspector takes the surface instead
+          and its close button brings the map back.
+          min-h-64 is the floor that keeps that promise: the page chrome takes
+          225px, so on a landscape phone a purely flexed surface collapsed to
+          98px. The floor makes <main> scroll instead of shrinking the map
+          below the point of being one. */}
+      <div className="flex min-h-64 flex-1 flex-col lg:relative lg:block lg:min-h-0">
+        {/* Kept mounted while hidden, so coming back costs no reload; the
+            map's ResizeObserver re-measures it when it reappears. */}
+        <div
+          className={`relative min-h-0 flex-1 lg:absolute lg:inset-0 lg:block ${
+            selected ? 'hidden' : ''
+          }`}
+        >
           <CoverageMap
             boundary={boundary}
             panos={panos}
@@ -197,7 +229,13 @@ export default function CoveragePage() {
         </div>
 
         {selected && (
-          <div className="flex min-h-[40dvh] flex-col overflow-hidden rounded-lg border border-border bg-card lg:min-h-0">
+          <aside
+            aria-label={`Panorama ${selected.id}`}
+            // Bottom sheet on phones, side panel from lg: covering the map
+            // from the edge is what map tools do, and it leaves the clicked
+            // dot exactly where it was.
+            className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border bg-card lg:absolute lg:inset-y-3 lg:right-3 lg:z-(--z-floating) lg:h-auto lg:w-[26rem] lg:rounded-xl lg:border lg:shadow-xl"
+          >
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-foreground">{selected.id}</p>
@@ -226,7 +264,7 @@ export default function CoveragePage() {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 bg-neutral-900">
+            <div className="relative min-h-0 flex-1 bg-neutral-900">
               {panoError ? (
                 <div role="alert" className="flex h-full items-center justify-center p-4 text-center text-sm text-destructive">
                   {panoError}
@@ -243,7 +281,7 @@ export default function CoveragePage() {
                 </div>
               )}
             </div>
-          </div>
+          </aside>
         )}
       </div>
     </div>

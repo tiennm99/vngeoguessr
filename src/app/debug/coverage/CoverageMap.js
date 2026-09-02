@@ -44,6 +44,10 @@ export default function CoverageMap({
     if (!containerRef.current || mapRef.current) return;
 
     const map = L.map(containerRef.current, { preferCanvas: true });
+    // Bottom-left: from lg the panorama inspector floats over the bottom-right
+    // corner, and tile attribution has to stay visible. The map option is a
+    // boolean, so the position is set on the control itself.
+    map.attributionControl.setPosition('bottomleft');
     const tiles = getTileConfig();
     L.tileLayer(tiles.url, tiles.options).addTo(map);
     map.setView([16.0, 107.0], 6);
@@ -84,10 +88,25 @@ export default function CoverageMap({
     };
     map.on('click', pick);
 
+    // Leaflet caches the container size and only re-reads it on a window
+    // resize, so opening the inspector -- which shrinks the map on phones,
+    // where it stacks rather than floats -- would otherwise leave the map
+    // drawing at its old height.
+    // Zero size means the map is display:none -- the phone layout swaps it out
+    // for the inspector. Measuring then would hand the loader a degenerate
+    // bbox and wipe the point count, so wait until it is on screen again.
+    const resizeObserver = new ResizeObserver(() => {
+      const el = containerRef.current;
+      if (!el || !el.clientWidth || !el.clientHeight) return;
+      map.invalidateSize();
+    });
+    resizeObserver.observe(containerRef.current);
+
     mapRef.current = map;
 
     return () => {
       clearTimeout(moveTimer);
+      resizeObserver.disconnect();
       map.off('moveend', report);
       map.off('click', pick);
       map.remove();
@@ -173,5 +192,11 @@ export default function CoverageMap({
     }).addTo(map);
   }, [selectedId, panos]);
 
-  return <div ref={containerRef} className="h-full w-full rounded-lg bg-muted" />;
+  // Sized by insets, so the caller must position its wrapper. A percentage
+  // height would collapse: the wrapper is a flex item, whose flexed main-axis
+  // height is indefinite for percentage resolution.
+  // `isolate` keeps Leaflet's own ladder (panes at 400, controls at 800-1000)
+  // inside this element; without it those values escape to the caller's
+  // stacking context and paint over anything layered on top of the map.
+  return <div ref={containerRef} className="absolute inset-0 isolate bg-muted" />;
 }

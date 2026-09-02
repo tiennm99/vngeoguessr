@@ -7,9 +7,11 @@ import DebugNav from './DebugNav';
 // One shell for every debug page, styled like the game screen's app bar, so
 // the hub and both tools share identical chrome and only differ in content.
 // The column fills the body's sticky-footer layout (viewport minus the global
-// footer strip) with the scroll INSIDE <main>: document-style
-// pages (hub, bbox) scroll there, while the coverage map takes h-full and
-// manages its own panes.
+// footer strip) with the scroll INSIDE <main>: document-style pages (hub,
+// bbox) scroll there, while the coverage map fills it and manages its own
+// panes. <main> is itself a flex column so a full-height page can claim the
+// space with flex-1 -- `h-full` cannot, because main's height comes from
+// flexing inside a min-height container and so is indefinite.
 export default function DebugLayout({ children }) {
   return (
     <div className="flex flex-1 min-h-0 flex-col vn-surface">
@@ -35,7 +37,7 @@ export default function DebugLayout({ children }) {
         <ThemeToggle />
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</main>
     </div>
   );
 }
