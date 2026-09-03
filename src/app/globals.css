@@ -256,6 +256,7 @@
    inside it and the numbers below are the only ones that decide the screen.
    Ordered low to high; nothing here needs !important. */
 :root {
+  --z-backdrop: -1;     /* the key art behind every page */
   --z-pane-chrome: 10;  /* controls painted over a map or panorama */
   --z-floating: 20;     /* the phone minimap panel */
   --z-appbar: 30;       /* the game action bar */
@@ -275,9 +276,14 @@
 }
 
 /* Page ground, one step off --background. Named for what it is: a flat
-   surface (an earlier iteration was a gradient; the name outlived it). */
+   surface (an earlier iteration was a gradient; the name outlived it).
+
+   Translucent, because AppBackground paints the key art under the whole app:
+   this is what lets the art read through while body text keeps its contrast
+   against a busy, high-chroma illustration. Both themes take the same mix --
+   --surface already carries the light and dark value. */
 .vn-surface {
-  background: var(--surface);
+  background: color-mix(in oklab, var(--surface) 82%, transparent);
 }
 
 /* Spinner animation for loading */

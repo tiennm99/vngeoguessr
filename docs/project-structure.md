@@ -45,6 +45,8 @@ Next.js 16 App Router structure:
 - `debug/region-coverage/route.js` - A region's outline and panorama points
 
 #### React Components (`src/app/components/`)
+- `AppBackground.js` - The key art (`public/bg.png`) on one fixed layer under
+  every page, served through `next/image`
 - `GameClient.js` - Main game client component
 - `LeafletMap.js` - Interactive map for guess placement
 - `PanoramaViewer.js` - 360 degree street view display; owns the Mapillary

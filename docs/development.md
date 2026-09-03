@@ -214,10 +214,17 @@ the theme toggle works only on pages that stay inside it.
 ### Layering
 
 One z-index ladder for the app, in `globals.css` `:root`, low to high:
-`--z-pane-chrome` (controls over a map or panorama) · `--z-floating` (the phone
-minimap) · `--z-appbar` (the game action bar) · `--z-fab` · `--z-overlay`
-(dialog scrim) · `--z-modal` (dialog content) · `--z-popover` (a select opened
-inside a dialog). Use `z-(--token)`; never an arbitrary `z-[…]`.
+`--z-backdrop` (the key art behind every page) · `--z-pane-chrome` (controls
+over a map or panorama) · `--z-floating` (the phone minimap) · `--z-appbar`
+(the game action bar) · `--z-fab` · `--z-overlay` (dialog scrim) · `--z-modal`
+(dialog content) · `--z-popover` (a select opened inside a dialog). Use
+`z-(--token)`; never an arbitrary `z-[…]`.
+
+`--z-backdrop` is the only negative rung: `AppBackground` is a fixed child of
+`<body>`, so it paints over the canvas and under every page. The ground it
+shows through is `.vn-surface`, which is translucent for exactly that reason --
+keep it that way, and keep panes that must stay legible (cards, the game
+header, the panorama surround) opaque.
 
 Third-party ladders are contained rather than out-bid: Leaflet (200-1000) and
 Photo Sphere Viewer (50-9999) each live inside a pane carrying `isolate`
