@@ -19,6 +19,17 @@
   ~230ms; a couple of alternates are tried in case an image was deleted upstream
 - **Country draws pick a province first**, uniformly, so Vietnam rounds are not
   97% Ha Noi and Ho Chi Minh by panorama count
+- **No immediate repeats**: the last 50 panoramas a player was shown are
+  excluded from their next draw, across every region. A location is recorded as
+  seen when the round is created, so skipping one also stops it coming back.
+  The exclusion is a preference, not a rule: where it would empty a small
+  region's pool it is dropped and a repeat allowed, because a repeat beats
+  telling the player a region they can see has no coverage
+- **The player identity behind that is a cookie and nothing more**: `vng_pid` is
+  an httpOnly UUID the server mints, holds no personal data, is never shown to
+  the player, and is never joined to their username or scores. It is not the
+  username, deliberately — that lives in localStorage, is renameable, and is
+  shared by anyone who types it
 - **Panoramas only**: non-panoramic images are filtered out when the index is
   built, so every indexed point is a panorama. The flag itself is not stored
 - **Thumbnail display**: `thumb_2048_url`, falling back to `thumb_original_url`

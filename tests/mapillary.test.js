@@ -115,3 +115,87 @@ describe('fetchRegionPanorama', () => {
     expect(provinceOf(result.data.regionCode)).toBeTruthy();
   });
 });
+
+describe('fetchRegionPanorama with a recent-location history', () => {
+  /** Stub every Graph API lookup as a success. */
+  function stubEveryLookup() {
+    vi.stubGlobal('fetch', async (url) => {
+      const id = String(url).split('/').pop().split('?')[0];
+      return new Response(JSON.stringify(imageBody(id)), { status: 200 });
+    });
+  }
+
+  it('does not return a panorama the player has just seen', async () => {
+    stubEveryLookup();
+    const all = fixtureIds('DL');
+    const recent = new Set(all.slice(0, all.length - 1));
+
+    // Run it repeatedly: the draw is random, so one pass proves nothing.
+    for (let i = 0; i < 12; i += 1) {
+      const result = await fetchRegionPanorama('DL', recent);
+      expect(result.success).toBe(true);
+      expect(result.data.id).toBe(all.at(-1));
+    }
+  });
+
+  // A small district holds a few hundred panoramas. Refusing to repeat one
+  // there must never turn into "this region has no coverage".
+  it('allows a repeat rather than failing when the history covers the pool', async () => {
+    stubEveryLookup();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const all = fixtureIds('DL');
+
+    const result = await fetchRegionPanorama('DL', new Set(all));
+
+    expect(result.success).toBe(true);
+    expect(all).toContain(result.data.id);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Recent-location filter exhausted DL'));
+    warn.mockRestore();
+  });
+
+  it('does not spend lookup attempts on the history downgrade', async () => {
+    // The downgrade redraws inside the same attempt. Spending one would cost a
+    // third of the budget in exactly the small regions that need it most.
+    const seenIds = [];
+    vi.stubGlobal('fetch', async (url) => {
+      const id = String(url).split('/').pop().split('?')[0];
+      seenIds.push(id);
+      // Fail the first two lookups: only a full budget survives this.
+      if (seenIds.length <= 2) return new Response('gone', { status: 404 });
+      return new Response(JSON.stringify(imageBody(id)), { status: 200 });
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await fetchRegionPanorama('DL', new Set(fixtureIds('DL')));
+
+    expect(result.success).toBe(true);
+    expect(seenIds).toHaveLength(3);
+    warn.mockRestore();
+  });
+
+  it('still reports a genuinely empty region as a failure', async () => {
+    stubEveryLookup();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // TPHCM-Q3 is a real district code with no fixture rows behind it.
+    const result = await fetchRegionPanorama('TPHCM-Q3', new Set(['hcm-q1-1']));
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/No panoramas left/);
+    // And it must not blame the history for it: a region holding zero rows is
+    // a broken reseed, and saying "filter exhausted" sends whoever reads the
+    // log to tune HISTORY_LIMIT instead of to the real cause.
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('lets an infrastructure error through instead of reading it as coverage', async () => {
+    // The regression guard for the soft/hard split: the history downgrade must
+    // not swallow a Postgres failure and report it as an exhausted pool.
+    stubEveryLookup();
+    const { getFakeDb } = await import('./fake-neon.js');
+    const db = getFakeDb();
+    const broken = vi.spyOn(db, 'query').mockRejectedValue(new Error('connection terminated'));
+
+    await expect(fetchRegionPanorama('DL', new Set(['ld-1']))).rejects.toThrow(/connection terminated/);
+    broken.mockRestore();
+  });
+});

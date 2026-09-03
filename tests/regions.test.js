@@ -235,7 +235,16 @@ describe('client safety', () => {
     // the answers (or 1.4MB of polygons) to the browser, whichever module the
     // import went through.
     const CLIENT_DIRECTIVE = /^\s*['"]use client['"]/;
-    const FORBIDDEN = ['data/panos', 'pano-index', 'pano-db', 'data/boundaries'];
+    // pano-history is on this list for the same reason as the indexes: its
+    // newest entry is the panorama the player is looking at right now, and a
+    // panorama id is one Mapillary lookup away from the answer coordinates.
+    const FORBIDDEN = [
+      'data/panos',
+      'pano-index',
+      'pano-db',
+      'pano-history',
+      'data/boundaries',
+    ];
 
     const collectSourceFiles = (dir, out) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {

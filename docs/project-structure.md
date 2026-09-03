@@ -113,6 +113,10 @@ Neon Postgres, which is what the app queries at runtime.
 - `leaderboard.js` - Leaderboard operations, including the district to province
   to country fan-out
 - `mapillary.js` - Mapillary lookup by image id
+- `player-id.js` - **Server-side only.** The anonymous `vng_pid` cookie that
+  identifies a browser for repeat-avoidance, and nothing else
+- `pano-history.js` - **Server-side only.** The last 50 panoramas a player was
+  shown, in Redis with a rolling 3-day expiry
 - `session.js` - Redis-based session management with 30-min expiry
 - `upstash.js` - Upstash Redis REST client adapter with multi-tenant key prefix
 - `theme.js`, `use-count-up.js` - Theme persistence and a count-up hook

@@ -113,10 +113,13 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
   let total = await countPanos(code);
   if (total === 0) throw new Error(`No panoramas left to try for ${code}`);
 
-  // Rejection sampling rather than filtering. excludeIds holds at most the two
-  // ids already tried this round, so a few redraws beat shipping the exclusion
-  // into every query. Falls back to a filtered draw once misses suggest the
-  // pool really is nearly exhausted.
+  // Rejection sampling rather than filtering. excludeIds holds the ids already
+  // tried this round plus the player's recent-location history, so up to ~52 --
+  // and against the worst pool that can happen (the smallest playable region
+  // holds 171 rows, so 29% excluded) eight draws all missing is a ~5e-5 event.
+  // A few cheap redraws still beat shipping the exclusion list into every
+  // query. Raising HISTORY_LIMIT enough to change that ratio is what would
+  // invalidate this trade; the filtered fallback below stays correct either way.
   for (let attempt = 0; attempt < 8; attempt++) {
     const offset = Math.floor(Math.random() * total);
     const rows = await query(

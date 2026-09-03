@@ -76,6 +76,27 @@ export async function fetchPanoramaById(imageId) {
 }
 
 /**
+ * Draw one candidate, telling a dry pool apart from an infrastructure failure.
+ *
+ * Only a dry pool is a soft failure -- a small district whose few images have
+ * all been deleted upstream, or one the exclusions have used up. The pick talks
+ * to Postgres, so anything else here is infrastructure (connection, missing
+ * table mid-reseed) and must surface as a 500 rather than read as missing
+ * coverage.
+ * @param {string} regionCode Region code at any level.
+ * @param {Set<string>} excludeIds Panoramas not to draw.
+ * @returns {Promise<{pano: Object|null, dryMessage: string|null}>}
+ */
+async function drawCandidate(regionCode, excludeIds) {
+  try {
+    return { pano: await pickRandomPano(regionCode, excludeIds), dryMessage: null };
+  } catch (error) {
+    if (!String(error.message).startsWith('No panoramas left')) throw error;
+    return { pano: null, dryMessage: error.message };
+  }
+}
+
+/**
  * Choose a panorama at or below a region and resolve it to a usable image.
  *
  * `regionCode` on the result is the district the chosen panorama actually sits
@@ -84,26 +105,45 @@ export async function fetchPanoramaById(imageId) {
  * fresh candidate, potentially from a different district, so carrying the first
  * one forward would credit the wrong place.
  * @param {string} regionCode Region code at any level, e.g. 'VN', 'TPHCM', 'TPHCM-Q7'.
+ * @param {Set<string>} recentIds Panoramas this player has recently seen, to
+ *   avoid if the region can afford it.
  * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
  */
-export async function fetchRegionPanorama(regionCode) {
+export async function fetchRegionPanorama(regionCode, recentIds = new Set()) {
   requireAccessToken();
 
   const tried = new Set();
+  // Two exclusion sets with different strengths. `tried` is hard: a candidate
+  // whose Mapillary lookup just failed must not come back this round. The
+  // player's history is soft -- a small district holds a few hundred
+  // panoramas, and refusing to repeat one there must never become "this region
+  // has no coverage". When the pool runs dry the history is dropped and the
+  // player sees a repeat, which is the whole point of it being a preference.
+  let applyRecent = recentIds.size > 0;
   let lastError = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    let candidate;
-    try {
-      candidate = await pickRandomPano(regionCode, tried);
-    } catch (error) {
-      // Only a dry pool is a soft failure -- a small district whose few images
-      // have all been deleted upstream. The pick now talks to Postgres, so
-      // anything else here is infrastructure (connection, missing table mid-
-      // reseed) and must surface as a 500, not read as missing coverage.
-      if (!String(error.message).startsWith('No panoramas left')) throw error;
-      return { success: false, error: error.message };
+    let { pano: candidate, dryMessage } = await drawCandidate(
+      regionCode,
+      applyRecent ? new Set([...tried, ...recentIds]) : tried
+    );
+
+    if (!candidate && applyRecent) {
+      // Maybe the history emptied the pool, maybe the region holds no rows at
+      // all. Drop the history and draw again within the same attempt: spending
+      // one would quietly cost a third of the lookup budget in exactly the
+      // small regions that need it most.
+      applyRecent = false;
+      ({ pano: candidate, dryMessage } = await drawCandidate(regionCode, tried));
+      // Only a redraw that FOUND something proves the history was to blame.
+      // Warning either way would send someone tuning HISTORY_LIMIT when the
+      // real story is a region mid-reseed holding zero rows.
+      if (candidate) {
+        console.warn(`Recent-location filter exhausted ${regionCode}; allowing a repeat`);
+      }
     }
+
+    if (!candidate) return { success: false, error: dryMessage };
     tried.add(candidate.id);
 
     try {

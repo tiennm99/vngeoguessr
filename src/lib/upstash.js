@@ -4,6 +4,7 @@ import { Redis } from '@upstash/redis';
 //
 // Logical key namespace (callers pass these unprefixed):
 //   session:{sessionId}              string, TTL 30 min
+//   history:{playerId}               string, TTL 3 days    -- recently seen panos
 //   leaderboard:vietnam              sorted set (score)    -- the VN node
 //   leaderboard:city:{regionCode}    sorted set (score)
 //   distance:vietnam                 sorted set (distance) -- the VN node

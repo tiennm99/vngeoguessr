@@ -29,6 +29,14 @@
 - Client receives session ID only — never the coordinates, never the district
 
 ### 4. Location Display Process
+- **Identify the browser**: an anonymous `vng_pid` cookie, minted server-side on
+  the first round and refreshed on every one after (`src/lib/player-id.js`). It
+  exists only so the next step can happen; it is never joined to a username or
+  a score
+- **Exclude what this player just saw**: their last 50 panorama ids
+  (`src/lib/pano-history.js`) are passed to the draw as an exclusion set. If
+  they would empty a small region's pool the filter is dropped and a repeat
+  allowed — a repeat is always preferable to "no coverage here"
 - **Pick from the index**: the server draws a random panorama id from the
   prebuilt index in Postgres for the selected region (`pickRandomPano` in
   `src/lib/pano-index.js`). A country draw picks a province uniformly first, so
@@ -38,6 +46,8 @@
 - **Credit the district that won**: the resolving district comes from the attempt
   that succeeded, not the first candidate — each retry may sit in a different
   district
+- **Record it as seen**: the chosen panorama joins the player's history here, at
+  round creation rather than at guess time, so a round they skip still counts
 - **Image Display**: `thumb_2048_url`, falling back to `thumb_original_url`
 - **Security**: client never receives the coordinates or the district
 

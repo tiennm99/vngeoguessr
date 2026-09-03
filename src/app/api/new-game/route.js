@@ -3,10 +3,51 @@ import { getRegion } from '../../../lib/regions.js';
 import { resolvePlayableRegion, publicRegion } from '../../../lib/region-request.js';
 import { fetchRegionPanorama } from '../../../lib/mapillary.js';
 import { storeGameSession, getGameSession } from '../../../lib/session.js';
+import { getRecentPanoIds, recordPanoId } from '../../../lib/pano-history.js';
+import {
+  PLAYER_COOKIE,
+  readPlayerId,
+  newPlayerId,
+  playerCookieOptions,
+} from '../../../lib/player-id.js';
 
 // Generate a unique session ID
 function generateSessionId() {
   return crypto.randomUUID();
+}
+
+// The recent-location history is a convenience, unlike the session write below
+// it, which is load-bearing and must keep throwing. These two wrappers are what
+// keep that difference visible: Redis trouble costs a player a repeated
+// panorama, never their round. The library itself still reports failures, for
+// any future caller that does care.
+
+/**
+ * A player's recently seen panoramas, or none if the store is unavailable.
+ * @param {string} playerId Anonymous player id.
+ * @returns {Promise<string[]>} Panorama ids.
+ */
+async function recentPanoIdsOrNone(playerId) {
+  try {
+    return await getRecentPanoIds(playerId);
+  } catch (error) {
+    console.error('Recent-location lookup failed:', error);
+    return [];
+  }
+}
+
+/**
+ * Record a panorama as seen, tolerating a store that is unavailable.
+ * @param {string} playerId Anonymous player id.
+ * @param {string} panoId The panorama just shown.
+ * @returns {Promise<void>}
+ */
+async function recordPanoOrIgnore(playerId, panoId) {
+  try {
+    await recordPanoId(playerId, panoId);
+  } catch (error) {
+    console.error('Recent-location record failed:', error);
+  }
 }
 
 export async function GET(request) {
@@ -21,10 +62,18 @@ export async function GET(request) {
   const pickedRegion = resolved.code;
   const pickedName = getRegion(pickedRegion).name;
 
+  // Anonymous, server-minted, and used for one thing: not showing this browser
+  // a panorama it has just seen. Deliberately not the username -- that is
+  // client-supplied, renameable, and shared by anyone who types it.
+  const playerId = readPlayerId(request) ?? newPlayerId();
+
   try {
     // The location comes from the prebuilt index, so this is one lookup rather
-    // than a search over an area.
-    const imageResult = await fetchRegionPanorama(pickedRegion);
+    // than a search over an area. The player's last 50 panoramas are excluded
+    // where the region can afford it; fetchRegionPanorama drops them rather
+    // than let them empty a small pool.
+    const recentIds = await recentPanoIdsOrNone(playerId);
+    const imageResult = await fetchRegionPanorama(pickedRegion, new Set(recentIds));
 
     if (!imageResult.success) {
       // The user-facing message is generic; keep the real cause in the logs so
@@ -63,9 +112,14 @@ export async function GET(request) {
       createdAt: Date.now()
     });
 
+    // Recorded at round creation, not at guess time, so a round the player
+    // skips still counts as seen -- skipping is exactly how someone says they
+    // do not want this location again.
+    await recordPanoOrIgnore(playerId, selectedImage.id);
+
     console.log(`Session ${currentSessionId} created in ${selectedImage.regionCode}`);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       sessionId: currentSessionId,
       // Built from the picked region only -- never from the resolved district.
@@ -77,6 +131,13 @@ export async function GET(request) {
         isPano: selectedImage.isPano
       }
     });
+
+    // Set on the success path only. An error response carries no id and the
+    // next successful round mints one; spreading cookie handling across five
+    // returns would buy nothing. Re-set every round so the max-age rolls
+    // forward for a player who keeps playing.
+    response.cookies.set(PLAYER_COOKIE, playerId, playerCookieOptions());
+    return response;
 
   } catch (error) {
     console.error('Location/Mapillary API Error:', error);
