@@ -58,9 +58,8 @@
   written, so a replay or a concurrent submit scores exactly once
 
 ### 7. Scoring System
-Distance-based points (0-5 scale). The headline score is graded against a
-ladder scaled to the size of the region the player picked; base ladder
-(exact only for regions at or under the 10km reference diagonal):
+Distance-based points (0-5 scale), on one ladder for every region — the picked
+region's size does not move a threshold:
 - **0-50m**: 5 points
 - **50m-100m**: 4 points  
 - **100m-200m**: 3 points
@@ -68,11 +67,9 @@ ladder scaled to the size of the region the player picked; base ladder
 - **500m-1km**: 1 point
 - **beyond**: 0 points
 
-A larger region multiplies every threshold by its bbox diagonal over the 10km
-reference (see `bandsForBbox` in `src/lib/game.js`). Leaderboards are credited
-separately: each board grades the raw distance against its own region's ladder
-(`submitRoundScore` in `src/lib/leaderboard.js`), so the headline score and a
-board's added points can differ.
+See `SCORE_BANDS` in `src/lib/game.js`. Leaderboards use the same ladder
+(`submitRoundScore` in `src/lib/leaderboard.js`), so the headline score and the
+points added at every level are the same number.
 
 ### 8. Results Display
 - Show calculated distance between guess and actual location

@@ -40,10 +40,9 @@ export function newGameResponse(sessionId, round) {
 
 /** /api/guess response: a 123m round on a TPHCM pick, revealed as District 7. */
 export function guessResponse(username) {
-  // `points` is what this round added at that level (each board judges by its
-  // own ladder); `score` is the accumulated total. Values mirror what the
-  // real route computed for a 123m guess when this stub was written: 5 on the
-  // TPHCM (picked) ladder, +4 on District 7's own ladder, +5 above it.
+  // `points` is what this round added at that level; `score` is the
+  // accumulated total. Values mirror the real route: 123m is 3 points on the
+  // one ladder, credited identically at all three levels.
   const scoreLevel = (code, name, rank, points) =>
     ({ code, name, username, points, score: 3, rank, trimmed: false });
   const distanceLevel = (code, name, rank) => ({ code, name, username, distance: 123, rank });
@@ -51,20 +50,11 @@ export function guessResponse(username) {
     success: true,
     gameResult: {
       distance: 123,
-      score: 5,
-      // The picked region's ladder as the real route returns it for TPHCM
-      // (bbox-scaled from the generated tree at the time of writing).
-      bands: [
-        { maxMeters: 442, points: 5 },
-        { maxMeters: 885, points: 4 },
-        { maxMeters: 1770, points: 3 },
-        { maxMeters: 4425, points: 2 },
-        { maxMeters: 8849, points: 1 },
-      ],
+      score: 3,
       levels: [
-        scoreLevel('TPHCM-Q7', 'District 7', 1, 4),
-        scoreLevel('TPHCM', 'Ho Chi Minh', 2, 5),
-        scoreLevel('VN', 'Vietnam', 5, 5),
+        scoreLevel('TPHCM-Q7', 'District 7', 1, 3),
+        scoreLevel('TPHCM', 'Ho Chi Minh', 2, 3),
+        scoreLevel('VN', 'Vietnam', 5, 3),
       ],
       distanceLevels: [
         distanceLevel('TPHCM-Q7', 'District 7', 1),
@@ -83,7 +73,7 @@ export function guessResponse(username) {
       cityDistanceRank: 3,
       exactLocation: { lat: 10.7411, lng: 106.7218 },
     },
-    leaderboard: { message: 'Score added at 3 levels (+4, +5, +5)' },
+    leaderboard: { message: 'Score added at 3 levels (+3, +3, +3)' },
     distance: { message: 'Distance record: 123m' },
     message: 'Game result processed successfully',
   };

@@ -47,9 +47,9 @@ test('plays a round to the reveal and into the next one', async ({ page }) => {
   // The bookkeeping lives behind a collapsed "Leaderboard results" section so
   // the payoff fits one viewport; open it before asserting its contents.
   await dialog.getByText('Leaderboard results').click();
-  // The ladder the round was scored against, with the achieved band present.
-  await expect(dialog.getByText('≤442m = 5')).toBeVisible();
-  await expect(dialog.getByText('Score added at 3 levels (+4, +5, +5)')).toBeVisible();
+  // The scoring ladder, with the achieved band present.
+  await expect(dialog.getByText('≤200m = 3')).toBeVisible();
+  await expect(dialog.getByText('Score added at 3 levels (+3, +3, +3)')).toBeVisible();
   await expect(dialog.getByText('District 7', { exact: true })).toBeVisible();
 
   // Next round resets to a fresh, unguessed state and swaps in a new image.

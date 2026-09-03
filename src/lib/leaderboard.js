@@ -8,7 +8,7 @@ import {
   zRemRangeByRank,
 } from './upstash.js';
 import { ancestorsOf, getRegion, isRegion, COUNTRY_CODE } from './regions.js';
-import { calculateScore, bandsForBbox } from './game.js';
+import { calculateScore } from './game.js';
 
 // Leaderboard logical key constants (prefix is applied inside the adapter).
 //
@@ -223,13 +223,10 @@ export async function submitScore(username, score, regionCode) {
 }
 
 /**
- * Score one round's distance onto every board above a region, each board by
- * its own regional ladder.
+ * Score one round's distance onto every board above a region.
  *
- * A 2km miss is a poor district guess but an excellent country one, so each
- * level converts the distance with its own bbox-scaled bands: the district
- * board only pays for district precision, however wide a region the player
- * picked. This is what keeps every board's points meaning one thing.
+ * Every level converts the distance against the same ladder, so one round
+ * records the identical points on its district, province and country board.
  * @param {string} username Player username.
  * @param {number} distance Distance achieved in metres.
  * @param {string} regionCode Region the panorama was in.
@@ -250,8 +247,8 @@ export async function submitRoundScore(username, distance, regionCode) {
       throw new Error(`Invalid distance: ${distance}`);
     }
     const numDistance = distance;
-    const result = await fanOutScore(h, username.trim(), regionCode, (code) =>
-      calculateScore(numDistance, bandsForBbox(getRegion(code).bbox))
+    const result = await fanOutScore(h, username.trim(), regionCode, () =>
+      calculateScore(numDistance)
     );
     return {
       ...result,

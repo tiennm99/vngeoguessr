@@ -272,7 +272,6 @@ export default function GameClient() {
           failed: false,
           distance: submitted.distance,
           score: submitted.score,
-          bands: submitted.bands ?? null,
           exactLocation: submitted.exactLocation,
           scoreLevels: submitted.levels ?? [],
           distanceLevels: submitted.distanceLevels ?? [],

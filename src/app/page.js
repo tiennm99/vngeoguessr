@@ -21,9 +21,8 @@ const STEP_LABELS = [
   'Earn points based on accuracy!'
 ];
 
-// Derived from the scoring ladder rather than re-typed: these are the
-// district-round bands, and a hardcoded copy is how the table silently
-// drifts from what the server actually awards. "1km" reads better than the
+// Derived from the scoring ladder rather than re-typed: a hardcoded copy is
+// how the table silently drifts from what the server actually awards. "1km" reads better than the
 // "1.00km" a result badge shows, so round labels drop the trailing zeros.
 const label = (meters) => formatDistance(meters).replace('.00km', 'km');
 const SCORING_ROWS = [
@@ -167,9 +166,8 @@ export default function Home() {
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground/80">
-                    Base scale — every region stretches these distances to
-                    match its own size, from compact districts up to the
-                    whole country.
+                    The same distances everywhere — a district round and a
+                    whole-country round are scored on this one ladder.
                   </p>
                 </div>
               </CardContent>

@@ -142,7 +142,6 @@ export default function LeaderboardModal({ currentUsername }) {
                   loading={loadingLeaderboard}
                   currentUsername={currentUsername}
                   type={activeTypeTab}
-                  regionCode={region}
                 />
                 )}
               </div>

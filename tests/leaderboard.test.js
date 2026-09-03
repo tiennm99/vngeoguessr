@@ -245,23 +245,18 @@ describe('fan-out up the region tree', () => {
     expect(keys).not.toContain('vngeoguessr:leaderboard:city:vn');
   });
 
-  it('scores a round per level, each board by its own ladder', async () => {
-    // 2.2km off in District 7: nothing on the district board, full points on
-    // the country board. One flat number at every level is exactly the
-    // asymmetry submitRoundScore exists to remove.
+  it('scores a round at the same points on every level', async () => {
+    // 2.2km off is past the 1km floor, so it is a zero on the district board
+    // and equally a zero above it: no board pays more for a wider region.
     const result = await submitRoundScore('mai', 2200, 'TPHCM-Q7');
 
-    // Literal expectations, not a recomputation through bandsForBbox -- that
-    // would repeat the production expression and could never fail. These pin
-    // the generated tree's actual ladders; a boundary rebuild that moves them
-    // SHOULD fail here and be re-pinned deliberately.
     expect(result.levels.map((l) => [l.code, l.points])).toEqual([
       ['TPHCM-Q7', 0],
-      ['TPHCM', 2],
-      ['VN', 5],
+      ['TPHCM', 0],
+      ['VN', 0],
     ]);
-    expect(result.message).toBe('Score added at 3 levels (+0, +2, +5)');
-    expect((await getLeaderboard('VN'))[0].score).toBe(5);
+    expect(result.message).toBe('Score added at 3 levels (+0, +0, +0)');
+    expect((await getLeaderboard('VN'))[0].score).toBe(0);
     expect((await getLeaderboard('TPHCM-Q7'))[0].score).toBe(0);
   });
 

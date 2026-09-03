@@ -17,18 +17,17 @@ export function calculateDistance(lat1, lon1, lat2, lon2) {
   }
 }
 
-// Distance ceiling in meters -> points. The single BASE ladder; anything
+// Distance ceiling in meters -> points. The single scoring ladder; anything
 // that bands a result (colors, labels, the scoring table on the home page)
 // should derive from it or from calculateScore rather than re-typing the
 // thresholds.
 //
-// These are the DISTRICT-scale bands. A round played over a province or the
-// whole country is scored against the same ladder stretched by the region's
-// size -- see bandsForBbox -- because 1km is a bullseye across 331,000 km2
-// and a guaranteed miss would make every country round score zero.
-// Frozen because bandsForBbox hands this exact array out by identity, on the
-// server and in client renders alike: one in-place sort or mutation anywhere
-// would silently rewrite the base ladder for the whole process.
+// One ladder for every region. A guess is graded on the same absolute
+// precision whether the round was played over a district, a province or the
+// whole country, so a point means the same thing on every board.
+// Frozen because this exact array is read on the server and in client renders
+// alike: one in-place sort or mutation anywhere would silently rewrite the
+// ladder for the whole process.
 export const SCORE_BANDS = Object.freeze([
   Object.freeze({ maxMeters: 50, points: 5 }),
   Object.freeze({ maxMeters: 100, points: 4 }),
@@ -37,42 +36,13 @@ export const SCORE_BANDS = Object.freeze([
   Object.freeze({ maxMeters: 1000, points: 1 }),
 ]);
 
-// The bbox diagonal of a typical district. A region this size or smaller keeps
-// the base ladder unchanged; larger regions stretch it proportionally.
-export const REFERENCE_DIAGONAL_METERS = 10_000;
-
 /**
- * The scoring ladder stretched to a region of the given size.
- * @param {number} diagonalMeters The region's bbox diagonal in meters.
- * @returns {{maxMeters: number, points: number}[]} Scaled bands.
+ * Points for a guess, from its distance to the target.
+ * @param {number} distance Distance in meters.
+ * @returns {number} Points on the 0-5 scale.
  */
-export function bandsForDiagonal(diagonalMeters) {
-  // A non-numeric diagonal falls back to the base ladder rather than
-  // producing NaN thresholds that serialize to null.
-  const factor = Number.isFinite(diagonalMeters)
-    ? Math.max(1, diagonalMeters / REFERENCE_DIAGONAL_METERS)
-    : 1;
-  return SCORE_BANDS.map((band) => ({
-    maxMeters: Math.round(band.maxMeters * factor),
-    points: band.points,
-  }));
-}
-
-/**
- * The scoring ladder for a region, from its bbox.
- * @param {number[]|null|undefined} bbox [west, south, east, north], or absent.
- * @returns {{maxMeters: number, points: number}[]} Scaled bands; the base
- *   district ladder when the region has no bbox.
- */
-export function bandsForBbox(bbox) {
-  if (!bbox) return SCORE_BANDS;
-  const diagonal = calculateDistance(bbox[1], bbox[0], bbox[3], bbox[2]);
-  return bandsForDiagonal(diagonal);
-}
-
-// Calculate score based on distance (0-5 points scale)
-export function calculateScore(distance, bands = SCORE_BANDS) {
-  const band = bands.find((entry) => distance <= entry.maxMeters);
+export function calculateScore(distance) {
+  const band = SCORE_BANDS.find((entry) => distance <= entry.maxMeters);
   return band ? band.points : 0;
 }
 

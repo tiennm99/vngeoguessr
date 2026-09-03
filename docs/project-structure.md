@@ -104,7 +104,7 @@ Neon Postgres, which is what the app queries at runtime.
   Postgres and reports which district it landed in
 - `pano-db.js` - **Server-side only.** Neon HTTP adapter behind pano-index.js
 - `region-request.js` - Resolves and validates a region code from a request
-- `game.js` - Scoring ladders (base + region-scaled), distance, formatting
+- `game.js` - Scoring ladder, distance, formatting
 - `username.js` - Player name in localStorage, plus the random-name generator
 - `last-region.js` - Last-played region in localStorage (the home page's
   "Continue in ..." row)

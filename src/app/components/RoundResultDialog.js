@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChevronDown } from 'lucide-react';
-import { formatDistance } from '../../lib/game';
+import { formatDistance, SCORE_BANDS } from '../../lib/game';
 import { useCountUp } from '../../lib/use-count-up';
 import ResultMap, { MARKER_COLORS } from './ResultMap';
 
@@ -66,8 +66,7 @@ export default function RoundResultDialog({
 
   const hasScoreLevels = (result?.scoreLevels?.length ?? 0) > 0;
   const hasDistanceLevels = result?.distanceLevels?.some((entry) => entry.rank) ?? false;
-  const hasBands = Array.isArray(result?.bands) && result.bands.length > 0;
-  const hasLeaderboardSection = hasScoreLevels || hasDistanceLevels || hasBands;
+  const hasLeaderboardSection = hasScoreLevels || hasDistanceLevels;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,39 +187,35 @@ export default function RoundResultDialog({
                     <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
                   </summary>
                   <div className="space-y-4 px-3 pb-3 text-center">
-                    {/* The ladder this round was scored against. Thresholds
-                        scale with the picked region, so "how close did I need
-                        to be?" has no fixed answer worth memorising. Older
-                        stubbed or cached results carry no bands; then there is
-                        no strip. */}
-                    {hasBands && (
-                      <div className="space-y-1.5">
-                        <SectionCaption>This round&apos;s scoring ladder</SectionCaption>
-                        <div className="flex flex-wrap justify-center gap-1.5 text-xs">
-                          {result.bands.map((band) => (
-                            <span
-                              key={band.points}
-                              className={`rounded-md px-2 py-1 tabular-nums ${
-                                band.points === score
-                                  ? 'bg-brand text-brand-foreground font-semibold'
-                                  : 'bg-muted text-muted-foreground'
-                              }`}
-                            >
-                              {`≤${formatDistance(band.maxMeters)} = ${band.points}`}
-                            </span>
-                          ))}
+                    {/* The scoring ladder, identical for every region, so
+                        "how close did I need to be?" has one answer the player
+                        can carry into the next round. */}
+                    <div className="space-y-1.5">
+                      <SectionCaption>Scoring ladder</SectionCaption>
+                      <div className="flex flex-wrap justify-center gap-1.5 text-xs">
+                        {SCORE_BANDS.map((band) => (
                           <span
+                            key={band.points}
                             className={`rounded-md px-2 py-1 tabular-nums ${
-                              score === 0
+                              band.points === score
                                 ? 'bg-brand text-brand-foreground font-semibold'
                                 : 'bg-muted text-muted-foreground'
                             }`}
                           >
-                            beyond = 0
+                            {`≤${formatDistance(band.maxMeters)} = ${band.points}`}
                           </span>
-                        </div>
+                        ))}
+                        <span
+                          className={`rounded-md px-2 py-1 tabular-nums ${
+                            score === 0
+                              ? 'bg-brand text-brand-foreground font-semibold'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          beyond = 0
+                        </span>
                       </div>
-                    )}
+                    </div>
 
                     {/* One row per level the guess credited. A district round
                         shows three; a round whose panorama fell outside every

@@ -3,15 +3,13 @@
 import { Medal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDistance, calculateScore, bandsForBbox } from '../../lib/game';
-import { getRegion, isRegion } from '../../lib/regions';
+import { formatDistance, calculateScore } from '../../lib/game';
 
-// Graded against the BOARD's own regional ladder, mirroring how the boards
-// are credited: 2km is amber on a district board and green on the country
-// one. Three semantic states, not a rainbow -- good, close, far -- because
-// finer steps carried no meaning a reader could recover.
-function getDistanceColor(distance, bands) {
-  const score = calculateScore(distance, bands);
+// Graded against the one scoring ladder, mirroring how the boards are
+// credited. Three semantic states, not a rainbow -- good, close, far --
+// because finer steps carried no meaning a reader could recover.
+function getDistanceColor(distance) {
+  const score = calculateScore(distance);
   if (score >= 4) return 'text-success';
   if (score >= 2) return 'text-warning';
   return 'text-danger';
@@ -28,12 +26,8 @@ function getMedalClass(rank) {
   }
 }
 
-export default function LeaderboardList({ data, loading, currentUsername, type, regionCode }) {
+export default function LeaderboardList({ data, loading, currentUsername, type }) {
   const isDistance = type === 'distance';
-  // The base ladder covers a caller that names no region.
-  const distanceBands = isRegion(regionCode)
-    ? bandsForBbox(getRegion(regionCode).bbox)
-    : bandsForBbox(null);
 
   if (loading) {
     return (
@@ -102,7 +96,7 @@ export default function LeaderboardList({ data, loading, currentUsername, type, 
                 has no ladder to grade against, and the old size-keyed rainbow
                 encoded nothing a reader could recover. */}
             <Badge variant="secondary" className={`text-lg font-bold tabular-nums ${
-              isDistance ? getDistanceColor(entry.distance, distanceBands) : ''
+              isDistance ? getDistanceColor(entry.distance) : ''
             }`}>
               {isDistance ? formatDistance(entry.distance) : entry.score}
             </Badge>
