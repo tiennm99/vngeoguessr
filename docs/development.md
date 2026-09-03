@@ -40,6 +40,9 @@
 
 ### Environment Variables
 
+Copy `.env.example` to `.env` and fill it in; it lists every variable the app
+reads, with placeholders only. The sections below explain each one.
+
 **Redis (required)**:
 - Either `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (vanilla Upstash)
 - Or `KV_REST_API_URL` + `KV_REST_API_TOKEN` (Vercel Marketplace)
