@@ -1,0 +1,5 @@
+# Project override for the shipped scout-block baseline.
+#
+# src/app/debug/coverage/ is application source -- the debug page that draws
+# the panorama index on a map -- not a test-coverage report directory.
+!coverage

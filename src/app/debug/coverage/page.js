@@ -50,6 +50,10 @@ export default function CoveragePage() {
   // Only the newest response may update the view: panning fires requests faster
   // than they come back, and an older one landing last would redraw stale dots.
   const requestIdRef = useRef(0);
+  // Which region a response is allowed to draw for. The boundary is applied on
+  // this rather than on request order -- see load(). Kept current by the effect
+  // that switches region, which is the only thing that changes it.
+  const regionRef = useRef(region);
 
   const load = useCallback(async (regionCode, viewport) => {
     const requestId = ++requestIdRef.current;
@@ -61,6 +65,19 @@ export default function CoveragePage() {
       if (viewport) params.set('bbox', viewport.join(','));
       const response = await fetch(`/api/debug/region-coverage?${params}`);
       const json = await response.json();
+
+      // The boundary rides on a region's first request only, and that request
+      // is the oldest of the burst a switch sets off: changing region resizes
+      // the badge row, the map's ResizeObserver calls invalidateSize, and the
+      // moveend that follows reports the *previous* viewport under the new
+      // region. Those reports outrank the boundary by request order, so the
+      // guard below used to discard it -- leaving the region undrawn, the map
+      // parked on the region before it, and every point out of view. Order
+      // cannot decide this one; the region it describes can.
+      if (json.success && json.boundary && regionCode === regionRef.current) {
+        setBoundary(json.boundary);
+      }
+
       if (requestId !== requestIdRef.current) return;
 
       if (!json.success) {
@@ -74,8 +91,6 @@ export default function CoveragePage() {
         return;
       }
 
-      // Present only on the first request for a region.
-      if (json.boundary) setBoundary(json.boundary);
       setPanos(json.panos);
       setCounts(json.counts);
       setGeneratedAt(json.generatedAt);
@@ -87,6 +102,7 @@ export default function CoveragePage() {
   }, []);
 
   useEffect(() => {
+    regionRef.current = region;
     setBoundary(null);
     setPanos(null);
     setCounts(null);
