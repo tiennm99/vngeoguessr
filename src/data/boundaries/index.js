@@ -3,6 +3,10 @@
 // Lists only the boundaries that have actually been built, so a partial
 // build still compiles.
 
+import bd_dian from './bd/bd-dian.json';
+import bd_thuanan from './bd/bd-thuanan.json';
+import bd_thudaumot from './bd/bd-thudaumot.json';
+import bd from './bd/bd.json';
 import dn_camle from './dn/dn-camle.json';
 import dn_haichau from './dn/dn-haichau.json';
 import dn_hoavang from './dn/dn-hoavang.json';
@@ -11,6 +15,13 @@ import dn_nguhanhson from './dn/dn-nguhanhson.json';
 import dn_sontra from './dn/dn-sontra.json';
 import dn_thanhkhe from './dn/dn-thanhkhe.json';
 import dn from './dn/dn.json';
+import dna_bienhoa from './dna/dna-bienhoa.json';
+import dna_longthanh from './dna/dna-longthanh.json';
+import dna_nhontrach from './dna/dna-nhontrach.json';
+import dna_thongnhat from './dna/dna-thongnhat.json';
+import dna_trangbom from './dna/dna-trangbom.json';
+import dna_vinhcuu from './dna/dna-vinhcuu.json';
+import dna from './dna/dna.json';
 import hn_bactuliem from './hn/hn-bactuliem.json';
 import hn_badinh from './hn/hn-badinh.json';
 import hn_bavi from './hn/hn-bavi.json';
@@ -43,9 +54,16 @@ import hn_thuongtin from './hn/hn-thuongtin.json';
 import hn_unghoa from './hn/hn-unghoa.json';
 import hn from './hn/hn.json';
 import dh from './la/dh.json';
+import la_benluc from './la/la-benluc.json';
+import la_cangiuoc from './la/la-cangiuoc.json';
 import la from './la/la.json';
 import dl from './ld/dl.json';
 import ld from './ld/ld.json';
+import qna_hoian from './qna/qna-hoian.json';
+import qna from './qna/qna.json';
+import th_samson from './th/th-samson.json';
+import th_thanhhoa from './th/th-thanhhoa.json';
+import th from './th/th.json';
 import tphcm_binhchanh from './tphcm/tphcm-binhchanh.json';
 import tphcm_binhtan from './tphcm/tphcm-binhtan.json';
 import tphcm_binhthanh from './tphcm/tphcm-binhthanh.json';
@@ -70,6 +88,10 @@ import tphcm_thuduc from './tphcm/tphcm-thuduc.json';
 import tphcm from './tphcm/tphcm.json';
 
 export const REGION_BOUNDARIES = {
+  "BD-DIAN": bd_dian,
+  "BD-THUANAN": bd_thuanan,
+  "BD-THUDAUMOT": bd_thudaumot,
+  "BD": bd,
   "DN-CAMLE": dn_camle,
   "DN-HAICHAU": dn_haichau,
   "DN-HOAVANG": dn_hoavang,
@@ -78,6 +100,13 @@ export const REGION_BOUNDARIES = {
   "DN-SONTRA": dn_sontra,
   "DN-THANHKHE": dn_thanhkhe,
   "DN": dn,
+  "DNA-BIENHOA": dna_bienhoa,
+  "DNA-LONGTHANH": dna_longthanh,
+  "DNA-NHONTRACH": dna_nhontrach,
+  "DNA-THONGNHAT": dna_thongnhat,
+  "DNA-TRANGBOM": dna_trangbom,
+  "DNA-VINHCUU": dna_vinhcuu,
+  "DNA": dna,
   "HN-BACTULIEM": hn_bactuliem,
   "HN-BADINH": hn_badinh,
   "HN-BAVI": hn_bavi,
@@ -110,9 +139,16 @@ export const REGION_BOUNDARIES = {
   "HN-UNGHOA": hn_unghoa,
   "HN": hn,
   "DH": dh,
+  "LA-BENLUC": la_benluc,
+  "LA-CANGIUOC": la_cangiuoc,
   "LA": la,
   "DL": dl,
   "LD": ld,
+  "QNA-HOIAN": qna_hoian,
+  "QNA": qna,
+  "TH-SAMSON": th_samson,
+  "TH-THANHHOA": th_thanhhoa,
+  "TH": th,
   "TPHCM-BINHCHANH": tphcm_binhchanh,
   "TPHCM-BINHTAN": tphcm_binhtan,
   "TPHCM-BINHTHANH": tphcm_binhthanh,

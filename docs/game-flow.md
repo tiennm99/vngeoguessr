@@ -17,8 +17,9 @@
 ### 2. Region Selection
 - Choose anywhere on the region tree:
   - **Vietnam** — draws from every covered province
-  - **A province** — Ha Noi, Ho Chi Minh, Da Nang, Lam Dong, Long An
-  - **A district or town** — 61 of them, expanded from their province
+  - **A province** — Ha Noi, Ho Chi Minh, Da Nang, Lam Dong, Long An, Dong Nai,
+    Binh Duong, Thanh Hoa, Quang Nam
+  - **A district or town** — 75 of them, expanded from their province
 - Regions with no usable panoramas are listed but disabled, with the reason
   shown. See the Coverage note in [project-overview.md](project-overview.md)
 

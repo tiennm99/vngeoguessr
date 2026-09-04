@@ -54,11 +54,11 @@ describe('region tree shape', () => {
     }
   });
 
-  it('holds one country, five provinces and 61 leaves', () => {
+  it('holds one country, nine provinces and 75 leaves', () => {
     const byLevel = (level) => allRegions().filter((c) => getRegion(c).level === level);
     expect(byLevel('country')).toHaveLength(1);
-    expect(byLevel('province')).toHaveLength(5);
-    expect(LEAVES).toHaveLength(61);
+    expect(byLevel('province')).toHaveLength(9);
+    expect(LEAVES).toHaveLength(75);
   });
 
   it('gives every province the country as parent', () => {

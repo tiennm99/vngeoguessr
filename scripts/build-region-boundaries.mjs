@@ -38,10 +38,16 @@ const REQUEST_GAP_MS = 1100;
 
 // Leaves are simplified tightly: at district scale a loose tolerance opens gaps
 // along shared borders, and scripts/assign-pano-districts.mjs has to decide
-// which side of those borders every panorama falls on. Province outlines are
-// only ever drawn at city zoom, so they stay coarse.
+// which side of those borders every panorama falls on.
+//
+// A province outline is simplified no more loosely than the leaves it is the
+// union of, because it is not only drawn: assign-pano-districts.mjs clips each
+// province's panoramas against it before handing them to the leaves. At a
+// coarser tolerance the outline bulges past its own districts, and every
+// panorama in that band survives the clip but lands in no district -- credited
+// by proximity to a district it does not sit in. Binh Duong, small and densely
+// covered along its edges, put 2.53% of its panoramas in that band at ~55m.
 const LEAF_TOLERANCE = 0.0001; // ~11m
-const PROVINCE_TOLERANCE = 0.0005; // ~55m
 
 // The region tree. One entry per node.
 //
@@ -136,13 +142,50 @@ const REGIONS = {
   'DN-HOAVANG': { name: 'Hoa Vang', level: 'district', parent: 'DN', query: 'Huyện Hòa Vang, Đà Nẵng, Việt Nam' },
 
   // -- Lam Dong / Long An ---------------------------------------------------
-  // One town each. The leaf codes stay bare because their leaderboard keys
-  // already exist under those names.
+  // DL and DH keep bare codes because their leaderboard keys already exist
+  // under those names. Every leaf added since is prefixed with its province.
   LD: { name: 'Lam Dong', level: 'province', parent: 'VN', partialCoverage: 'one town covered', legacyBbox: [108.31521, 11.80798, 108.5944, 12.00855] },
   DL: { name: 'Da Lat', level: 'district', parent: 'LD', query: 'Thành phố Đà Lạt, Việt Nam', center: [11.9404, 108.4583] },
 
-  LA: { name: 'Long An', level: 'province', parent: 'VN', partialCoverage: 'one town covered', legacyBbox: [106.27082, 10.7409, 106.53287, 11.02578] },
+  // Long An covers three of its districts now, so legacyBbox is the whole
+  // pre-2025 province rather than the extent of Duc Hoa alone -- a leaf
+  // lookup is rejected when its centre falls outside the parent box, and
+  // Ben Luc and Can Giuoc both sit well south of Duc Hoa.
+  LA: { name: 'Long An', level: 'province', parent: 'VN', partialCoverage: 'three districts covered', legacyBbox: [105.45, 10.35, 106.85, 11.1] },
   DH: { name: 'Duc Hoa', level: 'district', parent: 'LA', query: 'Đức Hòa, Việt Nam', center: [10.8888, 106.3825] },
+  'LA-BENLUC': { name: 'Ben Luc', level: 'district', parent: 'LA', query: 'Bến Lức, Việt Nam' },
+  'LA-CANGIUOC': { name: 'Can Giuoc', level: 'district', parent: 'LA', query: 'Cần Giuộc, Việt Nam' },
+
+  // -- Dong Nai -------------------------------------------------------------
+  // Code DNA, not DN: Da Nang holds that one. Long Khanh is left out -- its
+  // panoramas fall in only two 1.1km cells, one short of playable.
+  DNA: { name: 'Dong Nai', level: 'province', parent: 'VN', partialCoverage: 'six districts covered', legacyBbox: [106.6, 10.45, 107.85, 11.6] },
+  'DNA-BIENHOA': { name: 'Bien Hoa', level: 'district', parent: 'DNA', query: 'Thành phố Biên Hòa, Đồng Nai, Việt Nam' },
+  'DNA-NHONTRACH': { name: 'Nhon Trach', level: 'district', parent: 'DNA', query: 'Nhơn Trạch, Đồng Nai, Việt Nam' },
+  'DNA-LONGTHANH': { name: 'Long Thanh', level: 'district', parent: 'DNA', query: 'Long Thành, Đồng Nai, Việt Nam' },
+  'DNA-TRANGBOM': { name: 'Trang Bom', level: 'district', parent: 'DNA', query: 'Trảng Bom, Đồng Nai, Việt Nam' },
+  'DNA-VINHCUU': { name: 'Vinh Cuu', level: 'district', parent: 'DNA', query: 'Vĩnh Cửu, Đồng Nai, Việt Nam' },
+  'DNA-THONGNHAT': { name: 'Thong Nhat', level: 'district', parent: 'DNA', query: 'Thống Nhất, Đồng Nai, Việt Nam' },
+
+  // -- Binh Duong -----------------------------------------------------------
+  // Ben Cat is deliberately absent despite having coverage: its imagery was
+  // captured in 2016, and a decade-old streetscape makes a worse round than
+  // no round at all.
+  BD: { name: 'Binh Duong', level: 'province', parent: 'VN', partialCoverage: 'three cities covered', legacyBbox: [106.35, 10.85, 107.2, 11.85] },
+  'BD-DIAN': { name: 'Di An', level: 'district', parent: 'BD', query: 'Dĩ An, Việt Nam' },
+  'BD-THUANAN': { name: 'Thuan An', level: 'district', parent: 'BD', query: 'Thuận An, Việt Nam' },
+  'BD-THUDAUMOT': { name: 'Thu Dau Mot', level: 'district', parent: 'BD', query: 'Thủ Dầu Một, Việt Nam' },
+
+  // -- Thanh Hoa / Quang Nam ------------------------------------------------
+  // Two provinces carried by a couple of towns each, the same shape as Lam
+  // Dong. Both are here for variety: everything else added alongside them is
+  // the industrial ring around Ho Chi Minh City, which all looks alike.
+  TH: { name: 'Thanh Hoa', level: 'province', parent: 'VN', partialCoverage: 'two towns covered', legacyBbox: [104.35, 19.3, 106.1, 20.65] },
+  'TH-THANHHOA': { name: 'Thanh Hoa City', level: 'district', parent: 'TH', query: 'Thành phố Thanh Hóa, Thanh Hóa, Việt Nam' },
+  'TH-SAMSON': { name: 'Sam Son', level: 'district', parent: 'TH', query: 'Sầm Sơn, Thanh Hóa, Việt Nam' },
+
+  QNA: { name: 'Quang Nam', level: 'province', parent: 'VN', partialCoverage: 'one town covered', legacyBbox: [107.1, 14.9, 108.75, 16.2] },
+  'QNA-HOIAN': { name: 'Hoi An', level: 'district', parent: 'QNA', query: 'Hội An, Việt Nam' },
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -317,6 +360,45 @@ async function buildLeaf(code) {
  * @param {string} code Province code.
  * @returns {number} Children that could not be included.
  */
+// Unioning adjacent districts leaves hairline slivers wherever two boundaries
+// were digitised from slightly different surveys. They are artifacts of the
+// merge rather than geography, and some come out as rings of three points,
+// which turf.simplify refuses to clean ("invalid polygon, fewer than 4
+// points"). Anything under this area is one of those, so it is dropped before
+// the outline is simplified. The smallest real part in the tree is two orders
+// of magnitude larger.
+const SLIVER_KM2 = 0.05;
+
+/**
+ * Drop sliver parts and rings left by a union.
+ * @param {Object} feature Unioned polygon or multipolygon feature.
+ * @returns {Object} Feature with only real parts left.
+ */
+function dropSlivers(feature) {
+  const isMulti = feature.geometry.type === 'MultiPolygon';
+  const polygons = isMulti ? feature.geometry.coordinates : [feature.geometry.coordinates];
+
+  const kept = polygons
+    // A hole has to enclose something real to be a hole; the union leaves
+    // dozens of four-point ones along every shared border.
+    .map((rings) => rings.filter((ring, index) => index === 0 || isReal(ring)))
+    .filter((rings) => isReal(rings[0]));
+
+  if (kept.length === 0) return feature;
+  return kept.length === 1
+    ? turf.polygon(kept[0], feature.properties)
+    : turf.multiPolygon(kept, feature.properties);
+}
+
+/**
+ * Whether a ring encloses more than a sliver.
+ * @param {number[][]} ring Closed ring.
+ * @returns {boolean} True when it is worth keeping.
+ */
+function isReal(ring) {
+  return ring.length >= 4 && turf.area(turf.polygon([ring])) / 1e6 >= SLIVER_KM2;
+}
+
 function buildProvince(code) {
   const children = childrenOf(code);
   const resolved = children.filter((child) => existsSync(`${OUT_DIR}/${fileFor(child)}`));
@@ -339,8 +421,8 @@ function buildProvince(code) {
     for (const feature of features.slice(1)) {
       merged = turf.union(turf.featureCollection([merged, feature]));
     }
-    geometry = turf.simplify(merged, {
-      tolerance: PROVINCE_TOLERANCE,
+    geometry = turf.simplify(dropSlivers(merged), {
+      tolerance: LEAF_TOLERANCE,
       highQuality: true,
     }).geometry;
   }

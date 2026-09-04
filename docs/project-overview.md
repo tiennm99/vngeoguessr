@@ -6,7 +6,7 @@ it was taken. Built with Next.js 16, React 19 and Tailwind CSS 4.
 
 ## Key Characteristics
 
-- **Nested regions**: one country, five provinces, 61 districts and towns. The
+- **Nested regions**: one country, nine provinces, 75 districts and towns. The
   tree is generated into `src/data/regions/` — see `src/lib/regions.js` for the
   client-safe traversal API.
 - **Rollup scoring**: a guess is credited to the district its panorama actually
@@ -40,13 +40,13 @@ Tau, which is not what people mean by the city. Two consequences to remember:
 
 ## Coverage
 
-Five provinces — Ha Noi, Ho Chi Minh, Da Nang, Lam Dong, Long An — split into 61
-districts and towns. Coverage is deliberately partial and will grow in future
-releases. **None are planned at present.**
+Nine provinces — Ha Noi, Ho Chi Minh, Da Nang, Lam Dong, Long An, Dong Nai,
+Binh Duong, Thanh Hoa, Quang Nam — split into 75 districts and towns. Coverage
+is deliberately partial and will grow in future releases.
 
 Absent coverage has three distinct causes. Only one is a defect:
 
-**Not yet added** — any province outside the five. Roadmap, not a bug. Adding one
+**Not yet added** — any province outside the nine. Roadmap, not a bug. Adding one
 is an entry in the `REGIONS` config of `scripts/build-region-boundaries.mjs`, a
 boundary build, a panorama index build, a district assignment run, and a
 database seed (`npm run data:seed`). No application code changes: every UI
