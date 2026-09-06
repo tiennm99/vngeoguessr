@@ -233,9 +233,14 @@ over the game routes. Same trigger now: **28 passed, 47s** (from 1.6m).
 - **L4** — `NotFoundPanel` exists against the earlier ui-ux recommendation not
   to abstract two eight-line panels. Both reviewers called the reversal
   defensible; not reopened.
-- Tab title on the 404s themselves stays "VNGeoGuessr" — `not-found.js` cannot
-  export `metadata`; only `global-not-found.js` can, at the cost of an entire
-  duplicate shell.
+- ~~Tab title on the 404s stays "VNGeoGuessr" — `not-found.js` cannot export
+  `metadata`.~~ **Wrong, and corrected at the pre-merge review.** Tested rather
+  than read: exporting `metadata` from `src/app/not-found.js` puts the title in
+  the prerendered `_not-found.html`. The original claim conflated the two 404s —
+  `global-not-found.js` is only needed to title a 404 that replaces the whole
+  shell. The app-wide 404 now reads "Page not found — VNGeoGuessr", asserted in
+  `routing.spec.js`. The **region** 404 genuinely cannot: it is served from
+  Next's error shell, which carries no metadata.
 
 ## Docs
 

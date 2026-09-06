@@ -202,6 +202,9 @@ test('an unmatched path gets the app-wide 404, not a bare Next page', async ({ p
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Go to VNGeoGuessr' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Go to VNGeoGuessr' })).toHaveAttribute('href', '/');
+  // A not-found route can carry its own metadata; the region 404, served from
+  // the error shell, cannot. So this is the only 404 whose tab can say so.
+  await expect(page).toHaveTitle('Page not found — VNGeoGuessr');
   // The footer proves it rendered inside the root layout: Next's stock page
   // pushes it off screen with its own full-height wrapper.
   await expect(page.getByText('Made by')).toBeVisible();

@@ -1,5 +1,14 @@
 import NotFoundPanel from './components/NotFoundPanel';
 
+// The one place the per-region title argument had not been applied: a tab, a
+// history entry and a bookmark for a dead link all read "VNGeoGuessr" without
+// this. A not-found route CAN export metadata -- verified in the prerendered
+// _not-found.html, not assumed. The region 404 still cannot: it is served from
+// Next's error shell, which carries no metadata at all.
+export const metadata = {
+  title: 'Page not found — VNGeoGuessr',
+};
+
 // The app-wide 404, for any path no route claims. Without it Next serves its
 // stock page, which paints unstyled text over the full-bleed background with
 // no footer and no way out -- its own full-height wrapper pushes the footer
