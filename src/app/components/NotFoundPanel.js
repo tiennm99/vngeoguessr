@@ -22,10 +22,13 @@ export default function NotFoundPanel({ title, children, actionLabel, actionHref
     <div className="flex-1 flex items-center justify-center vn-surface p-6">
       <div className="text-center space-y-4 max-w-sm animate-fade-in-up">
         <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-        {/* text-muted-foreground on this size sits near the AA floor; the
-            explanation is supporting text and the heading and action both
-            clear it comfortably. */}
-        <p className="text-muted-foreground text-sm">{children}</p>
+        {/* Full-strength foreground, not muted: the panel sits on vn-surface,
+            an 82% veil that lets the background art through, where muted
+            measures 4.05:1 average and 3.09:1 at its worst in the LIGHT theme
+            -- under the 4.5:1 AA needs at this size. (Dark clears it at
+            5.8-9.2:1, but the token has to work in both.) This line is the
+            only explanation on screen. */}
+        <p className="text-foreground text-sm">{children}</p>
         {/* One action, deliberately. A "try again" on a deterministically
             invalid URL is a button guaranteed to reproduce the same page. */}
         <Button asChild>

@@ -74,7 +74,10 @@ export function applyTheme(choice) {
 }
 
 /**
- * Watch the OS preference. The callback fires only while following the system.
+ * Watch the OS preference. Fires on every OS flip regardless of the stored
+ * choice -- gating on 'system' is the caller's job, and a caller that instead
+ * re-applies getStoredTheme() is safe because that is a no-op for an explicit
+ * light or dark.
  * @param {Function} onChange Called when the OS preference flips.
  * @returns {Function} Unsubscribe.
  */
