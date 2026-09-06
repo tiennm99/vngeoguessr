@@ -1,0 +1,1 @@
+- [Windows ISR case collision](windows-isr-case-collision.md) — local next start case-folds cache keys; verify redirect/dynamicParams with next dev or a Vercel preview, not a Windows production build.

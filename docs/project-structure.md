@@ -28,10 +28,14 @@ Next.js 16 App Router structure:
 - `favicon.ico` - Site favicon
 
 #### Game Pages
+- `not-found.js` - The app-wide 404 for any unmatched path
+- `components/NotFoundPanel.js` - Shared body of both 404s
 - `game/[region]/page.js` - The game screen for one region (`/game/tphcm`).
   Server Component: validates the slug, prerenders one page per region,
   404s an unknown one
-- `game/[region]/not-found.js` - The 404 for an unknown region code
+- `game/[region]/not-found.js` - The 404 for an unknown region code. A client
+  component only so it can re-apply the theme: a thrown `notFound()` is served
+  from Next's error shell, which carries no pre-paint theme script
 - `game/page.js` - Redirects the legacy `?region=` / `?location=` links to
   `/game/{slug}`; a region-less `/game` goes to the country round
 - `credits/page.js` - Data sources, licenses, and open-source credits

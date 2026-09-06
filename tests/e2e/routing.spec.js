@@ -122,3 +122,27 @@ test('serves a real region with no imagery instead of 404ing it', async ({ page 
   expect(response.status()).toBe(200);
   expect(landedAt(page)).toBe(`/game/${regionSlug(code)}`);
 });
+
+test('the region 404 offers a way out, in the visitor\'s theme', async ({ page }) => {
+  // A thrown notFound() is served from Next's error shell, which carries none
+  // of the root layout's pre-paint theme script -- so without the re-apply in
+  // not-found.js this page renders light for a dark-theme visitor.
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.addInitScript(() => window.localStorage.setItem('vngeoguessr_theme', 'dark'));
+
+  const response = await page.goto('/game/notaregion');
+  expect(response.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'No such region' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Pick a region' })).toBeVisible();
+  await expect(page.locator('html')).toHaveClass(/dark/);
+});
+
+test('an unmatched path gets the app-wide 404, not a bare Next page', async ({ page }) => {
+  const response = await page.goto('/nosuchpath');
+  expect(response.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Go to the start' })).toBeVisible();
+  // The footer proves it rendered inside the root layout: Next's stock page
+  // pushes it off screen with its own full-height wrapper.
+  await expect(page.getByText('Made by')).toBeVisible();
+});
