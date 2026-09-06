@@ -1,6 +1,12 @@
 import { notFound } from 'next/navigation';
 import GameClient from '../../components/GameClient';
-import { allRegions, regionFromSlug, regionSlug } from '../../../lib/regions';
+import {
+  allRegions,
+  getRegion,
+  regionFromSlug,
+  regionPath,
+  regionSlug,
+} from '../../../lib/regions';
 
 // Every region gets a prerendered page. The region tree is the only data this
 // needs -- never pano-index.js or pano-db.js, which reach the exact panorama
@@ -12,6 +18,41 @@ import { allRegions, regionFromSlug, regionSlug } from '../../../lib/regions';
 // which would be a worse answer than the one already there.
 export async function generateStaticParams() {
   return allRegions().map((code) => ({ region: regionSlug(code) }));
+}
+
+/**
+ * Per-region title, so the tab, the history entry and the bookmark say the one
+ * thing this URL shape exists to express. Without it all 85 prerendered pages
+ * ship the root layout's single "VNGeoGuessr".
+ *
+ * Resolves through regionFromSlug and NOT getRegion: getRegion throws on an
+ * unknown code, and metadata resolves before the page renders, so throwing here
+ * would turn the honest 404 at /game/notaregion into a 500. An unresolved slug
+ * falls through to the root metadata, and the page below still notFound()s.
+ *
+ * Naming the province ('Ba Dinh, Ha Noi') disambiguates the district names that
+ * repeat across provinces. It reveals nothing: the answer is a panorama inside
+ * the region, and the region is already in the URL.
+ * @param {Object} props
+ * @param {Promise<Object>} props.params Route params; a Promise in Next 16.
+ * @returns {Promise<Object>} Metadata for this region, or {} to inherit.
+ */
+export async function generateMetadata({ params }) {
+  const { region } = await params;
+  const code = regionFromSlug(region);
+
+  if (!code) return {};
+
+  const { name } = getRegion(code);
+  // Narrowest first, country dropped: 'Ba Dinh, Ha Noi' rather than
+  // 'Vietnam, Ha Noi, Ba Dinh' -- regionPath returns outermost first, so this
+  // reverses it, and the country is the same word on all 85.
+  const place = regionPath(code).slice(1).reverse().join(', ') || name;
+
+  return {
+    title: `${name} — VNGeoGuessr`,
+    description: `Guess where you are in ${place}, from street view.`,
+  };
 }
 
 /**
