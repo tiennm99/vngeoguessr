@@ -10,6 +10,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'tests/e2e',
   testMatch: '**/*.spec.js',
+  // Compiles the game routes once, before the workers race for them. See the
+  // file for why the suite fails in a block of 8 without it.
+  globalSetup: './tests/e2e/global-setup.js',
   fullyParallel: true,
   // The suite is deterministic (no live services); a failure is a real one.
   retries: 0,

@@ -5,7 +5,16 @@ import globals from "globals";
 // FlatCompat bridge (@eslint/eslintrc) is gone.
 const eslintConfig = [
   {
-    ignores: [".next/**", ".next-check/**", "src/data/**"],
+    // Playwright's artifact dirs are gitignored but eslint walks them anyway,
+    // and a lint run concurrent with a test run crashes on the files the
+    // reporter is still writing (ENOENT scandir 'test-results').
+    ignores: [
+      ".next/**",
+      ".next-check/**",
+      "src/data/**",
+      "test-results/**",
+      "playwright-report/**",
+    ],
   },
   ...coreWebVitals,
   {
