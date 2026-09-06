@@ -1,5 +1,6 @@
 import { THEME_STORAGE_KEY } from '../lib/theme';
 import AppBackground from './components/AppBackground';
+import InlineScript from './components/InlineScript';
 import DebugFooter from './components/DebugFooter';
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
@@ -49,7 +50,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <InlineScript html={themeScript} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
