@@ -62,12 +62,27 @@ export function regionSlug(code) {
  * is deliberately no redirect to the canonical casing -- a redirect on a
  * prerendered route gets cached as that route's response, and an uppercase URL
  * is rare enough that one stray analytics row costs less than that mechanism.
+ *
+ * Re-casing is the only difference THIS FUNCTION accepts, hence the round-trip
+ * check. It cannot speak for the URL string above it: the router decodes the
+ * path segment before handing it over, so `/game/%74phcm` arrives as `tphcm`
+ * and plays, at a URL that is its own cache entry and analytics row. Seeing
+ * the raw encoding would mean reading headers(), which opts the route out of
+ * static rendering -- 85 prerendered pages traded for a hand-crafted URL
+ * nobody links to.
+ * toUpperCase() is full Unicode case mapping, so on its own it would accept
+ * every string that merely uppercases into a code: `hn-bad<U+0131>nh` (dotless
+ * i) and `hn-<U+017F>ontay` (long s) among an unbounded set. Each such spelling
+ * is a distinct URL -- its own year-long ISR entry and its own analytics row --
+ * which is precisely the split the region-in-the-path change exists to prevent.
  * @param {string} slug Path segment from the URL.
  * @returns {string|null} The canonical region code, or null when unknown.
  */
 export function regionFromSlug(slug) {
-  const code = String(slug).toUpperCase();
-  return isRegion(code) ? code : null;
+  const raw = String(slug);
+  const code = raw.toUpperCase();
+  if (!isRegion(code)) return null;
+  return regionSlug(code) === raw.toLowerCase() ? code : null;
 }
 
 /**

@@ -55,6 +55,12 @@ describe('region tree shape', () => {
     expect(regionFromSlug('hn-badinh')).toBe('HN-BADINH');
     expect(regionFromSlug('notaregion')).toBeNull();
     expect(regionFromSlug('')).toBeNull();
+
+    // Re-casing is the only accepted difference. toUpperCase() is full Unicode
+    // case mapping, so these uppercase into real codes without being them --
+    // and each spelling is a separate URL, ISR entry and analytics row.
+    expect(regionFromSlug('hn-badınh')).toBeNull(); // dotless i
+    expect(regionFromSlug('hn-ſontay')).toBeNull(); // long s
   });
 
   it('every parent reference resolves', () => {
