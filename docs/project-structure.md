@@ -4,7 +4,9 @@
 - `CLAUDE.md` - Project instructions and guidelines for Claude Code
 - `components.json` - shadcn/ui configuration
 - `package.json` - Dependencies and scripts
-- `next.config.mjs` - Next.js configuration
+- `next.config.mjs` - Next.js configuration. Deliberately has no `redirects()`:
+  a config redirect forwards the source query string to the destination, so the
+  legacy `/game?region=` links are redirected from `src/app/game/page.js` instead
 - `eslint.config.mjs` - ESLint configuration
 - `postcss.config.mjs` - PostCSS configuration
 - `jsconfig.json` - JavaScript project configuration
@@ -26,7 +28,12 @@ Next.js 16 App Router structure:
 - `favicon.ico` - Site favicon
 
 #### Game Pages
-- `game/page.js` - Main game interface
+- `game/[region]/page.js` - The game screen for one region (`/game/tphcm`).
+  Server Component: validates the slug, prerenders one page per region,
+  404s an unknown one
+- `game/[region]/not-found.js` - The 404 for an unknown region code
+- `game/page.js` - Redirects the legacy `?region=` / `?location=` links to
+  `/game/{slug}`; a region-less `/game` goes to the country round
 - `credits/page.js` - Data sources, licenses, and open-source credits
 - `debug/page.js` - Debug hub: lists every debug tool as a peer
 - `debug/layout.js` - Shared shell for all debug pages: app bar, DebugNav, theme
@@ -84,7 +91,7 @@ the shadcn CLI when a screen needs them, rather than keeping unused ones around.
 Both directories are build output. Do not hand-edit; see *Rebuilding the
 generated region data* in [development.md](development.md).
 
-- `regions/index.js` - The 67-node tree: code, name, parent, level, children,
+- `regions/index.js` - The 85-node tree: code, name, parent, level, children,
   center, bbox, and coverage flags
 - `regions/counts.js` - Per-region panorama and cell tallies. **The one
   panorama-derived file a client component may import** - it carries counts

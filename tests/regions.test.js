@@ -13,6 +13,8 @@ import {
   regionPath,
   allRegions,
   isUnresolved,
+  regionSlug,
+  regionFromSlug,
 } from '../src/lib/regions.js';
 
 const LEAVES = allRegions().filter((code) => childrenOf(code).length === 0);
@@ -23,6 +25,36 @@ describe('region tree shape', () => {
     const roots = allRegions().filter((code) => getRegion(code).parent === null);
     expect(roots).toEqual([COUNTRY_CODE]);
     expect(getRegion(COUNTRY_CODE).level).toBe('country');
+  });
+
+  it('every code has a URL-safe lowercase slug', () => {
+    // The slug is the /game/[region] path segment. Anything outside this class
+    // would need percent-encoding, which would break both the prerendered
+    // params and the legacy redirect that builds these URLs by hand.
+    for (const code of allRegions()) {
+      const slug = regionSlug(code);
+      expect(slug, code).toMatch(/^[a-z0-9-]+$/);
+      expect(encodeURIComponent(slug), code).toBe(slug);
+    }
+  });
+
+  it('every slug resolves back to the code it came from', () => {
+    // regionSlug and regionFromSlug are the only two directions this app
+    // converts between, and three call sites depend on the round trip.
+    for (const code of allRegions()) {
+      expect(regionFromSlug(regionSlug(code)), code).toBe(code);
+    }
+  });
+
+  it('resolves a slug whatever its casing, and rejects a non-region', () => {
+    // Uppercase URLs are not generated anywhere, but a hand-edited one plays
+    // rather than 404ing -- there is deliberately no canonical-casing redirect.
+    expect(regionFromSlug('tphcm')).toBe('TPHCM');
+    expect(regionFromSlug('TPHCM')).toBe('TPHCM');
+    expect(regionFromSlug('TpHcM')).toBe('TPHCM');
+    expect(regionFromSlug('hn-badinh')).toBe('HN-BADINH');
+    expect(regionFromSlug('notaregion')).toBeNull();
+    expect(regionFromSlug('')).toBeNull();
   });
 
   it('every parent reference resolves', () => {

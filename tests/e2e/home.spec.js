@@ -23,7 +23,7 @@ test('expands a province to playable district links', async ({ page }) => {
   await expect(page.getByRole('link', { name: /Play anywhere in Ho Chi Minh/ })).toBeVisible();
   const district7 = page.getByRole('link', { name: /District 7/ });
   await expect(district7).toBeVisible();
-  await expect(district7).toHaveAttribute('href', '/game?region=TPHCM-Q7');
+  await expect(district7).toHaveAttribute('href', '/game/tphcm-q7');
 });
 
 test('lists an uncovered district as disabled, with the reason', async ({ page }) => {
@@ -38,13 +38,22 @@ test('lists an uncovered district as disabled, with the reason', async ({ page }
 test('shows the build commit in the debug footer and copies it on click', async ({ page, context }) => {
   // The dev server resolves the sha from git, so this asserts the real wiring:
   // config env -> layout -> footer -> clipboard.
-  const stamp = page.getByRole('button', { name: 'Copy build commit' });
-  await expect(stamp).toBeVisible();
-  await expect(stamp).toHaveText(/^[0-9a-f]{7}$/);
+  //
+  // The sha and the copy control are two elements, not one: the label links to
+  // the commit on GitHub and the button beside it copies the full sha. Both
+  // halves are asserted here.
+  const shaLink = page.getByRole('link', { name: /^View build commit [0-9a-f]{40} on GitHub$/ });
+  await expect(shaLink).toBeVisible();
+  // The label is the short form; the href carries the full one.
+  await expect(shaLink).toHaveText(/^[0-9a-f]{7}$/);
+  await expect(shaLink).toHaveAttribute('href', /\/commit\/[0-9a-f]{40}$/);
 
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await stamp.click();
-  await expect(stamp).toHaveText('copied!');
+  await page.getByRole('button', { name: 'Copy build commit' }).click();
+
+  // The glyph swap is decorative (aria-hidden); the accessible name is what
+  // announces the state, so that is what gets asserted.
+  await expect(page.getByRole('button', { name: 'Build commit copied' })).toBeVisible();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toMatch(/^[0-9a-f]{40}$/);
 });

@@ -20,6 +20,7 @@ import {
   isThin,
   isUnresolved,
   provinces,
+  regionSlug,
 } from '../../lib/regions';
 
 /** Thousands separators, so 225,966 reads as a quantity rather than a code. */
@@ -49,7 +50,7 @@ function unavailableLabel(code) {
  */
 function PlayRow({ code, label, emphasis, onPlayClick }) {
   const { panos } = coverageOf(code);
-  const href = `/game?region=${code}`;
+  const href = `/game/${regionSlug(code)}`;
 
   return (
     <Link

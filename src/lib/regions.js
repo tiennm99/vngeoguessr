@@ -36,6 +36,41 @@ export function isRegion(code) {
 }
 
 /**
+ * The URL path segment for a region: `/game/tphcm-q7`.
+ *
+ * Codes are uppercase everywhere inside the app -- they are the keys of the
+ * generated tree -- but URLs are lowercase, which is the ordinary convention
+ * for a path a person might type or read aloud.
+ *
+ * The conversion lives here rather than at each call site because three of
+ * them build these URLs (the region picker, the route's generateStaticParams,
+ * and the legacy-query redirect), and a casing mismatch between any two would
+ * split one region across two analytics rows -- which is the whole reason the
+ * region is in the path at all.
+ * @param {string} code Region code, e.g. 'TPHCM-Q7'.
+ * @returns {string} Path segment, e.g. 'tphcm-q7'.
+ */
+export function regionSlug(code) {
+  return String(code).toLowerCase();
+}
+
+/**
+ * The region a URL path segment names, or null.
+ *
+ * Case-insensitive on purpose: lowercase is what the app links to, but a
+ * hand-typed or hand-edited `/game/TPHCM` should play rather than 404. There
+ * is deliberately no redirect to the canonical casing -- a redirect on a
+ * prerendered route gets cached as that route's response, and an uppercase URL
+ * is rare enough that one stray analytics row costs less than that mechanism.
+ * @param {string} slug Path segment from the URL.
+ * @returns {string|null} The canonical region code, or null when unknown.
+ */
+export function regionFromSlug(slug) {
+  const code = String(slug).toUpperCase();
+  return isRegion(code) ? code : null;
+}
+
+/**
  * The node and every ancestor above it, ending at the country.
  *
  * This is the fan-out chain: a guess in TPHCM-Q7 credits

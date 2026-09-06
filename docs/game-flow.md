@@ -23,6 +23,26 @@
 - Regions with no usable panoramas are listed but disabled, with the reason
   shown. See the Coverage note in [project-overview.md](project-overview.md)
 
+#### The game URL
+
+The region is a lowercase path segment: `/game/tphcm`, `/game/vn`,
+`/game/hn-badinh`. Codes are uppercase inside the app (they key the region
+tree); `regionSlug` / `regionFromSlug` in `src/lib/regions.js` own the
+conversion, and are the only place the URL casing convention lives.
+
+- An unknown region is a 404. A real region with no imagery is not — it renders
+  and shows the coverage message, which is a better answer than a 404
+- An uppercase URL plays rather than redirecting. There is deliberately no
+  canonical-casing redirect: a redirect on a prerendered route gets cached as
+  that route's response, and nothing in the app generates an uppercase link
+- `/game` with no region plays the whole country
+- `?region=` and `?location=` still work; they redirect to `/game/{slug}` and
+  are kept for links and bookmarks already in the wild
+- **API routes deliberately keep their query params.** `/api/new-game?region=`,
+  `/api/leaderboard?region=` and the debug routes are unchanged and should stay
+  that way — they are fetch calls, not navigations, so there is nothing for a
+  path segment to buy there
+
 ### 3. Session Creation
 - Server generates unique UUID v4 session ID
 - Server stores the exact target location **and the district the panorama sits

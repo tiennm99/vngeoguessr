@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
   // Not the spec under test here, and the banner would sit over the panorama.
   await seedHintSeen(page);
   await stubGameApis(page, 'e2e-player');
-  await page.goto('/game?region=TPHCM');
+  await page.goto('/game/tphcm');
 });
 
 test('plays a round to the reveal and into the next one', async ({ page }) => {

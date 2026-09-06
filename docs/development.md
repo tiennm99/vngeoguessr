@@ -98,8 +98,9 @@ The UI has a Playwright smoke lane: `npm run test:e2e` runs `tests/e2e/*.spec.js
 in Chromium against a dev server it starts (or reuses) itself. Every `/api/*`
 call and the panorama image are stubbed at the browser boundary
 (`tests/e2e/helpers.js`), so it needs no Redis, Neon, Mapillary, or `.env`.
-It covers the region picker, the username modal, and one full round to the
-reveal. Anything beyond those flows (real panoramas, real scoring round-trips)
+It covers the region picker, the username modal, one full round to the
+reveal, and the `/game/{slug}` routing contract (legacy `?region=` redirects,
+unknown-region 404s). Anything beyond those flows (real panoramas, real scoring round-trips)
 is still manual: inform the user when work is complete. Do NOT start
 development servers - user handles manual testing themselves.
 

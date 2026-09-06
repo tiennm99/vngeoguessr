@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, Beer } from 'lucide-react';
 import PanoramaViewer from './PanoramaViewer';
 import ThemeToggle from './ThemeToggle';
@@ -39,11 +39,18 @@ async function fetchNewRound(locationCode, currentSessionId) {
   return data;
 }
 
-export default function GameClient() {
-  const searchParams = useSearchParams();
+/**
+ * The game screen.
+ *
+ * The region arrives as a prop from the /game/[region] page, which has already
+ * resolved and validated it -- so there is no query string to read and nothing
+ * to suspend on.
+ * @param {Object} props
+ * @param {string} props.region Validated, canonical-case region code to play.
+ */
+export default function GameClient({ region }) {
   const router = useRouter();
 
-  const [location, setLocation] = useState('TPHCM');
   const [imageData, setImageData] = useState(null);
   // Bumped once per applied round and used as the viewer's key. The image URL
   // is not enough: a small district can serve the same panorama twice in a
@@ -83,14 +90,11 @@ export default function GameClient() {
   // ignores this flag entirely.
   const [mapExpanded, setMapExpanded] = useState(false);
 
-  // What the player picked, resolved through the tree. A bookmarked
-  // ?location=DL still works: DL is a district of Lam Dong now, and every node
-  // keeps an entry.
-  const pickedCode = location.toUpperCase();
-  const pickedRegion = isRegion(pickedCode) ? getRegion(pickedCode) : null;
-  // Never echo the raw query string: an unknown value would render as the
-  // page's own label, and the API uppercases before resolving, so ?region=hn
-  // would otherwise show 'hn' while serving a Ha Noi round.
+  // What the player picked, resolved through the tree. The page validated the
+  // code before rendering, so the isRegion guard is belt-and-braces rather
+  // than the load-bearing check it used to be when the code came from a query
+  // string this component read itself.
+  const pickedRegion = isRegion(region) ? getRegion(region) : null;
   const regionName = pickedRegion ? pickedRegion.name : 'Vietnam';
 
   const initializingRef = useRef(false);
@@ -166,14 +170,10 @@ export default function GameClient() {
 
   useEffect(() => {
     if (initialized) return;
-    // ?region= is the current form; ?location= is what existing links carry.
-    const locationParam =
-      searchParams.get('region') || searchParams.get('location') || 'TPHCM';
-    setLocation(locationParam);
     const existingUsername = getUsername();
     setUsernameState(existingUsername || '');
-    loadLibrariesAndInitialize(locationParam);
-  }, [searchParams, loadLibrariesAndInitialize, initialized]);
+    loadLibrariesAndInitialize(region);
+  }, [region, loadLibrariesAndInitialize, initialized]);
 
   const submitGameResult = async (guessCoords) => {
     if (!guessCoords || !sessionId) return null;
@@ -293,7 +293,7 @@ export default function GameClient() {
 
     setSubmitting(false);
     setShowResult(true);
-    startPrefetch(location, currentSession);
+    startPrefetch(region, currentSession);
   };
 
   // Everything a round accumulates. Both Next Round and Skip come through here,
@@ -334,7 +334,7 @@ export default function GameClient() {
       }
     }
 
-    const loaded = await loadRound(location, currentSession, epoch);
+    const loaded = await loadRound(region, currentSession, epoch);
     if (!loaded) setRoundLoading(false);
   };
 
@@ -362,7 +362,7 @@ export default function GameClient() {
     // suppress the spinner and read as a hang while the new round loads.
     setLoadError(null);
     setRoundLoading(true);
-    const loaded = await loadRound(location, currentSession, roundEpochRef.current);
+    const loaded = await loadRound(region, currentSession, roundEpochRef.current);
     if (!loaded) setRoundLoading(false);
   };
 
@@ -370,7 +370,7 @@ export default function GameClient() {
     setLoadError(null);
     roundEpochRef.current += 1;
     setRoundLoading(true);
-    const loaded = await loadRound(location, null, roundEpochRef.current);
+    const loaded = await loadRound(region, null, roundEpochRef.current);
     if (!loaded) setRoundLoading(false);
   };
 
