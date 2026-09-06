@@ -115,7 +115,7 @@ stay as the belt-and-braces it was meant to be.
 
 4. Verify manually: `npm run dev`, then `/game/TPHCM`, `/game/VN`,
    `/game/HN-BADINH`, `/game/hn` (expect redirect to `/game/HN`),
-   `/game/NOTAREGION` (expect 404), and `/game/DN-HOANGSA` or another real
+   `/game/NOTAREGION` (expect 404), and `/game/tphcm-cuchi` or another real
    unplayable code (expect the coverage error panel, not a 404).
 
 5. Run `npm test`, `npm run lint`, `npm run build`. Confirm the build output
@@ -136,7 +136,7 @@ stay as the belt-and-braces it was meant to be.
 
 - [x] `/game/TPHCM` plays a TPHCM round; `/game/VN` plays a country round
 - [x] `/game/NOTAREGION` → 404
-- [x] `/game/DN-HOANGSA` → coverage error panel, not 404
+- [x] `/game/tphcm-cuchi` → coverage error panel, not 404
 - [x] `/game/hn` → redirect to `/game/HN`
 - [x] `next build` output shows the region pages prerendered
 - [x] No `useSearchParams` anywhere under `src/app/game/`

@@ -30,12 +30,17 @@ Next.js 16 App Router structure:
 #### Game Pages
 - `not-found.js` - The app-wide 404 for any unmatched path
 - `components/NotFoundPanel.js` - Shared body of both 404s
+- `components/InlineScript.js` - The root layout's pre-paint theme script.
+  Executable on the server, inert (`text/plain`) when React renders it on the
+  client, where a script cannot run anyway — which is what stops React's
+  "Encountered a script tag" console error on the region 404
 - `game/[region]/page.js` - The game screen for one region (`/game/tphcm`).
   Server Component: validates the slug, prerenders one page per region,
   404s an unknown one
 - `game/[region]/not-found.js` - The 404 for an unknown region code. A client
   component only so it can re-apply the theme: a thrown `notFound()` is served
-  from Next's error shell, which carries no pre-paint theme script
+  from Next's error shell, so React renders the root layout on the client,
+  where its inline theme script cannot execute
 - `game/page.js` - Redirects the legacy `?region=` / `?location=` links to
   `/game/{slug}`; a region-less `/game` goes to the country round
 - `credits/page.js` - Data sources, licenses, and open-source credits
@@ -155,10 +160,15 @@ either the in-memory fake or a real Redis. `fake-neon.js`, `mock-neon.js` and
 Neon SDK boundary, loaded with small synthetic rows.
 
 `tests/e2e/` holds the Playwright smoke specs (`*.spec.js`, so vitest never
-collects them): the homepage picker, the username modal, and one full round,
-all against browser-level stubs in `tests/e2e/helpers.js` with a fixture
-panorama in `tests/e2e/fixtures/`. Deeper UI behavior (`RegionSelect.js`, the
-coverage page, real panoramas) remains manual testing only.
+collects them): the homepage picker, the username modal, one full round, and
+`routing.spec.js` — the URL contract, which is most of the suite (region paths,
+legacy `?region=` redirects, both 404s, and the layout's inline theme script).
+All run against browser-level stubs in `tests/e2e/helpers.js` with a fixture
+panorama in `tests/e2e/fixtures/`. `global-setup.js` compiles the game routes
+once before the workers start; without it a cold `next dev` makes every test
+that navigates to `/game/*` time out together. Deeper UI behavior
+(`RegionSelect.js`, the coverage page, real panoramas) remains manual testing
+only.
 
 ## Documentation (`/docs/`)
 - `project-overview.md` - Project overview, administrative basis, coverage note

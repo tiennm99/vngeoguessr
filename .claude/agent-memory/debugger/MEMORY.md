@@ -1,1 +1,2 @@
 - [Windows ISR case collision](windows-isr-case-collision.md) — local next start case-folds cache keys; verify redirect/dynamicParams with next dev or a Vercel preview, not a Windows production build.
+- [Local runtime console noise](local-runtime-console-noise.md) — Vercel analytics 404s, WebGL GPU-stall warnings, and Leaflet CSS preload warning are known non-defect noise on local next start/dev.

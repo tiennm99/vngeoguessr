@@ -35,6 +35,14 @@ conversion, and are the only place the URL casing convention lives.
 - An uppercase URL plays rather than redirecting. There is deliberately no
   canonical-casing redirect: a redirect on a prerendered route gets cached as
   that route's response, and nothing in the app generates an uppercase link
+- Re-casing is the only difference `regionFromSlug` accepts. A spelling that
+  merely uppercases into a code (`hn-badınh`, dotless i) is a 404: it is a
+  different URL, so it would be its own cache entry and its own analytics row.
+  Percent-encoding is the exception it cannot reach — the router decodes the
+  segment first, so `/game/%74phcm` plays; seeing the raw form would mean
+  giving up static rendering on all 85 pages
+- Each region page carries its own title and description (`Ba Dinh —
+  VNGeoGuessr`), so the tab, the history entry and a bookmark name the region
 - `/game` with no region plays the whole country
 - `?region=` and `?location=` still work; they redirect to `/game/{slug}` and
   are kept for links and bookmarks already in the wild

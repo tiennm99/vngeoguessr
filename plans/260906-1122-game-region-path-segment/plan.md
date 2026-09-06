@@ -171,15 +171,15 @@ Phase 3 verifies both.
 
 - [x] `/game/tphcm`, `/game/vn` and `/game/hn-badinh` all play normally
 - [x] `/game?region=TPHCM` and `/game?location=TPHCM` both redirect to `/game/tphcm`
-- [x] `/game` redirects to `/game/VN`
+- [x] `/game` redirects to `/game/vn`
 - [x] `/game/TPHCM` (any casing) serves 200 directly — no canonical-casing redirect
 - [x] `/game/NOTAREGION` returns 404
-- [x] `/game/DN-HOANGSA` (real but unplayable) renders the existing coverage
+- [x] `/game/tphcm-cuchi` (real but unplayable) renders the existing coverage
       error panel, **not** a 404
-- [x] `RegionPicker` emits `/game/{code}` hrefs; no `?region=` remains in `src/`
+- [x] `RegionPicker` emits `/game/{slug}` hrefs (lowercase); no `?region=` remains in `src/`
       outside API-route call sites
 - [x] No `useSearchParams` in the game route
-- [x] `npm test` green, `npm run lint` 0 errors, `npm run build` clean,
+- [x] `npm test` green, `npm run lint` 0 errors, `npm run build:check` clean,
       `npm run test:e2e` green
 - [x] Docs updated to the new URL shape
 
