@@ -83,6 +83,29 @@ district is credited the same points for the round (`submitRoundScore` in
 on its `gameResult.levels` entry. Scores earned under the earlier region-scaled
 ladder stay on the boards as they were recorded.
 
+## Sound & Music
+- **Sound effects**: nine one-shots on the play flow — a click when Play or
+  Back changes screen, a pop when the guess pin lands, a rising sound on
+  submit, a jingle tiered off the score (4-5 points, 1-3, a miss), a transition
+  into the next round, a flat blip on skip, and a low tone when the panorama
+  viewer fails to start or a guess is not recorded. The click is deliberately
+  limited to the two buttons that navigate: on every button in the chrome it
+  became noise within a few rounds
+- **Background music**: one ambient loop at roughly a third of the effects'
+  volume, so it sits under the panorama rather than competing with it. It is
+  mounted app-wide rather than per page, which is what lets it play unbroken
+  across the menu and a round — and means it also plays on Credits and the
+  debug pages
+- **Two switches, both on by default**: music and effects toggle independently
+  from the header, beside the theme switch, and both choices persist in
+  localStorage. The game header collapses them into a single mute-everything
+  button below the `sm` breakpoint, where there is no room for the pair
+- **Nothing plays before a gesture**: every browser blocks audio until the
+  player interacts, so no audio file is even fetched until the first click or
+  keypress — which also means music on iOS starts at the first tap, not on load
+- **All assets are CC0**: sourced from Kenney and OpenGameArt, with per-file
+  provenance in `public/audio/SOURCES.md` and credit on `/credits`
+
 ## Leaderboards
 - **Rollup fan-out**: one guess credits the district its panorama sat in, then
   that district's province, then Vietnam — three score boards and three

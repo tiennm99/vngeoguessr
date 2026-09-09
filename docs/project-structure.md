@@ -77,6 +77,11 @@ Next.js 16 App Router structure:
   the panorama pane's top row via `PanoramaViewer`'s `topBarSlot`
 - `DonateQRModal.js` - Donation QR code modal
 - `ThemeToggle.js` - Light/dark switch
+- `SoundToggle.js` - Music and sound-effect switches; `compact` renders one
+  mute-everything button for the game header below `sm`
+- `MusicPlayer.js` - The background loop. Renders nothing and is mounted in the
+  root layout, not in a page, so a client navigation between the menu and a
+  round does not restart it
 
 ### Reusable Components (`src/components/`)
 
@@ -136,6 +141,9 @@ Neon Postgres, which is what the app queries at runtime.
 - `session.js` - Redis-based session management with 30-min expiry
 - `upstash.js` - Upstash Redis REST client adapter with multi-tenant key prefix
 - `theme.js`, `use-count-up.js` - Theme persistence and a count-up hook
+- `audio.js` - **Client-side only.** The audio context, its first-gesture
+  unlock, the decoded-buffer cache, one-shot playback, and the music/effects
+  preferences
 
 ## Build Scripts (`scripts/`)
 Each carries a header comment with its flags and its cost.
@@ -183,4 +191,7 @@ only.
 
 ## Public Assets (`public/`)
 - `zlp.jpg` - Donation QR code image
+- `audio/` - Nine sound effects plus the music loop (shipped as both
+  WebM/Opus and MP3), with `SOURCES.md` recording each file's upstream source
+  and licence
 - Static assets served directly by Next.js
