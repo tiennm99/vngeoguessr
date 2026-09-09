@@ -1,5 +1,6 @@
 import { THEME_STORAGE_KEY } from '../lib/theme';
 import AppBackground from './components/AppBackground';
+import MusicPlayer from './components/MusicPlayer';
 import InlineScript from './components/InlineScript';
 import DebugFooter from './components/DebugFooter';
 import { Analytics } from '@vercel/analytics/next';
@@ -58,6 +59,12 @@ export default function RootLayout({ children }) {
         {/* Behind everything, on its own fixed layer: a negative-z child of
             <body> paints over the body background and under every page. */}
         <AppBackground />
+
+        {/* Renders nothing, and its position is load-bearing: inside <body>
+            but outside the flex column below, so the loop survives every
+            client navigation between the menu and a round, and a null-
+            rendering component can never become a row in that column. */}
+        <MusicPlayer />
 
         {/* Sticky-footer column: pages fill the viewport via flex-1 and the
             footer keeps its own strip below them, so it can never overlap the

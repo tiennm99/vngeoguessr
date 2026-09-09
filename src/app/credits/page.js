@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ThemeToggle from '../components/ThemeToggle';
+import SoundToggle from '../components/SoundToggle';
 
 export const metadata = {
   title: 'Credits — VNGeoGuessr',
@@ -32,6 +33,16 @@ const LIBRARIES = [
   { name: 'Lucide', license: 'ISC', href: 'https://lucide.dev/' },
 ];
 
+// The shipped audio, by upstream pack rather than by file: nine effects come
+// from three Kenney packs and the loop from one OpenGameArt track. Per-file
+// provenance lives in public/audio/SOURCES.md.
+const AUDIO_SOURCES = [
+  { name: 'Interface Sounds', author: 'Kenney', href: 'https://kenney.nl/assets/interface-sounds' },
+  { name: 'UI Audio', author: 'Kenney', href: 'https://kenney.nl/assets/ui-audio' },
+  { name: 'Music Jingles', author: 'Kenney', href: 'https://kenney.nl/assets/music-jingles' },
+  { name: 'Ambient Relaxing Loop', author: 'isaiah658', href: 'https://opengameart.org/content/ambient-relaxing-loop' },
+];
+
 export default function CreditsPage() {
   return (
     <div className="flex-1 vn-surface">
@@ -42,6 +53,7 @@ export default function CreditsPage() {
           </Link>
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            <SoundToggle />
             <Link href="/" className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2">
               ← Home
             </Link>
@@ -102,6 +114,27 @@ export default function CreditsPage() {
                 via{' '}
                 <ExternalLink href="https://nominatim.org/">Nominatim</ExternalLink>.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-xl font-bold text-card-foreground">Sound &amp; music</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+              <p>
+                Every sound in the game is dedicated to the public domain under{' '}
+                <ExternalLink href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0</ExternalLink>,
+                so none of it has to be credited. It is credited anyway.
+              </p>
+              <ul className="space-y-1.5">
+                {AUDIO_SOURCES.map((source) => (
+                  <li key={source.name} className="flex justify-between gap-4">
+                    <ExternalLink href={source.href}>{source.name}</ExternalLink>
+                    <span className="text-muted-foreground/70">{source.author}</span>
+                  </li>
+                ))}
+              </ul>
             </CardContent>
           </Card>
 

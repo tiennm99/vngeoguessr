@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ThemeToggle from '../components/ThemeToggle';
+import SoundToggle from '../components/SoundToggle';
 import DebugNav from './DebugNav';
 
 // One shell for every debug page, styled like the game screen's app bar, so
@@ -35,6 +36,7 @@ export default function DebugLayout({ children }) {
         <DebugNav />
 
         <ThemeToggle />
+        <SoundToggle />
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</main>

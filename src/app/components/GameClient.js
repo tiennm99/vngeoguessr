@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Beer } from 'lucide-react';
 import PanoramaViewer from './PanoramaViewer';
 import ThemeToggle from './ThemeToggle';
+import SoundToggle from './SoundToggle';
 import DonateQRModal from './DonateQRModal';
 import FirstRoundHint from './FirstRoundHint';
 import GuessMapPanel from './GuessMapPanel';
@@ -13,10 +14,23 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { generateRandomUsername, getUsername, setUsername } from '../../lib/username';
 import { setLastRegion } from '../../lib/last-region';
+import { playSound } from '../../lib/audio';
 // The revealed path comes from /api/guess (the RESOLVED district), not from
 // regionPath(pickedRegion) -- computing it client-side from what the player
 // chose would make the reveal meaningless for a country round.
 import { getRegion, isRegion } from '../../lib/regions';
+
+/**
+ * The result sound for a score, following the scoring ladder in lib/game.js:
+ * 4-5 points is a guess within 100m and worth celebrating, 1-3 is a hit, 0 is
+ * a miss.
+ * @param {number} score Points awarded, 0 to 5.
+ * @returns {string} Key of a sound in lib/audio.js.
+ */
+function resultSound(score) {
+  if (score >= 4) return 'great';
+  return score > 0 ? 'good' : 'poor';
+}
 
 /**
  * Ask the server for a new round. Throws on failure; touches no state, so the
@@ -108,6 +122,12 @@ export default function GameClient({ region }) {
   const roundEpochRef = useRef(0);
   // The epoch of the round currently applied to the screen; see applyRound.
   const appliedEpochRef = useRef(0);
+  // Back stays live while a guess is in flight, so a submit can resolve after
+  // the player has already left for the menu. State updates after that are
+  // harmless no-ops; a victory jingle over the home screen is not.
+  const mountedRef = useRef(true);
+
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const applyRound = useCallback((data) => {
     setSessionId(data.sessionId);
@@ -223,6 +243,7 @@ export default function GameClient({ region }) {
   const handlePanoramaError = useCallback((error) => {
     console.error('Panorama error:', error);
     if (appliedEpochRef.current !== roundEpochRef.current) return;
+    playSound('error');
     setRoundLoading(false);
   }, []);
 
@@ -237,6 +258,9 @@ export default function GameClient({ region }) {
   }, [roundLoading]);
 
   const handleMapClick = (coordinates) => {
+    // Before the state update, so the pin lands with the sound rather than
+    // after React has re-rendered the map.
+    playSound('pin');
     setGuessCoordinates([coordinates.lat, coordinates.lng]);
   };
 
@@ -259,6 +283,8 @@ export default function GameClient({ region }) {
 
   const handleSubmitGuess = async () => {
     if (!guessCoordinates || !imageData || submitting) return;
+    // After the guard: a blocked submit stays silent.
+    playSound('submit');
     setSubmitting(true);
     const currentSession = sessionId;
 
@@ -278,10 +304,12 @@ export default function GameClient({ region }) {
           resolvedPath: submitted.region?.path ?? null,
           leaderboardMessage: submitted.leaderboard?.message ?? '',
         });
+        if (mountedRef.current) playSound(resultSound(submitted.score ?? 0));
       } else {
         // The guess did not record. Say so instead of rendering a 99999m round,
         // which reads as a real miss and is indistinguishable from one.
         setResult({ failed: true });
+        if (mountedRef.current) playSound('error');
       }
     } catch (error) {
       // A throw here means the same thing as a null result: nothing was
@@ -289,6 +317,7 @@ export default function GameClient({ region }) {
       // confident 99999m miss for a round the server never saw.
       console.error('Error submitting guess:', error);
       setResult({ failed: true });
+      if (mountedRef.current) playSound('error');
     }
 
     setSubmitting(false);
@@ -309,6 +338,7 @@ export default function GameClient({ region }) {
     // Radix keeps the dialog interactive through its exit animation, so a
     // double-click would issue a second fetch and burn a session.
     if (roundLoading) return;
+    playSound('next');
     roundEpochRef.current += 1;
     const epoch = roundEpochRef.current;
     setShowResult(false);
@@ -340,6 +370,7 @@ export default function GameClient({ region }) {
 
   const handleSkipGuess = async () => {
     if (!imageData && !loadError) return;
+    playSound('skip');
 
     try {
       if (sessionId) {
@@ -375,6 +406,7 @@ export default function GameClient({ region }) {
   };
 
   const handleGoBack = () => {
+    playSound('click');
     router.push('/');
   };
 
@@ -429,6 +461,22 @@ export default function GameClient({ region }) {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          {/* Two variants, swapped by breakpoint rather than by a resize
+              listener: below sm the header has no room for a second pair of
+              44px cells beside ThemeToggle's three, so sound collapses to one
+              mute-everything switch.
+              The breakpoint class goes on a wrapper, not on the control: the
+              control's own class list already sets inline-flex, and `hidden`
+              fights it for the same property -- whichever Tailwind emits last
+              wins, which is how both variants ended up visible at once. A
+              wrapper that is display:none also takes its child out of the
+              accessibility tree, so nothing is announced twice. */}
+          <span className="sm:hidden">
+            <SoundToggle compact />
+          </span>
+          <span className="hidden sm:inline">
+            <SoundToggle />
+          </span>
           <Button
             onClick={() => setShowDonate(true)}
             variant="ghost"

@@ -7,11 +7,13 @@ import React, { useState, useEffect } from "react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ThemeToggle from './components/ThemeToggle';
+import SoundToggle from './components/SoundToggle';
 import UsernameModal from './components/UsernameModal';
 import DonateQRModal from './components/DonateQRModal';
 import LeaderboardModal from './components/LeaderboardModal';
 import RegionPicker from './components/RegionPicker';
 import { generateRandomUsername, getUsername, setUsername } from '../lib/username';
+import { playSound } from '../lib/audio';
 import { SCORE_BANDS, formatDistance } from '../lib/game';
 
 const STEP_LABELS = [
@@ -87,6 +89,7 @@ export default function Home() {
   // Returns true when the click is intercepted: no saved name yet, so the
   // prompt opens and navigation resumes after save/skip.
   const handlePlayClick = (href) => {
+    playSound('click');
     if (getUsername()) return false;
     setPendingHref(href);
     setShowUsernameModal(true);
@@ -104,6 +107,7 @@ export default function Home() {
             </Link>
             <div className="flex flex-wrap items-center justify-end gap-3">
               <ThemeToggle />
+              <SoundToggle />
               {/* One chip whether or not a name exists: the only way to fix a
                   typo'd name is reopening this modal, so the entry point must
                   always be visible -- including on phones, where it truncates
