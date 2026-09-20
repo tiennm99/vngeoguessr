@@ -44,7 +44,7 @@ export function guessResponse(username) {
   // accumulated total. Values mirror the real route: 123m is 3 points on the
   // one ladder, credited identically at all three levels.
   const scoreLevel = (code, name, rank, points) =>
-    ({ code, name, username, points, score: 3, rank, trimmed: false });
+    ({ code, name, username, points, score: 3, rank });
   const distanceLevel = (code, name, rank) => ({ code, name, username, distance: 123, rank });
   return {
     success: true,

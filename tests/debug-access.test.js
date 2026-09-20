@@ -25,6 +25,18 @@ describe('debugAccessAllowed', () => {
     expect(debugAccessAllowed(request())).toBe(true);
   });
 
+  it('treats a production build with no Vercel environment as production', () => {
+    delete process.env.VERCEL_ENV;
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      delete process.env.DEBUG_ACCESS_KEY;
+      expect(debugAccessAllowed(request())).toBe(false);
+    } finally {
+      process.env.NODE_ENV = original;
+    }
+  });
+
   it('is closed in production with no key configured', () => {
     process.env.VERCEL_ENV = 'production';
     delete process.env.DEBUG_ACCESS_KEY;

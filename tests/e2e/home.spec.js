@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 
 test('offers the country and every province', async ({ page }) => {
   await expect(page.getByRole('link', { name: /Play anywhere in Vietnam/ })).toBeVisible();
-  for (const province of ['Ha Noi', 'Hồ Chí Minh', 'Da Nang', 'Lam Dong', 'Long An']) {
+  for (const province of ['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng', 'Lâm Đồng', 'Long An']) {
     await expect(page.getByRole('button', { name: new RegExp(province) })).toBeVisible();
   }
 });

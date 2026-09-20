@@ -13,9 +13,10 @@ provider or stack change, nothing that costs money.
 | `e649259` | 2 | Expired-round copy, region-hit line ("Right province, wrong district") located server-side, OpenStreetMap link on the reveal, Share button with squares text, Open Graph metadata, phone header collapse, fresh id after skip, PanoramaViewer loaded on demand (three.js out of first load). |
 | `8450b75` | 3 | Daily challenge at `/daily`: deterministic pick per Vietnam day, cached 48h, no daily board, browser-side one-attempt and streak, home card, daily share text. |
 | `6dbe2e0` | 4 | Vietnamese names: `nameVi` in the tree from the OSM queries, `regionName()` everywhere a name is shown, search matches both spellings, Geist `vietnamese` subset. |
-| this | ops | CI workflow (lint, test, production compile) on push and PR. Weekly leaderboard export to a 90-day artifact. |
+| `064c173` | ops | CI workflow (lint, test, production compile) on push and PR. Weekly leaderboard export to a 90-day artifact. |
+| review fixes | — | Every finding of the three-agent review, see [synthesis-260921-0014-dev-review.md](synthesis-260921-0014-dev-review.md): the daily credits no board, partial credit reported honestly, stats TTL, hydration fix, Vietnamese board rows, encrypted backup, UX and a11y items. |
 
-Gates at the end: 348 tests pass, lint 0 errors / 21 warnings (all the
+Gates at the end: 357 tests pass, lint 0 errors / 21 warnings (all the
 pre-existing localStorage-in-effect and callback-ref patterns), production
 compile green with and without environment variables.
 
@@ -29,7 +30,7 @@ Redis per completed round: about 23 commands (was 27). Distance boards remain
 - Optional `NEXT_PUBLIC_SITE_URL` for absolute Open Graph URLs (Vercel's
   production URL is the default).
 - Repository secrets `KV_REST_API_URL`, `KV_REST_API_TOKEN` (and `KEY_PREFIX`
-  if set) for the backup workflow.
+  if set) plus `BACKUP_PASSPHRASE` for the backup workflow.
 - One Vercel WAF rate-limit rule on `/api/*`. Free on Hobby, dashboard only.
 - Merge `dev` to `main` to deploy.
 

@@ -10,8 +10,9 @@ import { getUpstash, hIncrBy, hGetAllNumbers, pfAdd, pfCount, expire, scanKeys }
 // several days against their sum) how many players come back. Nothing here is
 // per player: the HyperLogLog cannot be read back, only counted.
 //
-// Cost: two commands per round, plus an EXPIRE on each key the first time a
-// new field appears that day. Both keys expire after STATS_TTL_DAYS.
+// Cost: two commands per round, plus an EXPIRE on the hash each time a new
+// field appears that day and one on the HyperLogLog for each new player. Both
+// keys expire after STATS_TTL_DAYS.
 
 const STATS_PREFIX = 'stats:';
 const PLAYERS_PREFIX = 'stats:players:';
@@ -63,8 +64,11 @@ export async function recordRound(level, score, playerId, now = Date.now()) {
   }
 
   if (playerId) {
-    await pfAdd(h, playersKey(day), playerId);
-    if (count === 1) await expire(h, playersKey(day), STATS_TTL_SECONDS);
+    // The TTL rides on the HyperLogLog's OWN first write, not the hash's: the
+    // day's first round may carry no cookie, and a key created later than the
+    // hash's first field would otherwise never expire.
+    const isNewPlayer = await pfAdd(h, playersKey(day), playerId);
+    if (isNewPlayer) await expire(h, playersKey(day), STATS_TTL_SECONDS);
   }
 }
 

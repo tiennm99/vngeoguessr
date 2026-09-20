@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Check, ChevronDown, ExternalLink, Share2 } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, ExternalLink, Share2 } from 'lucide-react';
 import { formatDistance, SCORE_BANDS } from '../../lib/game';
 import { useCountUp } from '../../lib/use-count-up';
 import { regionSlug } from '../../lib/regions';
@@ -12,28 +12,46 @@ import { buildShareText, buildDailyShareText, shareText } from '../../lib/share'
 import ResultMap, { MARKER_COLORS } from './ResultMap';
 
 // Why a round was not recorded, in the player's terms. The server names the
-// reason; without one, the honest default is that the write failed.
+// reason; without one, the honest default is that the write failed. The daily
+// has no next round to start, so its second sentence differs.
 const FAILURE_COPY = {
   'session-expired': {
     title: 'This round expired',
     body: 'Rounds last 30 minutes. Nothing was scored, so start a new one.',
+    daily: 'Rounds last 30 minutes. Nothing was scored; reload to try today again.',
   },
   'session-consumed': {
     title: 'This round was already submitted',
     body: 'Only the first guess counts. Nothing more was scored.',
+    daily: 'Only the first guess counts. Nothing more was scored.',
   },
   default: {
     title: 'Your guess could not be saved',
     body: 'Nothing was scored. The round has ended, so start a new one to try again.',
+    daily: 'Nothing was scored. Reload to try today again.',
   },
 };
 
 // The one line the ladder cannot say: how much of the answer's region a miss
 // still got right. Only worth showing when the ladder itself said little.
-const HIT_COPY = {
-  district: 'Right district',
-  province: 'Right province, wrong district',
-  none: 'Wrong province',
+// A panorama outside every district outline resolves to its province, and
+// "wrong district" would be a district that does not exist -- so a
+// province-level answer gets the shorter line.
+function hitCopy(hit, resolvedPath) {
+  if (hit === 'district') return 'Right district';
+  if (hit === 'province') {
+    return (resolvedPath?.length ?? 3) < 3 ? 'Right province' : 'Right province, wrong district';
+  }
+  return 'Wrong province';
+}
+
+// What the share button did, for the screen reader; the visible label carries
+// the same word so nothing depends on colour or an icon alone.
+const SHARE_STATUS = {
+  shared: 'Shared.',
+  copied: 'Copied to the clipboard.',
+  failed: 'Sharing failed. Try again.',
+  cancelled: '',
 };
 
 // Background and text move together: the semantic tokens flip to lighter
@@ -108,10 +126,14 @@ export default function RoundResultDialog({
     setShareOutcome({ result, state: await shareText(text) });
   };
 
-  const failure = FAILURE_COPY[result?.reason] ?? FAILURE_COPY.default;
+  const failureCopy = FAILURE_COPY[result?.reason] ?? FAILURE_COPY.default;
+  const failure = { title: failureCopy.title, body: daily ? failureCopy.daily : failureCopy.body };
   // A guess the ladder scored well already says where it landed; the region
   // line earns its place under 3 points, where the ladder says only "beyond".
-  const hitLine = result && !result.failed && score < 3 && result.hit ? HIT_COPY[result.hit] : null;
+  const hitLine =
+    result && !result.failed && score < 3 && result.hit ? hitCopy(result.hit, result.resolvedPath) : null;
+  const shareLabel = shareState === 'copied' ? 'Copied' : shareState === 'failed' ? 'Retry' : 'Share';
+  const ShareIcon = shareState === 'copied' ? Check : shareState === 'failed' ? AlertCircle : Share2;
 
   const hasScoreLevels = (result?.scoreLevels?.length ?? 0) > 0;
   const hasDistanceLevels = result?.distanceLevels?.some((entry) => entry.rank) ?? false;
@@ -158,7 +180,10 @@ export default function RoundResultDialog({
             // A failed submission is not a zero-point round. Showing the
             // score circle here would present a write failure as a real miss,
             // and the player would have no way to tell the difference.
-            <div className="space-y-3 py-6 text-center" role="alert">
+            // Not a live region: the dialog's own description already announces
+            // the outcome once when it opens, and a second announcement would
+            // read the same sentence twice.
+            <div className="space-y-3 py-6 text-center">
               <p className="text-lg font-semibold text-foreground">{failure.title}</p>
               <p className="text-sm text-muted-foreground">{failure.body}</p>
             </div>
@@ -330,7 +355,12 @@ export default function RoundResultDialog({
                       </div>
                     )}
 
-                    {result.leaderboardMessage && (
+                    {result.partial && (
+                      <p className="text-sm text-warning-foreground font-medium">
+                        Some boards could not be updated this round. The ones above were.
+                      </p>
+                    )}
+                    {result.leaderboardMessage && !result.partial && (
                       <p className="text-sm text-success font-medium">{result.leaderboardMessage}</p>
                     )}
                   </div>
@@ -344,9 +374,11 @@ export default function RoundResultDialog({
           ) : null}
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <Button onClick={onNextRound} size="lg" className="flex-[2]">
+        {/* Actions. Every button is h-12 so the row reads as one; Share is
+            icon-only below sm (its word is still its accessible name) so the
+            three fit inside 280px on a 360px phone. */}
+        <div className="flex gap-2 pt-2 sm:gap-3">
+          <Button onClick={onNextRound} size="lg" className="min-w-0 flex-[2]">
             {daily ? 'Done' : 'Next Round'}
           </Button>
           {result && !result.failed && (
@@ -354,26 +386,23 @@ export default function RoundResultDialog({
               onClick={handleShare}
               variant="outline"
               size="lg"
-              aria-label={shareState === 'copied' ? 'Result copied' : 'Share this result'}
               title="Share this result"
-              className="px-3"
+              className="shrink-0 px-3 sm:px-5"
             >
-              {shareState === 'copied' ? (
-                <Check className="size-4" aria-hidden="true" />
-              ) : (
-                <Share2 className="size-4" aria-hidden="true" />
-              )}
-              <span className="sr-only sm:not-sr-only">
-                {shareState === 'copied' ? 'Copied' : shareState === 'failed' ? 'Retry' : 'Share'}
-              </span>
+              <ShareIcon className="size-4" aria-hidden="true" />
+              <span className="sr-only sm:not-sr-only">{shareLabel}</span>
             </Button>
           )}
           {!daily && (
-            <Button onClick={onMenu} variant="ghost" className="flex-1">
+            <Button onClick={onMenu} variant="ghost" size="lg" className="min-w-0 flex-1 px-3">
               Menu
             </Button>
           )}
         </div>
+        {/* Announced once per outcome; visually the button label already says it. */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {SHARE_STATUS[shareState] ?? ''}
+        </p>
       </DialogContent>
     </Dialog>
   );

@@ -40,7 +40,7 @@ export function buildDailyShareText(number, score, distanceLabel, streak, url) {
 /**
  * Hand text to the platform share sheet, falling back to the clipboard.
  * @param {string} text
- * @returns {Promise<'shared'|'copied'|'failed'>} What actually happened.
+ * @returns {Promise<'shared'|'copied'|'cancelled'|'failed'>} What actually happened.
  */
 export async function shareText(text) {
   if (typeof navigator === 'undefined') return 'failed';
@@ -49,8 +49,9 @@ export async function shareText(text) {
       await navigator.share({ text });
       return 'shared';
     } catch (error) {
-      // The player closed the sheet: nothing to fall back to, nothing went wrong.
-      if (error?.name === 'AbortError') return 'failed';
+      // The player closed the sheet: nothing went wrong and nothing to fall
+      // back to, so it must not read as a failure.
+      if (error?.name === 'AbortError') return 'cancelled';
     }
   }
   try {

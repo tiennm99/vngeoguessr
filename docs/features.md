@@ -65,8 +65,10 @@
   `/api/debug/region-coverage` return panorama coordinates, which is the answer
   to any live round. On Vercel production they answer only a request carrying
   `DEBUG_ACCESS_KEY` as the `x-debug-key` header or the `vng_debug` cookie
-  (`src/lib/debug-access.js`); unset, they are closed. Local, test and preview
-  deployments keep them open. The `/debug` pages still render in production
+  (`src/lib/debug-access.js`); unset, they are closed. Production means
+  Vercel's production environment, or a production build anywhere Vercel's
+  variables are absent. Local development, tests and preview deployments keep
+  them open. The `/debug` pages still render in production
   but their data calls fail without the key
 - **Validated input**: the username rule lives once in `src/lib/username.js`
   (2-20 characters of letters, digits, `-`, `_`, any script) and is enforced by
@@ -82,8 +84,10 @@
 - **UUID Session IDs**: unique session identifiers via `crypto.randomUUID()`
 - **30-minute Expiry**: automatic Redis session cleanup
 - **Single-use sessions**: the session is claimed with an atomic `DEL` before any
-  score is written, so a replayed or concurrent submit scores exactly once. The
-  failure carries a `reason` (`session-expired`, `session-consumed`,
+  score is written, so a replayed or concurrent submit scores exactly once.
+  After the claim the score fan-out settles per level: the levels that wrote
+  are returned, `partial: true` marks a level that did not, and only a round
+  where no level wrote is reported as unsaved. The failure carries a `reason` (`session-expired`, `session-consumed`,
   `invalid-guess`, `invalid-username`, `invalid-request`) and the result dialog
   words each one differently, so an expired round is not reported as a failed
   write
@@ -177,20 +181,26 @@ renaming it would orphan every score already recorded under it.
 - **One panorama, the same for everyone, once a day** at `/daily`. The pick is
   deterministic from the day (`pickPanoBySeed` in `src/lib/pano-index.js`,
   province first like a country round) and cached in Redis as `daily:{day}`
-  for 48 hours with its resolved image URL, so the Postgres draw and the
-  Mapillary lookup happen once a day, not once a player
+  for 48 hours, so the Postgres draw happens once a day. The image URL is
+  resolved from Mapillary on every request, as every round does, so a signed
+  URL that stops working never breaks the day; a pick deleted upstream is
+  forgotten and the next seeded candidate takes over
 - **Days roll over at midnight Vietnam time** (`src/lib/daily-calendar.js`),
   numbered from 2026-09-20 as #1
-- **Scored like any round**: `/api/daily` opens an ordinary session flagged
-  `mode: 'daily'`; `/api/guess` credits the boards once and counts the round
-  under its own `daily` level in the statistics. No skipping
+- **Scored, counted, never credited**: `/api/daily` opens an ordinary session
+  flagged `mode: 'daily'`; `/api/guess` scores it on the same ladder and counts
+  it under its own `daily` level in the statistics, but credits no
+  leaderboard. The panorama is the same all day and the answer is in the first
+  guess response, so any board the daily fed would be five points for two
+  requests, repeatable all day. No skipping; the submit button says "Submit
+  final guess" 
 - **No daily leaderboard, on purpose**: the only identity is a cookie and a
   localStorage name, so a dated board would be won by whoever opened the most
   private windows. One attempt per day is enforced by the browser alone
   (`src/lib/daily-progress.js`): the finished round is stored with its
   panorama, pin and result, and reopening `/daily` shows that instead of a
-  second attempt. Clearing storage means playing again; with nothing to win,
-  that only cheats the player
+  second attempt. Clearing storage means playing again; since the daily feeds
+  no board, that only cheats the player
 - **Streak**: consecutive days played, kept in the same record. The day after
   the last play extends it, the same day keeps it, a gap restarts it. Shown in
   the game header, the result dialog, the share text and the home page card
@@ -215,6 +225,7 @@ renaming it would orphan every score already recorded under it.
   players, rounds per player, the zero-score share per level, and a return
   rate from the union of several days against their sum. Both expire after 90
   days. Nothing per player is stored; the HyperLogLog only counts
-- **Cost**: two Redis commands per round plus an occasional EXPIRE. A failed
-  write is logged and never fails the guess
+- **Cost**: two Redis commands per round, plus an EXPIRE on the hash for each
+  new field of the day and one on the HyperLogLog for each new player. A
+  failed write is logged and never fails the guess
 - **Reading them**: `npm run stats [days]` prints the last N days

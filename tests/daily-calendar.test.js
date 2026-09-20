@@ -13,8 +13,10 @@ describe('daily calendar', () => {
     expect(dailyNumber('2026-10-01')).toBe(12);
   });
 
-  it('steps back one day across a month boundary', () => {
+  it('steps back one day across month and year boundaries', () => {
     expect(previousDay('2026-10-01')).toBe('2026-09-30');
+    expect(previousDay('2027-01-01')).toBe('2026-12-31');
+    expect(previousDay('2028-03-01')).toBe('2028-02-29');
   });
 
   it('recognises a well-formed day', () => {

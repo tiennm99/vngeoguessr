@@ -62,6 +62,23 @@ describe('daily statistics', () => {
     }
   });
 
+  it('gives the player key a TTL even when the day opened with a cookieless round', async () => {
+    // The HyperLogLog is created by the second round here, after the hash's
+    // first field; its TTL must ride on its own first write.
+    await recordRound('country', 0, null, DAY1);
+    await recordRound('country', 0, P1, DAY1);
+    expect(await ttlOf('vngeoguessr:stats:players:2026-09-20')).toBeGreaterThan(0);
+  });
+
+  it("expires each day's keys independently", async () => {
+    await recordRound('country', 0, P1, DAY1);
+    await recordRound('country', 0, P1, DAY2);
+    for (const day of ['2026-09-20', '2026-09-21']) {
+      expect(await ttlOf(`vngeoguessr:stats:${day}`)).toBeGreaterThan(0);
+      expect(await ttlOf(`vngeoguessr:stats:players:${day}`)).toBeGreaterThan(0);
+    }
+  });
+
   it('tolerates a round with no player id', async () => {
     await recordRound('district', 4, null, DAY1);
     const day = await readDay('2026-09-20');

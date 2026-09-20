@@ -7,7 +7,7 @@ import {
   zRevRank,
   zRemRangeByRank,
 } from './upstash.js';
-import { ancestorsOf, getRegion, isRegion, COUNTRY_CODE } from './regions.js';
+import { ancestorsOf, getRegion, isRegion, regionName, COUNTRY_CODE } from './regions.js';
 import { calculateScore } from './game.js';
 
 // Leaderboard logical key constants (prefix is applied inside the adapter).
@@ -142,7 +142,7 @@ async function creditScore(h, regionCode, points, username) {
   const rank = await zRevRank(h, key, username);
   return {
     code: regionCode,
-    name: getRegion(regionCode).name,
+    name: regionName(regionCode),
     username,
     // What this round added at this level.
     points,
@@ -164,10 +164,24 @@ async function creditScore(h, regionCode, points, username) {
 async function fanOutScore(h, username, regionCode, pointsFor) {
   // In parallel: the levels are independent keys and no level reads another's
   // state, so serialising them would add two round trips of latency to every
-  // guess for nothing. The four calls WITHIN a level stay ordered.
-  const levels = await Promise.all(
-    ancestorsOf(regionCode).map((code) => creditScore(h, code, pointsFor(code), username))
+  // guess for nothing. The calls WITHIN a level stay ordered.
+  //
+  // Settled, not all-or-nothing: the caller has already consumed the session,
+  // so a level that failed cannot be retried and a level that succeeded cannot
+  // be undone. Reporting what landed beats reporting a total failure over a
+  // round that is partly on the boards. Only when nothing landed is it one.
+  const codes = ancestorsOf(regionCode);
+  const settled = await Promise.allSettled(
+    codes.map((code) => creditScore(h, code, pointsFor(code), username))
   );
+  const levels = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+  const failures = settled.filter((r) => r.status === 'rejected');
+  for (const [i, r] of settled.entries()) {
+    if (r.status === 'rejected') console.error(`Score credit failed at ${codes[i]}:`, r.reason);
+  }
+  if (levels.length === 0) {
+    throw failures[0]?.reason ?? new Error('No level could be credited');
+  }
 
   // Named aliases alongside the array: the chain is district -> province ->
   // country for a leaf, but only province -> country when a panorama fell
@@ -178,6 +192,7 @@ async function fanOutScore(h, username, regionCode, pointsFor) {
   return {
     success: true,
     levels,
+    partial: failures.length > 0,
     district: byLevel('district'),
     province: byLevel('province'),
     global: byLevel('country'),
@@ -281,7 +296,7 @@ async function creditDistance(h, regionCode, distance, entryId, username) {
   const rank = await zRank(h, key, entryId);
   return {
     code: regionCode,
-    name: getRegion(regionCode).name,
+    name: regionName(regionCode),
     username,
     distance,
     rank: rank !== null ? rank + 1 : null,

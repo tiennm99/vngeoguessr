@@ -200,7 +200,7 @@ export async function pickPanoBySeed(seed) {
     const province = provinces[(start + step) % provinces.length];
     const total = await countPanos(province);
     if (total === 0) continue;
-    const offset = hash32(`${seed}:offset`) % total;
+    const offset = hash32(`${seed}:${province}:offset`) % total;
     const rows = await query(
       getPanoDb(),
       `SELECT id, lat, lng, district FROM panoramas

@@ -1,8 +1,11 @@
 # Weekly copy of every leaderboard, kept as a workflow artifact for 90 days.
 # Upstash's free plan has no scheduled backups, and the boards are the only
-# player data the game holds. Needs two repository secrets, the same pair the
-# app reads: KV_REST_API_URL and KV_REST_API_TOKEN (plus KEY_PREFIX if the
-# deployment sets one).
+# player data the game holds. Needs three repository secrets: the Redis pair
+# the app reads, KV_REST_API_URL and KV_REST_API_TOKEN (plus KEY_PREFIX if the
+# deployment sets one), and BACKUP_PASSPHRASE. The file is encrypted with the
+# passphrase before upload: on a public repository any signed-in GitHub user
+# can download an artifact, and the boards list every player name.
+# Restore with: openssl enc -d -aes-256-cbc -pbkdf2 -in <file>.enc -out <file>
 name: Leaderboard backup
 
 on:
@@ -20,13 +23,21 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run leaderboard:export
+      - run: npm run leaderboard:export -- leaderboard-backup.json
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           KEY_PREFIX: ${{ secrets.KEY_PREFIX }}
+      - name: Encrypt
+        run: |
+          test -n "$BACKUP_PASSPHRASE" || { echo "BACKUP_PASSPHRASE secret is not set"; exit 1; }
+          openssl enc -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE \
+            -in leaderboard-backup.json -out leaderboard-backup.json.enc
+          rm leaderboard-backup.json
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
       - uses: actions/upload-artifact@v4
         with:
           name: leaderboard-backup
-          path: leaderboard-backup-*.json
+          path: leaderboard-backup.json.enc
           retention-days: 90

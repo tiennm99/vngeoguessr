@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Calendar, Check, Share2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, Calendar, Check, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { dailyDay, dailyNumber } from '../../lib/daily-calendar';
@@ -36,9 +36,19 @@ export default function DailyCard({ onPlayClick }) {
     });
   }, []);
 
-  const number = state?.number ?? dailyNumber(dailyDay());
+  // Everything below comes from `state` alone. The page is prerendered, so a
+  // fallback computed at render time would freeze the build day's number into
+  // the HTML and mismatch the client's on every later day.
+  const number = state?.number ?? null;
   const played = state?.played ?? null;
   const streak = state?.streak ?? 0;
+  const shareLabel = shareState === 'copied' ? 'Copied' : shareState === 'failed' ? 'Retry' : 'Share';
+  const ShareIcon = shareState === 'copied' ? Check : shareState === 'failed' ? AlertCircle : Share2;
+  const shareStatus =
+    shareState === 'copied' ? 'Copied to the clipboard.'
+      : shareState === 'shared' ? 'Shared.'
+        : shareState === 'failed' ? 'Sharing failed. Try again.'
+          : '';
 
   const handleShare = async () => {
     const outcome = await shareText(
@@ -66,30 +76,32 @@ export default function DailyCard({ onPlayClick }) {
           </span>
           <div>
             <p className="font-semibold text-foreground">
-              Daily Challenge #{number}
+              Daily Challenge{number ? ` #${number}` : ''}
               {streak > 0 && (
                 <span className="ml-2 text-sm font-medium text-muted-foreground" title="Consecutive days played">
-                  🔥 {streak}
+                  <span aria-hidden="true">🔥</span> {streak}
+                  <span className="sr-only">-day streak</span>
                 </span>
               )}
             </p>
             <p className="text-sm text-muted-foreground">
               {played
                 ? `Played today: ${squares} ${played.result.score}/${MAX_POINTS} · ${formatDistance(played.result.distance)} away`
-                : 'One street view, the same for everyone. New at midnight, Vietnam time.'}
+                : 'One street view, one guess, the same for everyone. New at midnight, Vietnam time.'}
             </p>
           </div>
         </div>
 
         {played ? (
           <div className="flex items-center gap-2">
-            <Button onClick={handleShare} variant="outline" size="sm" aria-label="Share today's result">
-              {shareState === 'copied' ? <Check className="size-4" aria-hidden="true" /> : <Share2 className="size-4" aria-hidden="true" />}
-              {shareState === 'copied' ? 'Copied' : 'Share'}
+            <Button onClick={handleShare} variant="outline" title="Share today's result">
+              <ShareIcon className="size-4" aria-hidden="true" />
+              {shareLabel}
             </Button>
-            <Button asChild variant="ghost" size="sm">
+            <Button asChild variant="ghost">
               <Link href="/daily">See result</Link>
             </Button>
+            <p role="status" aria-live="polite" className="sr-only">{shareStatus}</p>
           </div>
         ) : (
           <Link
@@ -100,7 +112,7 @@ export default function DailyCard({ onPlayClick }) {
             }}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
           >
-            Play today&apos;s
+            Play today&apos;s challenge
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         )}

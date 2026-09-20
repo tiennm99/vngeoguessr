@@ -57,10 +57,11 @@ reads, with placeholders only. The sections below explain each one.
 - `MAPILLARY_ACCESS_TOKEN` - Mapillary API token for image fetching
 
 **Debug API (optional)**:
-- `DEBUG_ACCESS_KEY` - On Vercel production the `/api/debug/*` routes return
-  404 unless the request carries this value as the `x-debug-key` header or the
-  `vng_debug` cookie. Unset, they are closed in production. Off production
-  (`VERCEL_ENV` not `production`) they are always open
+- `DEBUG_ACCESS_KEY` - In production the `/api/debug/*` routes return 404
+  unless the request carries this value as the `x-debug-key` header or the
+  `vng_debug` cookie. Unset, they are closed in production. Production is
+  `VERCEL_ENV=production`, or `NODE_ENV=production` where `VERCEL_ENV` is
+  absent; development, tests and preview deployments are always open
 
 **Link previews (optional)**:
 - `NEXT_PUBLIC_SITE_URL` - Absolute origin for Open Graph URLs. Defaults to
@@ -83,10 +84,14 @@ For local Redis without an Upstash account, see *Running Upstash locally* below.
 request. It needs no secrets: compiling the app opens no connection.
 
 `.github/workflows/leaderboard-backup.yml` runs `npm run leaderboard:export`
-every Monday and on demand, and keeps the JSON as a workflow artifact for 90
-days. It needs the repository secrets `KV_REST_API_URL` and
-`KV_REST_API_TOKEN` (and `KEY_PREFIX` if the deployment sets one); until they
-are set the job fails harmlessly.
+every Monday and on demand, encrypts the JSON and keeps it as a workflow
+artifact for 90 days. It needs the repository secrets `KV_REST_API_URL`,
+`KV_REST_API_TOKEN` (and `KEY_PREFIX` if the deployment sets one) and
+`BACKUP_PASSPHRASE`; until they are set the job fails harmlessly. The
+artifact is encrypted because the repository is public, any signed-in GitHub
+user can download an artifact, and the boards list every player name.
+Restore with
+`openssl enc -d -aes-256-cbc -pbkdf2 -in leaderboard-backup.json.enc -out leaderboard-backup.json`.
 
 ### Testing & Completion
 

@@ -74,3 +74,49 @@ commands; 84 of 85 nodes carry `nameVi`; share text carries no coordinates.
 - Should the daily credit the main boards at all? Recommendation: no.
 - Real lifetime of a Mapillary `thumb_2048_url`. Decides how urgent S4 is.
 - Is a world-readable username list in a backup artifact acceptable?
+
+## Resolution (same day)
+
+Every finding above was applied on `dev`; see the commit "fix: close the
+review findings on the dev implementation".
+
+- **B1** The daily credits no board. `/api/guess` skips both fan-outs for
+  `mode: 'daily'`; the round is scored and counted only. Test asserts no
+  leaderboard or distance key is written by a daily guess.
+- **S1** The players HyperLogLog's TTL rides on its own first write (PFADD
+  returning new), not the hash counter. Test covers a cookieless first round.
+- **S2** DailyCard derives the number from mounted state only; no render-time
+  fallback, so the static HTML and the client agree.
+- **S3** `isPano` stored with the daily result and used on replay.
+- **S4** The daily caches the pick only; the image URL is resolved per
+  request. A cached pick that stops resolving is forgotten and the next seeded
+  candidate takes over. Tests cover recovery and four-failure exhaustion.
+- **S5** Score fan-out uses `allSettled`: levels that wrote are returned with
+  `partial: true`, and only a round where nothing wrote is a 500. Dialog says
+  "Some boards could not be updated" instead of "Nothing was scored". Test
+  injects a failing ZINCRBY on one key, on all keys, and a stats outage.
+- **S6** Board rows and `/api/leaderboard` use `regionName()`.
+- **S7** The home spec lists the accented province names; the stub no longer
+  emits `trimmed`.
+- **UX H1** Card copy says "one guess"; the daily submit button reads "Submit
+  final guess".
+- **UX H2** Share button label is its accessible name, a `role="status"`
+  sibling announces the outcome, a cancelled share sheet is `'cancelled'` and
+  shows the plain button again, failure shows an alert icon with "Retry".
+- **UX M1–M5** Daily failure copy has no "start a new one"; DailyCard buttons
+  are default height (44px); the dialog action row is h-12 throughout with an
+  icon-only Share below `sm`; a province-level answer reads "Right province";
+  streak badges carry sr-only "-day streak" text.
+- **Lows** "Play today's challenge"; badge truncation via an inner block span;
+  compact ThemeToggle is a single button, no one-child group; the failure
+  block drops `role="alert"` (the dialog description already announces);
+  reduced-motion covers the dialog's enter/exit animation.
+- **Nits** `pickPanoBySeed` hashes the offset per province; the debug gate
+  treats a production build without Vercel variables as production; the
+  backup artifact is encrypted with a `BACKUP_PASSPHRASE` secret before upload.
+- **Tests** Year-wrap `previousDay`; daily route day assertion bracketed
+  across a possible midnight; two-day stats TTL.
+
+Not changed, by decision: two ThemeToggle instances swapped by breakpoint
+(matches SoundToggle); CI running twice on a dev→main PR; `/api/daily`
+unauthenticated like every other route (the Vercel WAF rule covers it).

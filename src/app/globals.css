@@ -339,6 +339,14 @@
     animation: none;
     opacity: 1;
   }
+  /* The dialog's enter/exit (tw-animate's animate-in / animate-out) and the
+     Radix content transitions, so the result screen appears in place. */
+  .animate-in,
+  .animate-out,
+  [data-slot='dialog-content'],
+  [data-slot='dialog-overlay'] {
+    animation: none !important;
+  }
   .city-card-accent::before {
     transition: none;
   }

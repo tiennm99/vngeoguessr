@@ -127,10 +127,18 @@ export async function POST(request) {
     // Boards are credited per level from the raw distance against the same
     // ladder, so every level records the identical points for this round. The
     // two fan-outs touch disjoint keys, so they run together.
-    const [leaderboardResult, distanceResult] = await Promise.all([
-      submitRoundScore(username, distance, scoringRegion),
-      distanceOrNone(username, distance, scoringRegion),
-    ]);
+    //
+    // Not for the daily. Its panorama is the same all day and the answer is in
+    // this very response, so a daily session that credited boards would be
+    // five points on three permanent boards for two requests, all day long.
+    // The daily is scored and counted, never credited.
+    const isDaily = session.mode === 'daily';
+    const [leaderboardResult, distanceResult] = isDaily
+      ? [{ levels: [], message: '' }, null]
+      : await Promise.all([
+          submitRoundScore(username, distance, scoringRegion),
+          distanceOrNone(username, distance, scoringRegion),
+        ]);
 
     // Where the guess landed, against where the panorama was. Display only:
     // it changes no score, but it turns "0 points" into "right province,
@@ -145,7 +153,7 @@ export async function POST(request) {
       : 'country';
     // A daily round is a country round everyone plays; counted apart so the
     // two are not confused in the zero-score share.
-    const statsLevel = session.mode === 'daily' ? 'daily' : pickedLevel;
+    const statsLevel = isDaily ? 'daily' : pickedLevel;
     await recordRoundOrIgnore(statsLevel, finalScore, readPlayerId(request));
 
     // For monitoring. Deliberately without the name or either coordinate pair:
@@ -166,6 +174,9 @@ export async function POST(request) {
         // One entry per level credited, outermost last. The client renders
         // these directly rather than a fixed global/city pair.
         levels: leaderboardResult.levels,
+        // True when a level failed to write after the session was consumed:
+        // the levels above are what actually landed.
+        partial: Boolean(leaderboardResult.partial),
         distanceLevels: distanceResult?.levels ?? [],
         // Where the panorama actually was. Safe now, and only now: the guess
         // is in.

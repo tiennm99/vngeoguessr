@@ -59,18 +59,17 @@ export default function ThemeToggle({ className = '', compact = false }) {
     const current = THEMES[index === -1 ? 0 : index];
     const next = THEMES[(index + 1) % THEMES.length];
     const Icon = THEME_ICONS[current.value];
+    // One control, so no group role: a group of one only adds a stop.
     return (
-      <div role="group" aria-label="Colour theme" className={groupClass}>
-        <button
-          type="button"
-          aria-label={`Theme: ${current.label}. Switch to ${next.label}`}
-          title={`Theme: ${current.label}`}
-          onClick={() => handleSelect(next.value)}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        >
-          <Icon className="size-4" aria-hidden="true" />
-        </button>
-      </div>
+      <button
+        type="button"
+        aria-label={`Theme: ${current.label}. Switch to ${next.label}`}
+        title={`Theme: ${current.label}`}
+        onClick={() => handleSelect(next.value)}
+        className={`flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 ${className}`}
+      >
+        <Icon className="size-4" aria-hidden="true" />
+      </button>
     );
   }
 

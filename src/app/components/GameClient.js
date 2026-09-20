@@ -213,7 +213,7 @@ export default function GameClient({ region, daily = false }) {
       const played = daily ? getDailyProgress() : null;
       if (played && played.day === dailyDay()) {
         setDailyInfo({ day: played.day, number: played.number, streak: played.streak });
-        setImageData({ url: played.imageUrl, isPano: true });
+        setImageData({ url: played.imageUrl, isPano: played.isPano ?? true });
         setRoundKey((key) => key + 1);
         setGuessCoordinates(played.guessCoordinates);
         setResult(played.result);
@@ -361,7 +361,7 @@ export default function GameClient({ region, daily = false }) {
           // Today is done. Stored with everything the result screen needs,
           // so a revisit shows this rather than a fresh round.
           const saved = saveDailyResult(
-            dailyInfo.day, dailyInfo.number, outcome, guessCoordinates, imageData.url
+            dailyInfo.day, dailyInfo.number, outcome, guessCoordinates, imageData.url, imageData.isPano
           );
           setDailyInfo({ ...dailyInfo, streak: saved.streak });
         }
@@ -514,12 +514,17 @@ export default function GameClient({ region, daily = false }) {
           <span className="text-sm font-bold text-foreground hidden sm:inline">VNGeoGuessr</span>
           {/* Truncates rather than pushing the controls off a 360px screen:
               a long district name loses its tail, not the mute button. */}
-          <Badge variant="brand" className="max-w-[8rem] truncate text-xs sm:max-w-none" title={daily ? "Today's daily challenge" : regionName}>
-            {daily ? `Daily${dailyInfo ? ` #${dailyInfo.number}` : ''}` : regionName}
+          <Badge variant="brand" className="max-w-[8rem] text-xs sm:max-w-none" title={daily ? "Today's daily challenge" : regionName}>
+            {/* The ellipsis needs a block-level child: `truncate` on the
+                inline-flex badge itself clips without one. */}
+            <span className="truncate">
+              {daily ? `Daily${dailyInfo ? ` #${dailyInfo.number}` : ''}` : regionName}
+            </span>
           </Badge>
           {daily && dailyInfo?.streak > 0 && (
             <Badge variant="secondary" className="text-xs tabular-nums" title="Consecutive days played">
-              🔥 {dailyInfo.streak}
+              <span aria-hidden="true">🔥</span> {dailyInfo.streak}
+              <span className="sr-only">-day streak</span>
             </Badge>
           )}
           {/* This visit's tally; invisible until the first round lands so the
@@ -657,7 +662,14 @@ export default function GameClient({ region, daily = false }) {
               size="lg"
               loading={submitting}
             >
-              {submitting ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Place a guess first'}
+              {/* The daily allows one guess, and this is the last moment to say so. */}
+              {submitting
+                ? 'Processing...'
+                : !guessCoordinates
+                  ? 'Place a guess first'
+                  : daily
+                    ? 'Submit final guess'
+                    : 'Submit Guess'}
             </Button>
             {/* No skipping the daily: everyone gets the same one place. */}
             {!daily && (

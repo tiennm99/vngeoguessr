@@ -18,6 +18,7 @@ export const DAILY_STORAGE_KEY = 'vngeoguessr_daily';
  * @property {Object} result The round result as the dialog rendered it.
  * @property {number[]} guessCoordinates [lat, lng] the player guessed.
  * @property {string} imageUrl The panorama, so the result can be shown again.
+ * @property {boolean} isPano Whether it renders in the 360 viewer or flat.
  */
 
 /** @returns {DailyProgress|null} */
@@ -53,9 +54,10 @@ export function nextStreak(previous, day) {
  * @param {Object} result
  * @param {number[]} guessCoordinates
  * @param {string} imageUrl
+ * @param {boolean} isPano
  * @returns {DailyProgress} What was stored.
  */
-export function saveDailyResult(day, number, result, guessCoordinates, imageUrl) {
+export function saveDailyResult(day, number, result, guessCoordinates, imageUrl, isPano) {
   const previous = getDailyProgress();
   const progress = {
     day,
@@ -64,6 +66,7 @@ export function saveDailyResult(day, number, result, guessCoordinates, imageUrl)
     result,
     guessCoordinates,
     imageUrl,
+    isPano: isPano !== false,
   };
   if (typeof window !== 'undefined') {
     try {
