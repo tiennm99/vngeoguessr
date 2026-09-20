@@ -1,33 +1,38 @@
 ---
 name: project-scoring-ladder-and-boards
-description: Scoring is region-relative and each board is credited by its OWN ladder as of 2026-08-31 - what that did to the country board, and what the headline score now means
+description: One frozen scoring ladder for every region (the per-region bbox ladder was reverted), and the top-200 trim that permanently resets any player outside the window
 metadata:
   type: project
 ---
 
-As of 2026-08-31 there is no single scoring ladder. `calculateScore(distance,
-bands)` takes one, `bandsForBbox(bbox)` builds it from a region's bbox diagonal
-(reference 10 km, factor clamped at >= 1), and there are two different consumers:
+**Superseded 2026-09-20.** The per-region bbox ladder recorded here on
+2026-08-31 (`calculateScore(distance, bands)`, `bandsForBbox`) no longer exists;
+commit `b15d199` "score every region on one distance ladder" reverted it. Verify
+before quoting any ladder claim — this area has flipped once already.
 
-- `/api/guess` grades the HEADLINE `gameResult.score` against the region the
-  player PICKED. This number is credited to no board — it is display only.
-- `submitRoundScore` credits each board from the raw distance against THAT
-  board's own ladder, so a country round can no longer buy district points.
-  Each level's award comes back as `levels[].points`.
+Current state, read from source 2026-09-20:
 
-**Why:** without scaling, a country round was a guaranteed string of zeros. The
-first fix (picked-region ladder + flat fan-out) let a country round credit
-district boards at country precision; the per-level fan-out closed it.
+- `SCORE_BANDS` in `src/lib/game.js` is a frozen 50/100/200/500/1000 m ->
+  5/4/3/2/1 ladder. `calculateScore(distance)` takes distance only.
+- `/api/guess` grades the headline `gameResult.score` with it, and
+  `submitRoundScore` credits district, province and country with the SAME
+  points from the same raw distance. Every level of one round records an
+  identical number.
 
-**How to apply:** measured ladders — country 5 pts <= 6,380 m, TPHCM 442 m,
-TPHCM-Q7 62 m, HN-BADINH 50 m. `SCORE_BANDS` is NOT "the district ladder", and
-calling it that in UI copy or docs is wrong: only 20 of 58 playable districts sit
-at factor 1.00; median is 1.51 (TPHCM-BINHTAN, 15.1 km) and max 4.73
-(TPHCM-CANGIO, 47.3 km). It is the ladder for any region up to a 10 km diagonal.
-Consequence the user has not explicitly signed
-off: the Vietnam board now pays +5 for any guess within 6.4 km, so it measures
-rounds played rather than accuracy, and mixes with points banked under the old
-50 m ladder. Anything that bands, colours, or labels a score must say which
-ladder it means; the boards store no record of which one applied. Related:
-[[project-anti-cheat-invariant]] (`bands` leaks nothing — the picked region is
-already client-side).
+**The trim is a ratchet, and it is the finding worth remembering.**
+`creditScore` (`src/lib/leaderboard.js:130-154`) does `zScore` -> `zAdd(existing
++ points)` -> `zRemRangeByRank(key, 0, -(201))`. A player whose new total lands
+outside the top 200 is deleted from the sorted set, so their next round reads a
+null score and starts from zero. Their ceiling is one round's points, max 5.
+Once 200th place holds more than 5 points the board is closed to new players
+permanently. The `trimmed` flag only hides the number in the UI; it does not
+preserve the total anywhere.
+
+**Why it matters:** this is a growth/retention defect disguised as a storage
+optimisation, and no test covers it (the leaderboard suite never exceeds 200
+members).
+
+**How to apply:** when anything touches leaderboard writes, ask where a
+non-top-200 player's total lives. Also note the read-modify-write in the same
+function is not atomic — concurrent rounds under one username lose an update;
+`upstash.js` has no `zIncrBy` yet. Related: [[project-anti-cheat-invariant]].
