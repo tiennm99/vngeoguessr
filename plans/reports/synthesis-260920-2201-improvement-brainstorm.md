@@ -96,3 +96,113 @@ Vercel model), Vietnamese UI (do with a distribution push).
   turns a live round's image URL into its answer).
 - Whether Mapillary thumb URLs expire (decides daily-set caching).
 - Header overflow thresholds and PSV keyboard behaviour need one real device pass.
+
+## Review round (2026-09-20, second pass)
+
+Three independent reviews of the above:
+
+- [Findings verification](code-review-260920-2220-health-findings-verification.md)
+- [Roadmap red-team](brainstorm-260920-2220-roadmap-red-team.md)
+- [Roadmap counsel](advisory-260920-2220-roadmap-counsel.md)
+
+### Corrections to the sections above
+
+- **NaN coordinates: downgraded.** Validation does let non-finite values
+  through, but turf throws inside `calculateDistance` *before* the session is
+  deleted, so the player can retry. Residual: a 500 where a 400 belongs.
+- **Rate limiting: wrong file and wrong tool.** Next 16 replaces
+  `middleware.js` with `proxy.js`; a stale `middleware.js` can be silently
+  ignored. And a Redis-backed limiter spends the budget it protects. Vercel
+  Hobby ships one WAF rate-limit rule plus three custom rules; blocked
+  requests never reach a function. Use that.
+- **Pipelining is latency, not budget.** Upstash bills per command.
+- **Mapillary thumb URLs do not expire quickly** (~30 days). A daily set can
+  cache resolved URLs; the planned expiry fallback is unnecessary.
+- **Distance boards cost 9 of ~27 commands per round** for a board every
+  report criticised. Cutting them plus ZINCRBY plus reusing the history read
+  takes a round to ~14 commands. That is what funds any multi-round feature.
+- **"Vietnamese UI is reach not retention" is wrong as stated.** Every region
+  name in the generated tree is unaccented ASCII, the font loads `latin`
+  only, and the username modal rejects `Tiến`. This is correctness for the
+  home market, not localisation.
+- Prior health report cites several line numbers past EOF (mapillary.js,
+  player-id.js, debug/pano). Content confirmed; citations unreliable.
+
+### New findings (verified)
+
+- **Live-round answer leak, verified against production with read-only GETs.**
+  `/api/debug/pano?id=` returns coordinates for any id, unauthenticated.
+  `/api/debug/region-coverage` returns every pano `{id, lat, lng}` for a
+  district, up to 40,000 per request, billing Neon each time. The
+  `thumb_2048_url` CDN path token is stable per image, so a precomputed
+  path→coords table for a district turns a live round's image URL into its
+  answer. The "pano id stays server-side" comment in new-game buys nothing
+  while these routes are public. Coordinate exposure was a recorded
+  decision; the live-round consequence is new evidence. Triage before any
+  roadmap phase.
+- **Unawaited `/api/skip` DEL races the next round's SET** on the same
+  session key; a late DEL kills a live round.
+- **Partial credit on failed submit.** Score fan-out and distance fan-out run
+  non-atomically after the session is consumed; a distance failure returns
+  500 with scores already written and the client says "not recorded".
+- **Bare `request.json()`** in guess and skip routes turns malformed bodies
+  into 500s.
+- **Distance member id** `username:distance:Date.now()` collides within a
+  millisecond and lacks the finiteness check the score path has.
+- **Doc drift:** README/features.md say 5 provinces / 61 districts; overview
+  says 9 / 75.
+
+### Revised sequence (red-team + counsel agree on the shape)
+
+**Phase 0 — close the leak, validate input.** Gate `/api/debug/*` in
+production (delete the mapillary bbox route), one Vercel WAF rate-limit rule,
+finiteness checks, server-side username rule shared with the modal, UUID check
+on `?sessionId=`, guard `request.json()`, await the skip DEL. Fix doc drift.
+
+**Phase 1 — command budget + ratchet.** ZINCRBY, drop the top-200 score trim
+(unbounded totals, read top 200; kills the ratchet), decide whether the
+distance boards earn their 9 commands. Add the two-command daily stats
+counter (`HINCRBY stats:date level:band`, `PFADD stats:players:date pid`,
+90-day TTL) and a `scripts/stats.mjs` reader. Read the real Upstash meter.
+
+**Phase 2 — small player-facing wins.** Expiry copy, phone header overflow,
+stale tooltips, dynamic PanoramaViewer, "explore this spot" link, region-hit
+line ("right province, wrong district", free: boundaries are server-side),
+static OG image per region.
+
+**Phase 3 — one-round daily + streak + share text, no daily board.** Wordle
+shape. A run structure is not a prerequisite; `seededPick(date, n=1)`
+extends later. A cookie-farmable daily board is worse than none.
+
+**Phase 4 — Vietnamese correctness.** Accented region names in the tree,
+font subset, username regex `\p{L}\p{N}`.
+
+**Phase 5 — measure, then decide.** If fewer than ~20 players/day after
+phase 3, the next slice is distribution (Mapillary forum, geography-teacher
+groups, the pre-2025-merger geography angle), not more mechanics. Only then:
+5-round runs, scoring gradient, board model.
+
+### Recommended defaults for the five decisions (from counsel; override freely)
+
+1. Board model: drop the score trim, unbounded totals, display top 200.
+2. Debug routes: gate in production; delete `/api/debug/mapillary`.
+3. Identity: localStorage forever; never build a feature that needs trusted
+   identity (so no daily board, no duels).
+4. Scoring feedback: display-only closeness plus region-hit line; ladder
+   untouched.
+5. Music: keep default-on, start on Play click or modal close; keydown unlock
+   only for Enter/Space.
+
+### Cut entirely
+
+Distance boards (pending decision), daily leaderboard, Upstash limiter,
+pipelining-as-budget, challenge-a-friend, duels, panorama movement, curated
+landmarks pool, hints-for-points, accounts, Zalo SDK, three-level weekly
+fan-out, keyset draw, component tests for now.
+
+### Still unresolved
+
+- Actual visitors/day and Upstash monthly command count.
+- Was the debug-route coordinate exposure accepted knowing a live round's
+  answer is one lookup away? Recorded decision; needs the maintainer.
+- Province boundary GeoJSON size if region-hit runs server-side per guess.

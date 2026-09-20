@@ -1,0 +1,1 @@
+- [Roadmap counsel 2026-09](project-roadmap-counsel-2026-09.md) — slice advised 2026-09-20 (hygiene+ratchet+stats, then 5-round run+share); check what shipped before re-advising
