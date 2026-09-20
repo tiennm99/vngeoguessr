@@ -12,9 +12,9 @@
 - **Mapillary Graph API**: one call per round -- lookup by image id, ~230ms.
   Its `/images?bbox=` search is deliberately off the game path: it returns HTTP
   500 in every dense district, because it counts images inside the box before
-  applying the limit. See the header of `src/lib/mapillary.js`.
-  `api/debug/mapillary/route.js` keeps the search as a diagnostic, and will
-  reproduce those 500s
+  applying the limit. See the header of `src/lib/mapillary.js`. The debug
+  route that used to exercise that search was removed: it was an open proxy
+  spending the API token on a call the game never makes
 - **Leaflet**: Interactive mapping library for guess placement
 - **Map tiles**: `src/lib/map-tiles.js` picks the provider at build time —
   Geoapify (`NEXT_PUBLIC_GEOAPIFY_KEY` set; free tier permits commercial use)
@@ -48,10 +48,11 @@
 - **Credential Flexibility**: Accepts `UPSTASH_REDIS_REST_URL`+`UPSTASH_REDIS_REST_TOKEN` (vanilla Upstash) or `KV_REST_API_URL`+`KV_REST_API_TOKEN` (Vercel Marketplace aliases)
 - **Multi-tenant Key Prefix**: All physical keys carry `KEY_PREFIX` (default `vngeoguessr:`) to safely share Upstash DB with other Vercel projects. Prefix applied centrally in `src/lib/upstash.js`; callers use logical keys only.
 - **Key Namespaces**: `session:{id}` (30-min TTL), `leaderboard:{scope}`,
-  `distance:{scope}` (no expiry). `{scope}` is `vietnam` for the country and
+  `distance:{scope}` (no expiry), `stats:{day}` and `stats:players:{day}`
+  (90-day TTL). `{scope}` is `vietnam` for the country and
   `city:{regionCode}` for every province and district -- the `city:` segment is
   kept so existing scores stay addressable
-- **Sorted Sets**: Leaderboard ranking with automatic trimming (top 200)
+- **Sorted Sets**: Leaderboard ranking; score boards untrimmed and served as a top-200 window, distance boards trimmed to 200. Hash and HyperLogLog for the daily statistics
 - **UUID v4**: Session identifier generation via built-in `crypto.randomUUID()`
 - **30-minute Session Expiry**: Automatic TTL-based cleanup
 

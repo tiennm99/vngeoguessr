@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { ArrowLeft, Beer } from 'lucide-react';
-import PanoramaViewer from './PanoramaViewer';
 import ThemeToggle from './ThemeToggle';
 import SoundToggle from './SoundToggle';
 import DonateQRModal from './DonateQRModal';
@@ -19,6 +19,18 @@ import { playSound } from '../../lib/audio';
 // regionPath(pickedRegion) -- computing it client-side from what the player
 // chose would make the reveal meaningless for a country round.
 import { getRegion, isRegion } from '../../lib/regions';
+
+// Loaded on demand like the Leaflet map: the viewer drags three.js in with
+// it, the largest chunk in the app by far, and nothing on the game screen can
+// render a panorama until a round has been fetched anyway.
+const PanoramaViewer = dynamic(() => import('./PanoramaViewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center" role="status" aria-live="polite">
+      <p className="text-neutral-300">Loading panorama...</p>
+    </div>
+  ),
+});
 
 /**
  * The result sound for a score, following the scoring ladder in lib/game.js:
@@ -223,13 +235,14 @@ export default function GameClient({ region }) {
       const data = await response.json();
       if (data.success) {
         return { ...data.gameResult, leaderboard: data.leaderboard };
-      } else {
-        console.error('Failed to submit game result:', data.error);
-        return null;
       }
+      console.error('Failed to submit game result:', data.error);
+      // The server says why. An expired round and a write failure used to
+      // share one message, and only one of them is anything the player did.
+      return { failed: true, reason: data.reason ?? null };
     } catch (error) {
       console.error('Failed to submit game result:', error);
-      return null;
+      return { failed: true, reason: null };
     }
   };
 
@@ -291,7 +304,7 @@ export default function GameClient({ region }) {
     try {
       const submitted = await submitGameResult(guessCoordinates);
 
-      if (submitted) {
+      if (submitted && !submitted.failed) {
         setSessionRounds((rounds) => rounds + 1);
         setSessionPoints((points) => points + (submitted.score ?? 0));
         setResult({
@@ -302,13 +315,16 @@ export default function GameClient({ region }) {
           scoreLevels: submitted.levels ?? [],
           distanceLevels: submitted.distanceLevels ?? [],
           resolvedPath: submitted.region?.path ?? null,
+          // 'district' | 'province' | 'none': how much of the answer's region
+          // the guess shared. Display only.
+          hit: submitted.hit ?? 'none',
           leaderboardMessage: submitted.leaderboard?.message ?? '',
         });
         if (mountedRef.current) playSound(resultSound(submitted.score ?? 0));
       } else {
         // The guess did not record. Say so instead of rendering a 99999m round,
         // which reads as a real miss and is indistinguishable from one.
-        setResult({ failed: true });
+        setResult({ failed: true, reason: submitted?.reason ?? null });
         if (mountedRef.current) playSound('error');
       }
     } catch (error) {
@@ -316,7 +332,7 @@ export default function GameClient({ region }) {
       // recorded. One representation for both, so the screen cannot show a
       // confident 99999m miss for a round the server never saw.
       console.error('Error submitting guess:', error);
-      setResult({ failed: true });
+      setResult({ failed: true, reason: null });
       if (mountedRef.current) playSound('error');
     }
 
@@ -387,13 +403,15 @@ export default function GameClient({ region }) {
     resetRoundState();
     prefetchRef.current = null;
     roundEpochRef.current += 1;
-    const currentSession = sessionId;
     setSessionId(null);
     // Skip is also the way out of the error panel; leaving the error up would
     // suppress the spinner and read as a hang while the new round loads.
     setLoadError(null);
     setRoundLoading(true);
-    const loaded = await loadRound(region, currentSession, roundEpochRef.current);
+    // A fresh id, never the one just skipped: the DEL above is still in
+    // flight, and reusing the id let it land after the new round's write and
+    // delete a live session.
+    const loaded = await loadRound(region, null, roundEpochRef.current);
     if (!loaded) setRoundLoading(false);
   };
 
@@ -443,16 +461,20 @@ export default function GameClient({ region }) {
 
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-foreground hidden sm:inline">VNGeoGuessr</span>
-          <Badge variant="brand" className="text-xs">
+          {/* Truncates rather than pushing the controls off a 360px screen:
+              a long district name loses its tail, not the mute button. */}
+          <Badge variant="brand" className="max-w-[8rem] truncate text-xs sm:max-w-none" title={regionName}>
             {regionName}
           </Badge>
           {/* This visit's tally; invisible until the first round lands so the
-              header opens no colder than it used to. */}
+              header opens no colder than it used to, and hidden on phones,
+              where the header has no spare width -- the result dialog carries
+              the same numbers. */}
           {sessionRounds > 0 && (
             <Badge
               variant="secondary"
-              className="text-xs tabular-nums"
-              title={`${sessionPoints} headline points in ${sessionRounds} ${sessionRounds === 1 ? 'round' : 'rounds'} this visit — leaderboards grade each board on its own scale`}
+              className="hidden text-xs tabular-nums sm:inline-flex"
+              title={`${sessionPoints} points in ${sessionRounds} ${sessionRounds === 1 ? 'round' : 'rounds'} this visit`}
             >
               {sessionRounds} {sessionRounds === 1 ? 'round' : 'rounds'} · {sessionPoints} pts
             </Badge>
@@ -460,7 +482,16 @@ export default function GameClient({ region }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          {/* Both toggles collapse to one cell below sm. Two full groups are
+              seven 44px cells, which with Back, the region badge and the beer
+              button is more than a 360px header holds; the overflow used to
+              clip the right-hand controls out of reach after the first round. */}
+          <span className="sm:hidden">
+            <ThemeToggle compact />
+          </span>
+          <span className="hidden sm:inline">
+            <ThemeToggle />
+          </span>
           {/* Two variants, swapped by breakpoint rather than by a resize
               listener: below sm the header has no room for a second pair of
               44px cells beside ThemeToggle's three, so sound collapses to one
@@ -595,6 +626,7 @@ export default function GameClient({ region }) {
         guessCoordinates={guessCoordinates}
         username={username}
         regionName={regionName}
+        regionCode={pickedRegion?.code ?? 'VN'}
         onNextRound={handleNextRound}
         onMenu={handleGoBack}
       />

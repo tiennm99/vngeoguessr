@@ -4,7 +4,7 @@ A GeoGuessr clone focused on Vietnamese locations with accurate boundary detecti
 
 ## 🎮 Features
 
-- **Region Tree**: Whole country, 5 provinces, 61 districts — including Da Lat (Lam Dong) and Duc Hoa (Long An)
+- **Region Tree**: Whole country, 9 provinces, 75 districts — including Da Lat (Lam Dong) and Duc Hoa (Long An)
 - **360° Street View**: Mapillary panoramic images with PhotoSphere viewer
 - **Anti-Cheat Security**: Server-side session management prevents cheating
 - **Distance-Based Scoring**: 0-5 point system based on accuracy

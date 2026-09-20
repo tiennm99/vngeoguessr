@@ -127,7 +127,7 @@ points added at every level are the same number.
 - **Score Leaderboards**: Accumulated scoring system with single entry per user
 - **Distance Leaderboards**: Best distance records with multiple entries per user allowed
 - **Redis Sorted Sets**: Persistent storage using ZADD/ZRANGE operations
-- **Top 200 Limit**: Automatic trimming per leaderboard to maintain top performers only
+- **Top 200 Window**: Score boards serve their top 200 but keep every total; distance boards are trimmed to 200
 - **Score Accumulation**: New scores added to existing totals in score leaderboards
 - **Distance Records**: Each game creates new timestamped distance record entry
 - **Real-time Ranking**: Dynamic rank calculation using ZREVRANK/ZRANK for all leaderboard types

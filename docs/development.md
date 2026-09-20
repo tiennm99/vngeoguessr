@@ -56,6 +56,16 @@ reads, with placeholders only. The sections below explain each one.
 **Mapillary (required)**:
 - `MAPILLARY_ACCESS_TOKEN` - Mapillary API token for image fetching
 
+**Debug API (optional)**:
+- `DEBUG_ACCESS_KEY` - On Vercel production the `/api/debug/*` routes return
+  404 unless the request carries this value as the `x-debug-key` header or the
+  `vng_debug` cookie. Unset, they are closed in production. Off production
+  (`VERCEL_ENV` not `production`) they are always open
+
+**Link previews (optional)**:
+- `NEXT_PUBLIC_SITE_URL` - Absolute origin for Open Graph URLs. Defaults to
+  Vercel's production URL, then `http://localhost:3000`
+
 **Map tiles (optional)**:
 - `NEXT_PUBLIC_GEOAPIFY_KEY` - Geoapify API key. When set (at build time), all
   Leaflet maps serve tiles from Geoapify, whose free tier permits commercial

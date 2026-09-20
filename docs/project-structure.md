@@ -47,7 +47,6 @@ Next.js 16 App Router structure:
 - `debug/page.js` - Debug hub: lists every debug tool as a peer
 - `debug/layout.js` - Shared shell for all debug pages: app bar, DebugNav, theme
 - `debug/DebugNav.js` - Segmented peer navigation shown on every debug page
-- `debug/bbox/page.js` - Bbox visualization and live Mapillary probing
 - `debug/coverage/page.js` - Panorama coverage map, per region
 - `debug/coverage/CoverageMap.js` - Leaflet layer for that page
 
@@ -56,9 +55,8 @@ Next.js 16 App Router structure:
 - `guess/route.js` - Processes guess submissions, scores, and fans out
 - `leaderboard/route.js` - Leaderboard data management with Redis
 - `skip/route.js` - Skip current round functionality
-- `debug/mapillary/route.js` - Mapillary API debugging and testing
-- `debug/pano/route.js` - Resolve one panorama id to an image
-- `debug/region-coverage/route.js` - A region's outline and panorama points
+- `debug/pano/route.js` - Resolve one panorama id to an image (closed in production without the debug key)
+- `debug/region-coverage/route.js` - A region's outline and panorama points (same gate)
 
 #### React Components (`src/app/components/`)
 - `AppBackground.js` - The key art (`public/bg.png`) on one fixed layer under
@@ -128,7 +126,8 @@ Neon Postgres, which is what the app queries at runtime.
 - `pano-db.js` - **Server-side only.** Neon HTTP adapter behind pano-index.js
 - `region-request.js` - Resolves and validates a region code from a request
 - `game.js` - Scoring ladder, distance, formatting
-- `username.js` - Player name in localStorage, plus the random-name generator
+- `username.js` - Player name in localStorage, the random-name generator, and
+  `validateUsername`, the one rule the name prompt and `/api/guess` share
 - `last-region.js` - Last-played region in localStorage (the home page's
   "Continue in ..." row)
 - `leaderboard.js` - Leaderboard operations, including the district to province
@@ -139,6 +138,12 @@ Neon Postgres, which is what the app queries at runtime.
 - `pano-history.js` - **Server-side only.** The last 50 panoramas a player was
   shown, in Redis with a rolling 3-day expiry
 - `session.js` - Redis-based session management with 30-min expiry
+- `stats.js` - **Server-side only.** Daily round counts and distinct-player
+  HyperLogLog in Redis, 90-day TTL; read by `scripts/stats.mjs`
+- `region-locate.js` - **Server-side only.** Which region a map point falls in,
+  from the generated boundaries; feeds the result dialog's region-hit line
+- `debug-access.js` - The production gate on `/api/debug/*`
+- `share.js` - Client-safe share text for a round and the share-sheet call
 - `upstash.js` - Upstash Redis REST client adapter with multi-tenant key prefix
 - `theme.js`, `use-count-up.js` - Theme persistence and a count-up hook
 - `audio.js` - **Client-side only.** The audio context, its first-gesture
@@ -153,15 +158,15 @@ Each carries a header comment with its flags and its cost.
 - `assign-pano-districts.mjs` - Clips and partitions panoramas by district
 - `seed-pano-db.mjs` - Validates the artifacts and uploads them to Neon
 - `build-check.mjs` - Production build into `.next-check`
+- `stats.mjs` - Print the daily play statistics from Redis (`npm run stats`)
 - `lib/assign-districts.mjs` - District assignment shared by the two pano scripts
 - `lib/pano-schema.mjs` - Panorama table DDL shared by the seed and the tests
 
 ## Tests (`tests/`)
 Vitest, mostly one file per `src/lib/` module, plus a route test for
-`new-game`, `guess`, and `debug/region-coverage`. The `skip`, `leaderboard`,
-`debug/mapillary`, and `debug/pano` routes have no dedicated test file; their
-underlying `src/lib/` logic (`leaderboard.js`, `mapillary.js`) is still
-covered. `fake-upstash-redis.js`, `mock-upstash.js`, `redis-harness.js` and
+`new-game`, `guess`, `skip`, and `debug/region-coverage`. The `leaderboard`
+and `debug/pano` routes have no dedicated test file; their underlying
+`src/lib/` logic (`leaderboard.js`, `mapillary.js`) is still covered. `fake-upstash-redis.js`, `mock-upstash.js`, `redis-harness.js` and
 `wait-for-srh.js` are the shared harness that lets the same files run against
 either the in-memory fake or a real Redis. `fake-neon.js`, `mock-neon.js` and
 `pano-fixtures.js` are the equivalent for the panorama store: PGlite behind the

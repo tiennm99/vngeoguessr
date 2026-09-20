@@ -18,9 +18,33 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Deployment URL for absolute Open Graph URLs. Vercel sets the production
+// hostname; a build anywhere else falls back to localhost, which only affects
+// link previews.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
+  ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : 'http://localhost:3000');
+
+const DESCRIPTION = "Guess where you are in Vietnam from real street view. Free, no account.";
+
 export const metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "VNGeoGuessr",
-  description: "GeoGuessr for VietNam",
+  description: DESCRIPTION,
+  // What a shared link unfurls to in a chat. The per-region pages override the
+  // title and description with the region's name.
+  openGraph: {
+    type: "website",
+    siteName: "VNGeoGuessr",
+    title: "VNGeoGuessr",
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: "summary",
+    title: "VNGeoGuessr",
+    description: DESCRIPTION,
+  },
 };
 
 // light dark lets the OS preference drive native controls, scrollbars and form

@@ -49,9 +49,14 @@ export async function generateMetadata({ params }) {
   // reverses it, and the country is the same word on all 85.
   const place = regionPath(code).slice(1).reverse().join(', ') || name;
 
+  const title = `${name} — VNGeoGuessr`;
+  const description = `Guess where you are in ${place}, from street view.`;
   return {
-    title: `${name} — VNGeoGuessr`,
-    description: `Guess where you are in ${place}, from street view.`,
+    title,
+    description,
+    // The share text links here, so this is the page a chat unfurls.
+    openGraph: { title, description, url: `/game/${regionSlug(code)}` },
+    twitter: { title, description },
   };
 }
 

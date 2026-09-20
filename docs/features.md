@@ -1,7 +1,7 @@
 # Game Features
 
 ## Location Coverage
-- **Three-level region tree**: Vietnam → five provinces → 61 districts and towns,
+- **Three-level region tree**: Vietnam → nine provinces → 75 districts and towns,
   generated into `src/data/regions/` and traversed through `src/lib/regions.js`
 - **Play at any level**: the whole country, one province, or one district
 - **Pre-2025-merger boundaries**: Da Lat sits under Lam Dong, Duc Hoa under Long An
@@ -27,7 +27,9 @@
   telling the player a region they can see has no coverage
 - **The player identity behind that is a cookie and nothing more**: `vng_pid` is
   an httpOnly UUID the server mints, holds no personal data, is never shown to
-  the player, and is never joined to their username or scores. It is not the
+  the player, and is never joined to their username or scores. Its one other
+  use is a HyperLogLog of distinct players per day (see Play statistics), which
+  can be counted but never read back. It is not the
   username, deliberately — that lives in localStorage, is renameable, and is
   shared by anyone who types it
 - **Panoramas only**: non-panoramic images are filtered out when the index is
@@ -52,13 +54,35 @@
 
 ## Anti-Cheat Security
 - **Redis Session Management**: target coordinates stored server-side in Redis
+- **Debug API closed in production**: `/api/debug/pano` and
+  `/api/debug/region-coverage` return panorama coordinates, which is the answer
+  to any live round. On Vercel production they answer only a request carrying
+  `DEBUG_ACCESS_KEY` as the `x-debug-key` header or the `vng_debug` cookie
+  (`src/lib/debug-access.js`); unset, they are closed. Local, test and preview
+  deployments keep them open. The `/debug` pages still render in production
+  but their data calls fail without the key
+- **Validated input**: the username rule lives once in `src/lib/username.js`
+  (2-20 characters of letters, digits, `-`, `_`, any script) and is enforced by
+  the name prompt and by `/api/guess`; a colon is excluded because the distance
+  boards pack `username:distance:timestamp` into one member. Guess coordinates
+  must be finite numbers, checked before the session is consumed so a malformed
+  submit costs nothing. A `sessionId` that is not a UUID is replaced on
+  `/api/new-game` and rejected on `/api/skip`; only server-minted ids reach the
+  keyspace
 - **Server-resolved region**: the district a panorama sits in is decided at
   session creation and never sent to the client; a `regionCode` in the guess
   request body is ignored
 - **UUID Session IDs**: unique session identifiers via `crypto.randomUUID()`
 - **30-minute Expiry**: automatic Redis session cleanup
 - **Single-use sessions**: the session is claimed with an atomic `DEL` before any
-  score is written, so a replayed or concurrent submit scores exactly once
+  score is written, so a replayed or concurrent submit scores exactly once. The
+  failure carries a `reason` (`session-expired`, `session-consumed`,
+  `invalid-guess`, `invalid-username`, `invalid-request`) and the result dialog
+  words each one differently, so an expired round is not reported as a failed
+  write
+- **Skipped rounds get a fresh id**: the skip request deletes the old session
+  without being awaited, so the next round never reuses that id -- a late
+  delete used to land after the new round's write and kill it
 - **Server-side Calculations**: all distance and scoring computed server-side
   using Turf.js
 
@@ -76,6 +100,14 @@ the region the player picked does not change a threshold (`SCORE_BANDS` in
 A guess is graded on absolute precision, so a point means the same thing on
 every board and a country round is only won by pinning the street. The ladder
 is shown on the result dialog.
+
+Below 3 points the dialog adds one display-only line the ladder cannot say:
+"Right district", "Right province, wrong district" or "Wrong province". The
+server locates the guess against the generated boundaries
+(`src/lib/region-locate.js`, server-only) and returns it as `hit` and
+`guessedRegion` on `gameResult`. It changes no score. After the reveal the
+dialog also links the answer's coordinates to OpenStreetMap -- only after the
+guess, never before.
 
 The headline score and the leaderboards agree: every board above the panorama's
 district is credited the same points for the round (`submitRoundScore` in
@@ -120,10 +152,38 @@ ladder stay on the boards as they were recorded.
   into Lam Dong's and Duc Hoa's into Long An's by a one-shot copy script
   (applied and verified 2026-09-01, then removed; it survives in git history).
   No score was reset
-- **Redis Sorted Sets**: persistent leaderboard data using ZADD/ZRANGE
-- **Top 200 Entries**: automatic trimming per leaderboard
+- **Redis Sorted Sets**: persistent leaderboard data using ZINCRBY/ZADD/ZRANGE
+- **Score boards are never trimmed; the top 200 is a serving window**: a score
+  board holds one member per name, so it grows with the player count. It used
+  to be trimmed to 200, which deleted the running total of anyone below the
+  cut -- their next round restarted from zero, and once 200th place held more
+  than one round's points nobody new could ever get on. Distance boards gain a
+  member every round and are still trimmed to 200. Scores are added with one
+  atomic ZINCRBY, so two rounds under one name finishing together both count
 - **Real-time Ranking**: rank calculated with ZREVRANK/ZRANK
 - **Persistent Storage**: no expiration on leaderboard data
 
 The `leaderboard:city:` / `distance:city:` key prefix is kept deliberately —
 renaming it would orphan every score already recorded under it.
+
+## Sharing
+- **Share button on the result dialog**: builds three lines -- the picked
+  region, the score as five squares with the distance, and the region's
+  `/game/{slug}` URL (`src/lib/share.js`) -- and hands them to the platform
+  share sheet, or the clipboard where there is none. Never coordinates, the
+  panorama id or the resolved district: the same panorama can be dealt again
+- **Link previews**: the root layout and every region page carry Open Graph
+  and Twitter card metadata, so a shared link unfurls with the region's name.
+  `metadataBase` comes from `NEXT_PUBLIC_SITE_URL`, else Vercel's production
+  URL, else localhost
+
+## Play statistics
+- **Two keys per UTC day** (`src/lib/stats.js`): `stats:{day}` is a hash of
+  round counts keyed `{pickedLevel}:{score}`; `stats:players:{day}` is a
+  HyperLogLog of `vng_pid` values. Together they give rounds/day, distinct
+  players, rounds per player, the zero-score share per level, and a return
+  rate from the union of several days against their sum. Both expire after 90
+  days. Nothing per player is stored; the HyperLogLog only counts
+- **Cost**: two Redis commands per round plus an occasional EXPIRE. A failed
+  write is logged and never fails the guess
+- **Reading them**: `npm run stats [days]` prints the last N days
