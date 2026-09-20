@@ -57,6 +57,9 @@ const LEAF_TOLERANCE = 0.0001; // ~11m
 //   center    Optional override. The computed centre of mass of an irregular
 //             outline can land somewhere no one associates with the place, so
 //             the five original entry points keep their hand-picked centres.
+//   nameVi    The accented Vietnamese name, shown to players. Provinces state
+//             it; a leaf's is derived from its query (see vietnameseName) and
+//             only needs stating where the derivation would mislead.
 //
 // To add a province: add its node and its leaves here, run this script, then
 // scripts/build-pano-index.mjs and scripts/assign-pano-districts.mjs. No
@@ -68,7 +71,7 @@ const REGIONS = {
 
   // -- Ha Noi ---------------------------------------------------------------
   // Not merged in 2025, but split here into its 30 pre-2025 units.
-  HN: { name: 'Ha Noi', level: 'province', parent: 'VN', center: [21.0285, 105.8542], legacyBbox: [105.28896, 20.56452, 106.02004, 21.38542] },
+  HN: { name: 'Ha Noi', nameVi: 'Hà Nội', level: 'province', parent: 'VN', center: [21.0285, 105.8542], legacyBbox: [105.28896, 20.56452, 106.02004, 21.38542] },
   'HN-BADINH': { name: 'Ba Dinh', level: 'district', parent: 'HN', query: 'Quận Ba Đình, Hà Nội, Việt Nam' },
   'HN-HOANKIEM': { name: 'Hoan Kiem', level: 'district', parent: 'HN', query: 'Quận Hoàn Kiếm, Hà Nội, Việt Nam' },
   'HN-TAYHO': { name: 'Tay Ho', level: 'district', parent: 'HN', query: 'Quận Tây Hồ, Hà Nội, Việt Nam' },
@@ -102,7 +105,7 @@ const REGIONS = {
 
   // -- Ho Chi Minh ----------------------------------------------------------
   // Districts 2 and 9 are absent on purpose: both merged into Thu Duc in 2021.
-  TPHCM: { name: 'Ho Chi Minh', level: 'province', parent: 'VN', center: [10.8231, 106.6297], legacyBbox: [106.46356, 10.35828, 107.02758, 10.92934] },
+  TPHCM: { name: 'Ho Chi Minh', nameVi: 'Hồ Chí Minh', level: 'province', parent: 'VN', center: [10.8231, 106.6297], legacyBbox: [106.46356, 10.35828, 107.02758, 10.92934] },
   'TPHCM-Q1': { name: 'District 1', level: 'district', parent: 'TPHCM', query: 'Quận 1, Thành phố Hồ Chí Minh, Việt Nam' },
   'TPHCM-Q3': { name: 'District 3', level: 'district', parent: 'TPHCM', query: 'Quận 3, Thành phố Hồ Chí Minh, Việt Nam' },
   'TPHCM-Q4': { name: 'District 4', level: 'district', parent: 'TPHCM', query: 'Quận 4, Thành phố Hồ Chí Minh, Việt Nam' },
@@ -132,7 +135,7 @@ const REGIONS = {
   // -- Da Nang --------------------------------------------------------------
   // Hoang Sa is administratively part of Da Nang but is a disputed offshore
   // island group with no street imagery, so it is deliberately left out.
-  DN: { name: 'Da Nang', level: 'province', parent: 'VN', center: [16.0544, 108.2022], legacyBbox: [107.81854, 15.91799, 108.33864, 16.2255] },
+  DN: { name: 'Da Nang', nameVi: 'Đà Nẵng', level: 'province', parent: 'VN', center: [16.0544, 108.2022], legacyBbox: [107.81854, 15.91799, 108.33864, 16.2255] },
   'DN-HAICHAU': { name: 'Hai Chau', level: 'district', parent: 'DN', query: 'Quận Hải Châu, Đà Nẵng, Việt Nam' },
   'DN-THANHKHE': { name: 'Thanh Khe', level: 'district', parent: 'DN', query: 'Quận Thanh Khê, Đà Nẵng, Việt Nam' },
   'DN-SONTRA': { name: 'Son Tra', level: 'district', parent: 'DN', query: 'Quận Sơn Trà, Đà Nẵng, Việt Nam' },
@@ -144,14 +147,14 @@ const REGIONS = {
   // -- Lam Dong / Long An ---------------------------------------------------
   // DL and DH keep bare codes because their leaderboard keys already exist
   // under those names. Every leaf added since is prefixed with its province.
-  LD: { name: 'Lam Dong', level: 'province', parent: 'VN', partialCoverage: 'one town covered', legacyBbox: [108.31521, 11.80798, 108.5944, 12.00855] },
+  LD: { name: 'Lam Dong', nameVi: 'Lâm Đồng', level: 'province', parent: 'VN', partialCoverage: 'one town covered', legacyBbox: [108.31521, 11.80798, 108.5944, 12.00855] },
   DL: { name: 'Da Lat', level: 'district', parent: 'LD', query: 'Thành phố Đà Lạt, Việt Nam', center: [11.9404, 108.4583] },
 
   // Long An covers three of its districts now, so legacyBbox is the whole
   // pre-2025 province rather than the extent of Duc Hoa alone -- a leaf
   // lookup is rejected when its centre falls outside the parent box, and
   // Ben Luc and Can Giuoc both sit well south of Duc Hoa.
-  LA: { name: 'Long An', level: 'province', parent: 'VN', partialCoverage: 'three districts covered', legacyBbox: [105.45, 10.35, 106.85, 11.1] },
+  LA: { name: 'Long An', nameVi: 'Long An', level: 'province', parent: 'VN', partialCoverage: 'three districts covered', legacyBbox: [105.45, 10.35, 106.85, 11.1] },
   DH: { name: 'Duc Hoa', level: 'district', parent: 'LA', query: 'Đức Hòa, Việt Nam', center: [10.8888, 106.3825] },
   'LA-BENLUC': { name: 'Ben Luc', level: 'district', parent: 'LA', query: 'Bến Lức, Việt Nam' },
   'LA-CANGIUOC': { name: 'Can Giuoc', level: 'district', parent: 'LA', query: 'Cần Giuộc, Việt Nam' },
@@ -159,7 +162,7 @@ const REGIONS = {
   // -- Dong Nai -------------------------------------------------------------
   // Code DNA, not DN: Da Nang holds that one. Long Khanh is left out -- its
   // panoramas fall in only two 1.1km cells, one short of playable.
-  DNA: { name: 'Dong Nai', level: 'province', parent: 'VN', partialCoverage: 'six districts covered', legacyBbox: [106.6, 10.45, 107.85, 11.6] },
+  DNA: { name: 'Dong Nai', nameVi: 'Đồng Nai', level: 'province', parent: 'VN', partialCoverage: 'six districts covered', legacyBbox: [106.6, 10.45, 107.85, 11.6] },
   'DNA-BIENHOA': { name: 'Bien Hoa', level: 'district', parent: 'DNA', query: 'Thành phố Biên Hòa, Đồng Nai, Việt Nam' },
   'DNA-NHONTRACH': { name: 'Nhon Trach', level: 'district', parent: 'DNA', query: 'Nhơn Trạch, Đồng Nai, Việt Nam' },
   'DNA-LONGTHANH': { name: 'Long Thanh', level: 'district', parent: 'DNA', query: 'Long Thành, Đồng Nai, Việt Nam' },
@@ -171,7 +174,7 @@ const REGIONS = {
   // Ben Cat is deliberately absent despite having coverage: its imagery was
   // captured in 2016, and a decade-old streetscape makes a worse round than
   // no round at all.
-  BD: { name: 'Binh Duong', level: 'province', parent: 'VN', partialCoverage: 'three cities covered', legacyBbox: [106.35, 10.85, 107.2, 11.85] },
+  BD: { name: 'Binh Duong', nameVi: 'Bình Dương', level: 'province', parent: 'VN', partialCoverage: 'three cities covered', legacyBbox: [106.35, 10.85, 107.2, 11.85] },
   'BD-DIAN': { name: 'Di An', level: 'district', parent: 'BD', query: 'Dĩ An, Việt Nam' },
   'BD-THUANAN': { name: 'Thuan An', level: 'district', parent: 'BD', query: 'Thuận An, Việt Nam' },
   'BD-THUDAUMOT': { name: 'Thu Dau Mot', level: 'district', parent: 'BD', query: 'Thủ Dầu Một, Việt Nam' },
@@ -180,11 +183,11 @@ const REGIONS = {
   // Two provinces carried by a couple of towns each, the same shape as Lam
   // Dong. Both are here for variety: everything else added alongside them is
   // the industrial ring around Ho Chi Minh City, which all looks alike.
-  TH: { name: 'Thanh Hoa', level: 'province', parent: 'VN', partialCoverage: 'two towns covered', legacyBbox: [104.35, 19.3, 106.1, 20.65] },
-  'TH-THANHHOA': { name: 'Thanh Hoa City', level: 'district', parent: 'TH', query: 'Thành phố Thanh Hóa, Thanh Hóa, Việt Nam' },
+  TH: { name: 'Thanh Hoa', nameVi: 'Thanh Hóa', level: 'province', parent: 'VN', partialCoverage: 'two towns covered', legacyBbox: [104.35, 19.3, 106.1, 20.65] },
+  'TH-THANHHOA': { name: 'Thanh Hoa City', nameVi: 'TP. Thanh Hóa', level: 'district', parent: 'TH', query: 'Thành phố Thanh Hóa, Thanh Hóa, Việt Nam' },
   'TH-SAMSON': { name: 'Sam Son', level: 'district', parent: 'TH', query: 'Sầm Sơn, Thanh Hóa, Việt Nam' },
 
-  QNA: { name: 'Quang Nam', level: 'province', parent: 'VN', partialCoverage: 'one town covered', legacyBbox: [107.1, 14.9, 108.75, 16.2] },
+  QNA: { name: 'Quang Nam', nameVi: 'Quảng Nam', level: 'province', parent: 'VN', partialCoverage: 'one town covered', legacyBbox: [107.1, 14.9, 108.75, 16.2] },
   'QNA-HOIAN': { name: 'Hoi An', level: 'district', parent: 'QNA', query: 'Hội An, Việt Nam' },
 };
 
@@ -463,6 +466,24 @@ function writeBoundaryBarrel() {
  * writer. src/lib/regions.js joins the two.
  * @param {Object} resolvedState Per-code resolution info.
  */
+/**
+ * The accented Vietnamese name of a node, for display.
+ *
+ * Leaves carry it inside their Nominatim query: "Quận Hoàn Kiếm, Hà Nội, Việt
+ * Nam" names the place as "Hoàn Kiếm" once the administrative type is dropped.
+ * The type stays when the rest is only a number ("Quận 7"), because that IS the
+ * name. The country has none: it is "Vietnam" in an English interface.
+ * @param {Object} config A REGIONS entry.
+ * @returns {string|undefined}
+ */
+function vietnameseName(config) {
+  if (config.nameVi) return config.nameVi;
+  if (!config.query) return undefined;
+  const head = config.query.split(',')[0].trim();
+  const stripped = head.replace(/^(?:Quận|Huyện|Thị xã|Thành phố)\s+/u, '');
+  return /^\d+$/.test(stripped) ? head : stripped;
+}
+
 function writeTree(resolvedState) {
   const nodes = Object.entries(REGIONS).map(([code, config]) => {
     const state = resolvedState[code] ?? {};
@@ -473,6 +494,8 @@ function writeTree(resolvedState) {
       level: config.level,
       children: childrenOf(code),
     };
+    const nameVi = vietnameseName(config);
+    if (nameVi) node.nameVi = nameVi;
     if (state.center) node.center = state.center;
     if (state.bbox) node.bbox = state.bbox;
     if (config.partialCoverage) node.partialCoverage = config.partialCoverage;

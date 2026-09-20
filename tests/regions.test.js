@@ -134,7 +134,7 @@ describe('ancestry', () => {
   });
 
   it('renders an outermost-first path', () => {
-    expect(regionPath('DL')).toEqual(['Vietnam', 'Lam Dong', 'Da Lat']);
+    expect(regionPath('DL')).toEqual(['Vietnam', 'Lâm Đồng', 'Đà Lạt']);
   });
 
   it('rejects an unknown code with the known ones listed', () => {

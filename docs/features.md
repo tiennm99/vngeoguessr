@@ -3,6 +3,13 @@
 ## Location Coverage
 - **Three-level region tree**: Vietnam → nine provinces → 75 districts and towns,
   generated into `src/data/regions/` and traversed through `src/lib/regions.js`
+- **Names shown in Vietnamese**: every province and district carries an
+  accented `nameVi` ("Hoàn Kiếm", "Quận 7"), derived by the boundary script
+  from its OSM query, and `regionName()` in `src/lib/regions.js` is what the
+  interface, the API's `region.name` and the share text show. The ASCII `name`
+  stays as the stable form for codes, logs and search aliases; the map search
+  matches either spelling. The country stays "Vietnam" in an English
+  interface. The font loads the `vietnamese` subset for the glyphs
 - **Play at any level**: the whole country, one province, or one district
 - **Pre-2025-merger boundaries**: Da Lat sits under Lam Dong, Duc Hoa under Long An
 - **Partial by design**: see the Coverage note in [project-overview.md](project-overview.md)

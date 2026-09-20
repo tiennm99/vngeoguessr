@@ -18,7 +18,7 @@ import { playSound } from '../../lib/audio';
 // The revealed path comes from /api/guess (the RESOLVED district), not from
 // regionPath(pickedRegion) -- computing it client-side from what the player
 // chose would make the reveal meaningless for a country round.
-import { getRegion, isRegion } from '../../lib/regions';
+import { getRegion, isRegion, regionName as regionNameOf } from '../../lib/regions';
 import { dailyDay } from '../../lib/daily-calendar';
 import { getDailyProgress, saveDailyResult, currentStreak } from '../../lib/daily-progress';
 
@@ -135,7 +135,7 @@ export default function GameClient({ region, daily = false }) {
   // than the load-bearing check it used to be when the code came from a query
   // string this component read itself.
   const pickedRegion = isRegion(region) ? getRegion(region) : null;
-  const regionName = pickedRegion ? pickedRegion.name : 'Vietnam';
+  const regionName = pickedRegion ? regionNameOf(pickedRegion.code) : 'Vietnam';
 
   const initializingRef = useRef(false);
   // The next round, fetched while the result dialog is open so Next Round can

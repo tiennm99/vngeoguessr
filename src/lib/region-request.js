@@ -4,7 +4,7 @@
 // or defaulting slightly differently is how a typo becomes a leaderboard key
 // nobody reads.
 
-import { getRegion, isRegion, isPlayable, regionPath, COUNTRY_CODE } from './regions.js';
+import { getRegion, isRegion, isPlayable, regionPath, COUNTRY_CODE, regionName } from './regions.js';
 
 /**
  * A 400-shaped failure a route can return directly.
@@ -56,7 +56,7 @@ export function resolvePlayableRegion(searchParams) {
   if (!resolved.ok) return resolved;
 
   if (!isPlayable(resolved.code)) {
-    return reject(`${getRegion(resolved.code).name} has no street view coverage yet`);
+    return reject(`${regionName(resolved.code)} has no street view coverage yet`);
   }
   return resolved;
 }
@@ -74,7 +74,7 @@ export function publicRegion(code) {
   const region = getRegion(code);
   return {
     code,
-    name: region.name,
+    name: regionName(code),
     path: regionPath(code),
     level: region.level,
   };

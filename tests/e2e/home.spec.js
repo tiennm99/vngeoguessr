@@ -13,15 +13,15 @@ test.beforeEach(async ({ page }) => {
 
 test('offers the country and every province', async ({ page }) => {
   await expect(page.getByRole('link', { name: /Play anywhere in Vietnam/ })).toBeVisible();
-  for (const province of ['Ha Noi', 'Ho Chi Minh', 'Da Nang', 'Lam Dong', 'Long An']) {
+  for (const province of ['Ha Noi', 'Hồ Chí Minh', 'Da Nang', 'Lam Dong', 'Long An']) {
     await expect(page.getByRole('button', { name: new RegExp(province) })).toBeVisible();
   }
 });
 
 test('expands a province to playable district links', async ({ page }) => {
-  await page.getByRole('button', { name: /Ho Chi Minh/ }).click();
-  await expect(page.getByRole('link', { name: /Play anywhere in Ho Chi Minh/ })).toBeVisible();
-  const district7 = page.getByRole('link', { name: /District 7/ });
+  await page.getByRole('button', { name: /Hồ Chí Minh/ }).click();
+  await expect(page.getByRole('link', { name: /Play anywhere in Hồ Chí Minh/ })).toBeVisible();
+  const district7 = page.getByRole('link', { name: /Quận 7/ });
   await expect(district7).toBeVisible();
   await expect(district7).toHaveAttribute('href', '/game/tphcm-q7');
 });
@@ -29,10 +29,10 @@ test('expands a province to playable district links', async ({ page }) => {
 test('lists an uncovered district as disabled, with the reason', async ({ page }) => {
   // Cu Chi has no OSM boundary left; it must be shown, not hidden, and carry
   // no game link.
-  await page.getByRole('button', { name: /Ho Chi Minh/ }).click();
-  const row = page.locator('div', { hasText: /^Cu Chino map data$/ }).last();
+  await page.getByRole('button', { name: /Hồ Chí Minh/ }).click();
+  const row = page.locator('div', { hasText: /^Củ Chino map data$/ }).last();
   await expect(row).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Cu Chi$/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^Củ Chi$/ })).toHaveCount(0);
 });
 
 test('shows the build commit in the debug footer and copies it on click', async ({ page, context }) => {

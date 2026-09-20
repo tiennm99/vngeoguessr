@@ -21,6 +21,7 @@ import {
   isUnresolved,
   provinces,
   regionSlug,
+  regionName,
 } from '../../lib/regions';
 
 /** Thousands separators, so 225,966 reads as a quantity rather than a code. */
@@ -106,7 +107,7 @@ function UnavailableRow({ code }) {
     <div
       className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-dashed border-border/60 p-4 opacity-60"
     >
-      <span className="font-medium text-muted-foreground">{getRegion(code).name}</span>
+      <span className="font-medium text-muted-foreground">{regionName(code)}</span>
       <span className="text-xs text-muted-foreground">{unavailableLabel(code)}</span>
     </div>
   );
@@ -137,7 +138,7 @@ export default function RegionPicker({ onPlayClick }) {
       <PlayRow code={COUNTRY_CODE} label="Play anywhere in Vietnam" emphasis onPlayClick={onPlayClick} />
 
       {lastRegion && (
-        <PlayRow code={lastRegion} label={`Continue in ${getRegion(lastRegion).name}`} onPlayClick={onPlayClick} />
+        <PlayRow code={lastRegion} label={`Continue in ${regionName(lastRegion)}`} onPlayClick={onPlayClick} />
       )}
 
       <Accordion type="multiple" className="grid gap-2">
@@ -154,7 +155,7 @@ export default function RegionPicker({ onPlayClick }) {
             >
               <AccordionTrigger className="hover:no-underline">
                 <span className="flex flex-1 flex-wrap items-center justify-between gap-2 pr-3">
-                  <span className="text-base font-semibold text-foreground">{region.name}</span>
+                  <span className="text-base font-semibold text-foreground">{regionName(province)}</span>
                   <span className="flex items-center gap-2 text-xs text-muted-foreground">
                     {region.partialCoverage && (
                       <span
@@ -171,10 +172,10 @@ export default function RegionPicker({ onPlayClick }) {
               </AccordionTrigger>
 
               <AccordionContent className="grid gap-2">
-                <PlayRow code={province} label={`Play anywhere in ${region.name}`} onPlayClick={onPlayClick} />
+                <PlayRow code={province} label={`Play anywhere in ${regionName(province)}`} onPlayClick={onPlayClick} />
                 {districts.map((district) =>
                   isPlayable(district) ? (
-                    <PlayRow key={district} code={district} label={getRegion(district).name} onPlayClick={onPlayClick} />
+                    <PlayRow key={district} code={district} label={regionName(district)} onPlayClick={onPlayClick} />
                   ) : (
                     <UnavailableRow key={district} code={district} />
                   )

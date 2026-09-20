@@ -27,8 +27,8 @@ export function newGameResponse(sessionId, round) {
     sessionId,
     region: {
       code: 'TPHCM',
-      name: 'Ho Chi Minh',
-      path: ['Vietnam', 'Ho Chi Minh'],
+      name: 'Hồ Chí Minh',
+      path: ['Vietnam', 'Hồ Chí Minh'],
       level: 'province',
     },
     // A distinct URL per round, as in production (the session id is NOT the
@@ -38,7 +38,7 @@ export function newGameResponse(sessionId, round) {
   };
 }
 
-/** /api/guess response: a 123m round on a TPHCM pick, revealed as District 7. */
+/** /api/guess response: a 123m round on a TPHCM pick, revealed as Quận 7. */
 export function guessResponse(username) {
   // `points` is what this round added at that level; `score` is the
   // accumulated total. Values mirror the real route: 123m is 3 points on the
@@ -52,19 +52,19 @@ export function guessResponse(username) {
       distance: 123,
       score: 3,
       levels: [
-        scoreLevel('TPHCM-Q7', 'District 7', 1, 3),
-        scoreLevel('TPHCM', 'Ho Chi Minh', 2, 3),
+        scoreLevel('TPHCM-Q7', 'Quận 7', 1, 3),
+        scoreLevel('TPHCM', 'Hồ Chí Minh', 2, 3),
         scoreLevel('VN', 'Vietnam', 5, 3),
       ],
       distanceLevels: [
-        distanceLevel('TPHCM-Q7', 'District 7', 1),
-        distanceLevel('TPHCM', 'Ho Chi Minh', 3),
+        distanceLevel('TPHCM-Q7', 'Quận 7', 1),
+        distanceLevel('TPHCM', 'Hồ Chí Minh', 3),
         distanceLevel('VN', 'Vietnam', 9),
       ],
       region: {
         code: 'TPHCM-Q7',
-        name: 'District 7',
-        path: ['Vietnam', 'Ho Chi Minh', 'District 7'],
+        name: 'Quận 7',
+        path: ['Vietnam', 'Hồ Chí Minh', 'Quận 7'],
         level: 'district',
       },
       globalRank: 5,

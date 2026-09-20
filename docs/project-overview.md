@@ -40,6 +40,9 @@ Tau, which is not what people mean by the city. Two consequences to remember:
 
 ## Coverage
 
+Region names in these docs are the ASCII `name`; players see the accented
+`nameVi` (see Location Coverage in [features.md](features.md)).
+
 Nine provinces — Ha Noi, Ho Chi Minh, Da Nang, Lam Dong, Long An, Dong Nai,
 Binh Duong, Thanh Hoa, Quang Nam — split into 75 districts and towns. Coverage
 is deliberately partial and will grow in future releases.

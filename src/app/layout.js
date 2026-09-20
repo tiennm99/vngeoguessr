@@ -8,14 +8,16 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+// Region names are shown in accented Vietnamese, so the font has to ship the
+// Vietnamese glyphs or every "Hà Nội" falls back to the system face.
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  subsets: ["latin", "vietnamese"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  subsets: ["latin", "vietnamese"],
 });
 
 // Deployment URL for absolute Open Graph URLs. Vercel sets the production

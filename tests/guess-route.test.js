@@ -82,7 +82,7 @@ describe('POST /api/guess', () => {
     const body = await (
       await guess({ username: 'mai', sessionId: 's3', guessLat: HCMC.lat, guessLng: HCMC.lng })
     ).json();
-    expect(body.gameResult.region.path).toEqual(['Vietnam', 'Ho Chi Minh', 'District 7']);
+    expect(body.gameResult.region.path).toEqual(['Vietnam', 'Hồ Chí Minh', 'Quận 7']);
   });
 
   it('cannot be replayed for double credit', async () => {

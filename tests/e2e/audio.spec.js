@@ -73,7 +73,7 @@ for (const width of [320, 360]) {
   test(`game header fits a ${width}px viewport`, async ({ page }) => {
     await page.setViewportSize({ width, height: 720 });
     await page.goto('/game/tphcm');
-    await expect(page.getByText('Ho Chi Minh', { exact: true })).toBeVisible();
+    await expect(page.getByText('Hồ Chí Minh', { exact: true })).toBeVisible();
 
     // One combined switch, not the pair: the pair is display:none here, which
     // also keeps it out of the accessibility tree.
@@ -90,7 +90,7 @@ for (const width of [320, 360]) {
 test('mutes everything from the compact switch on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 720 });
   await page.goto('/game/tphcm');
-  await expect(page.getByText('Ho Chi Minh', { exact: true })).toBeVisible();
+  await expect(page.getByText('Hồ Chí Minh', { exact: true })).toBeVisible();
 
   const mute = page.getByRole('button', { name: 'Sound', exact: true });
   await expect(mute).toHaveAttribute('aria-pressed', 'true');
@@ -116,7 +116,7 @@ test('plays on with audio files missing', async ({ page }) => {
   page.on('pageerror', (error) => errors.push(error.message));
 
   await page.goto('/game/tphcm');
-  await expect(page.getByText('Ho Chi Minh', { exact: true })).toBeVisible();
+  await expect(page.getByText('Hồ Chí Minh', { exact: true })).toBeVisible();
 
   // Effects stay ON here: muting them is what made an earlier version of this
   // test exercise only the music path.
@@ -139,7 +139,7 @@ test('plays on with audio files missing', async ({ page }) => {
 test('keeps both header variants in step across the breakpoint', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 720 });
   await page.goto('/game/tphcm');
-  await expect(page.getByText('Ho Chi Minh', { exact: true })).toBeVisible();
+  await expect(page.getByText('Hồ Chí Minh', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sound', exact: true }).click();
 

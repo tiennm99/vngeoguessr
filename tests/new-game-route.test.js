@@ -115,7 +115,7 @@ describe('GET /api/new-game', () => {
   it('rejects a region with no coverage, naming it', async () => {
     const response = await GET(request('region=TPHCM-CUCHI'));
     expect(response.status).toBe(400);
-    expect((await response.json()).error).toMatch(/Cu Chi/);
+    expect((await response.json()).error).toMatch(/Củ Chi/);
   });
 
   it('rejects a missing region', async () => {

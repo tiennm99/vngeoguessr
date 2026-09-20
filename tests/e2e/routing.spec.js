@@ -34,7 +34,7 @@ test('serves the canonical region URL without redirecting', async ({ page }) => 
   expect(response.status()).toBe(200);
   expect(landedAt(page)).toBe('/game/tphcm');
   // Landed on a real round, not an error panel.
-  await expect(page.getByText('Ho Chi Minh', { exact: true })).toBeVisible();
+  await expect(page.getByText('Hồ Chí Minh', { exact: true })).toBeVisible();
 });
 
 test('redirects the legacy ?region= form', async ({ page }) => {
@@ -74,7 +74,7 @@ test('serves an uppercase URL directly, without redirecting', async ({ page }) =
   const response = await page.goto('/game/TPHCM');
   expect(response.status()).toBe(200);
   expect(landedAt(page)).toBe('/game/TPHCM');
-  await expect(page.getByText('Ho Chi Minh', { exact: true })).toBeVisible();
+  await expect(page.getByText('Hồ Chí Minh', { exact: true })).toBeVisible();
 });
 
 test('lowercases an uppercase legacy region in one hop', async ({ page }) => {

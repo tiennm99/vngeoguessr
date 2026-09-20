@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation';
 import GameClient from '../../components/GameClient';
 import {
   allRegions,
-  getRegion,
   regionFromSlug,
+  regionName,
   regionPath,
   regionSlug,
 } from '../../../lib/regions';
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }) {
 
   if (!code) return {};
 
-  const { name } = getRegion(code);
+  const name = regionName(code);
   // Narrowest first, country dropped: 'Ba Dinh, Ha Noi' rather than
   // 'Vietnam, Ha Noi, Ba Dinh' -- regionPath returns outermost first, so this
   // reverses it, and the country is the same word on all 85.

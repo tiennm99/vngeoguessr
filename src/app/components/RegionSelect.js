@@ -13,10 +13,10 @@ import {
 import {
   COUNTRY_CODE,
   childrenOf,
-  getRegion,
   isPlayable,
   isThin,
   provinces,
+  regionName,
 } from '../../lib/regions';
 
 const LEVELS = [
@@ -70,7 +70,7 @@ export default function RegionSelect({
     }
     return provinces()
       .map((province) => ({
-        label: getRegion(province).name,
+        label: regionName(province),
         codes: childrenOf(province).filter((code) => !playableOnly || isPlayable(code)),
       }))
       .filter((group) => group.codes.length > 0);
@@ -120,7 +120,7 @@ export default function RegionSelect({
                 {group.label && <SelectLabel>{group.label}</SelectLabel>}
                 {group.codes.map((code) => (
                   <SelectItem key={code} value={code}>
-                    {getRegion(code).name}
+                    {regionName(code)}
                     {isThin(code) ? ' · few streets' : ''}
                   </SelectItem>
                 ))}

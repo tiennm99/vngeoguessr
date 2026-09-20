@@ -36,15 +36,15 @@ describe('regionSearchKeys', () => {
 
 describe('searchRegions', () => {
   it('matches Vietnamese admin phrasing against the tree names', () => {
-    expect(searchRegions('quận 7', 'TPHCM')[0].label).toBe('District 7');
-    expect(searchRegions('q7', 'TPHCM')[0].label).toBe('District 7');
-    expect(searchRegions('hoàn kiếm', 'VN')[0].label).toBe('Hoan Kiem');
-    expect(searchRegions('huyện Hóc Môn', 'VN')[0].label).toBe('Hoc Mon');
+    expect(searchRegions('quận 7', 'TPHCM')[0].label).toBe('Quận 7');
+    expect(searchRegions('q7', 'TPHCM')[0].label).toBe('Quận 7');
+    expect(searchRegions('hoàn kiếm', 'VN')[0].label).toBe('Hoàn Kiếm');
+    expect(searchRegions('huyện Hóc Môn', 'VN')[0].label).toBe('Hóc Môn');
   });
 
   it('scopes results to the played region', () => {
     expect(searchRegions('district 1', 'HN')).toEqual([]);
-    expect(searchRegions('tay ho', 'HN')[0].label).toBe('Tay Ho');
+    expect(searchRegions('tay ho', 'HN')[0].label).toBe('Tây Hồ');
   });
 
   it('returns nothing for junk or too-short queries', () => {

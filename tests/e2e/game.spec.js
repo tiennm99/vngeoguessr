@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 
 test('plays a round to the reveal and into the next one', async ({ page }) => {
   // Round loaded: header badge names the picked region, viewer container is up.
-  await expect(page.getByText('Ho Chi Minh', { exact: true })).toBeVisible();
+  await expect(page.getByText('Hồ Chí Minh', { exact: true })).toBeVisible();
 
   // No guess yet: the submit button says so and is disabled.
   const submit = page.getByRole('button', { name: /Place a guess first/ });
@@ -42,7 +42,7 @@ test('plays a round to the reveal and into the next one', async ({ page }) => {
   await expect(dialog).toBeVisible();
   // exact: the sr-only dialog description ("... 123m away.") also contains it.
   await expect(dialog.getByText('123m away', { exact: true })).toBeVisible();
-  await expect(dialog.getByText('Vietnam › Ho Chi Minh › District 7')).toBeVisible();
+  await expect(dialog.getByText('Vietnam › Hồ Chí Minh › Quận 7')).toBeVisible();
 
   // The bookkeeping lives behind a collapsed "Leaderboard results" section so
   // the payoff fits one viewport; open it before asserting its contents.
@@ -50,7 +50,7 @@ test('plays a round to the reveal and into the next one', async ({ page }) => {
   // The scoring ladder, with the achieved band present.
   await expect(dialog.getByText('≤200m = 3')).toBeVisible();
   await expect(dialog.getByText('Score added at 3 levels (+3, +3, +3)')).toBeVisible();
-  await expect(dialog.getByText('District 7', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Quận 7', { exact: true })).toBeVisible();
 
   // Next round resets to a fresh, unguessed state and swaps in a new image.
   await dialog.getByRole('button', { name: 'Next Round' }).click();

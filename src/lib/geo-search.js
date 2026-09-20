@@ -7,7 +7,7 @@
 // test in tests/geo-search.test.js enforces that this module never grows a
 // path to pano-index.js, pano-db.js, or the boundary barrel.
 
-import { allRegions, getRegion, ancestorsOf, COUNTRY_CODE } from './regions.js';
+import { allRegions, getRegion, ancestorsOf, COUNTRY_CODE, regionName } from './regions.js';
 
 export const PHOTON_ENDPOINT = 'https://photon.komoot.io/api';
 
@@ -42,7 +42,9 @@ const ADMIN_PREFIX = /^(?:quan|q\.?|huyen|h\.?|phuong|p\.?|district|thi xa|tx\.?
  * @returns {string[]} Folded keys.
  */
 export function regionSearchKeys(region) {
-  const aliases = [foldDiacritics(region.name)];
+  // Both spellings: the ASCII name a foreign player types and the accented
+  // Vietnamese one a local does, each folded so diacritics never matter.
+  const aliases = [...new Set([region.name, region.nameVi].filter(Boolean).map(foldDiacritics))];
   const districtNumber = aliases[0].match(/^district (\d+)$/);
   if (districtNumber) {
     aliases.push(`quan ${districtNumber[1]}`, `q ${districtNumber[1]}`);
@@ -92,13 +94,13 @@ export function searchRegions(query, rootCode) {
   }
 
   return scored
-    .sort((a, b) => a.rank - b.rank || a.region.name.localeCompare(b.region.name))
+    .sort((a, b) => a.rank - b.rank || regionName(a.region.code).localeCompare(regionName(b.region.code)))
     .slice(0, 5)
     .map(({ region }) => ({
       kind: 'region',
-      label: region.name,
+      label: regionName(region.code),
       sublabel: region.parent && region.parent !== COUNTRY_CODE
-        ? getRegion(region.parent).name
+        ? regionName(region.parent)
         : 'Province',
       center: region.center ?? null,
       bbox: region.bbox ?? null,

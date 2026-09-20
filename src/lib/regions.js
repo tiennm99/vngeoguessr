@@ -36,6 +36,20 @@ export function isRegion(code) {
 }
 
 /**
+ * The name to show a player: the accented Vietnamese form where the tree has
+ * one, else the ASCII `name`. Places are named the way they are written where
+ * they are -- "Hoàn Kiếm", not "Hoan Kiem" -- and the country stays "Vietnam"
+ * because the rest of the interface is English. `name` remains the stable
+ * ASCII form for search aliases and logs.
+ * @param {string} code Region code.
+ * @returns {string}
+ */
+export function regionName(code) {
+  const region = getRegion(code);
+  return region.nameVi ?? region.name;
+}
+
+/**
  * The URL path segment for a region: `/game/tphcm-q7`.
  *
  * Codes are uppercase everywhere inside the app -- they are the keys of the
@@ -148,7 +162,7 @@ export function provinces() {
 export function regionPath(code) {
   return ancestorsOf(code)
     .reverse()
-    .map((c) => getRegion(c).name);
+    .map((c) => regionName(c));
 }
 
 /** Every node in the tree, in declaration order. */

@@ -70,8 +70,8 @@ describe('publicRegion', () => {
   it('describes what the player picked', () => {
     expect(publicRegion('TPHCM')).toEqual({
       code: 'TPHCM',
-      name: 'Ho Chi Minh',
-      path: ['Vietnam', 'Ho Chi Minh'],
+      name: 'Hồ Chí Minh',
+      path: ['Vietnam', 'Hồ Chí Minh'],
       level: 'province',
     });
   });
