@@ -166,6 +166,8 @@ Each carries a header comment with its flags and its cost.
 - `seed-pano-db.mjs` - Validates the artifacts and uploads them to Neon
 - `build-check.mjs` - Production build into `.next-check`
 - `stats.mjs` - Print the daily play statistics from Redis (`npm run stats`)
+- `export-leaderboards.mjs` - Dump every board to JSON for backup
+  (`npm run leaderboard:export`; run weekly by a GitHub Actions workflow)
 - `lib/assign-districts.mjs` - District assignment shared by the two pano scripts
 - `lib/pano-schema.mjs` - Panorama table DDL shared by the seed and the tests
 

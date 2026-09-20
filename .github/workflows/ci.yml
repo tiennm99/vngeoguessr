@@ -1,0 +1,23 @@
+# The three gates a change has to pass, run on every push and pull request.
+# Needs no secrets: every page that touches Redis, Postgres or Mapillary is
+# rendered on demand, so compiling the app never opens a connection.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:check

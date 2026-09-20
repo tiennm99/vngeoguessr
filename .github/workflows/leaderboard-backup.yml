@@ -1,0 +1,32 @@
+# Weekly copy of every leaderboard, kept as a workflow artifact for 90 days.
+# Upstash's free plan has no scheduled backups, and the boards are the only
+# player data the game holds. Needs two repository secrets, the same pair the
+# app reads: KV_REST_API_URL and KV_REST_API_TOKEN (plus KEY_PREFIX if the
+# deployment sets one).
+name: Leaderboard backup
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run leaderboard:export
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          KEY_PREFIX: ${{ secrets.KEY_PREFIX }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: leaderboard-backup
+          path: leaderboard-backup-*.json
+          retention-days: 90

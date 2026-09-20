@@ -76,6 +76,18 @@ reads, with placeholders only. The sections below explain each one.
 
 For local Redis without an Upstash account, see *Running Upstash locally* below.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs `npm run lint`, `npm test` and
+`npm run build:check` on every push to `main` or `dev` and on every pull
+request. It needs no secrets: compiling the app opens no connection.
+
+`.github/workflows/leaderboard-backup.yml` runs `npm run leaderboard:export`
+every Monday and on demand, and keeps the JSON as a workflow artifact for 90
+days. It needs the repository secrets `KV_REST_API_URL` and
+`KV_REST_API_TOKEN` (and `KEY_PREFIX` if the deployment sets one); until they
+are set the job fails harmlessly.
+
 ### Testing & Completion
 
 Tests live in `tests/` and cover the logic in `src/lib/` (scoring and distance,
