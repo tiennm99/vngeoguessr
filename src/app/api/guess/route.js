@@ -143,7 +143,10 @@ export async function POST(request) {
     const pickedLevel = isRegion(session.pickedRegion)
       ? getRegion(session.pickedRegion).level
       : 'country';
-    await recordRoundOrIgnore(pickedLevel, finalScore, readPlayerId(request));
+    // A daily round is a country round everyone plays; counted apart so the
+    // two are not confused in the zero-score share.
+    const statsLevel = session.mode === 'daily' ? 'daily' : pickedLevel;
+    await recordRoundOrIgnore(statsLevel, finalScore, readPlayerId(request));
 
     // For monitoring. Deliberately without the name or either coordinate pair:
     // the logs are not a second copy of who guessed where.

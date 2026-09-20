@@ -8,7 +8,7 @@ import { Check, ChevronDown, ExternalLink, Share2 } from 'lucide-react';
 import { formatDistance, SCORE_BANDS } from '../../lib/game';
 import { useCountUp } from '../../lib/use-count-up';
 import { regionSlug } from '../../lib/regions';
-import { buildShareText, shareText } from '../../lib/share';
+import { buildShareText, buildDailyShareText, shareText } from '../../lib/share';
 import ResultMap, { MARKER_COLORS } from './ResultMap';
 
 // Why a round was not recorded, in the player's terms. The server names the
@@ -84,6 +84,7 @@ export default function RoundResultDialog({
   username,
   regionName,
   regionCode,
+  daily,
   onNextRound,
   onMenu,
 }) {
@@ -100,8 +101,10 @@ export default function RoundResultDialog({
   const shareState = shareOutcome.result === result ? shareOutcome.state : null;
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/game/${regionSlug(regionCode)}`;
-    const text = buildShareText(regionName, score, formatDistance(result.distance), url);
+    const distance = formatDistance(result.distance);
+    const text = daily
+      ? buildDailyShareText(daily.number, score, distance, daily.streak, `${window.location.origin}/daily`)
+      : buildShareText(regionName, score, distance, `${window.location.origin}/game/${regionSlug(regionCode)}`);
     setShareOutcome({ result, state: await shareText(text) });
   };
 
@@ -131,7 +134,7 @@ export default function RoundResultDialog({
       >
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold">
-            {result?.failed ? 'Round Not Recorded' : 'Round Result'}
+            {result?.failed ? 'Round Not Recorded' : daily ? `Daily #${daily.number}` : 'Round Result'}
           </DialogTitle>
           {/* Carries the round outcome so screen readers hear it once via
               aria-describedby when the dialog opens -- a live region would
@@ -184,6 +187,13 @@ export default function RoundResultDialog({
                 {hitLine && (
                   <p className="text-sm font-medium text-foreground animate-fade-in-up" style={{ animationDelay: '400ms' }}>
                     {hitLine}
+                  </p>
+                )}
+                {daily && (
+                  <p className="text-sm text-muted-foreground animate-fade-in-up" style={{ animationDelay: '460ms' }}>
+                    {daily.streak > 1
+                      ? `🔥 ${daily.streak}-day streak. A new challenge lands at midnight, Vietnam time.`
+                      : 'Same place for everyone today. A new challenge lands at midnight, Vietnam time.'}
                   </p>
                 )}
               </div>
@@ -337,7 +347,7 @@ export default function RoundResultDialog({
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <Button onClick={onNextRound} size="lg" className="flex-[2]">
-            Next Round
+            {daily ? 'Done' : 'Next Round'}
           </Button>
           {result && !result.failed && (
             <Button
@@ -358,9 +368,11 @@ export default function RoundResultDialog({
               </span>
             </Button>
           )}
-          <Button onClick={onMenu} variant="ghost" className="flex-1">
-            Menu
-          </Button>
+          {!daily && (
+            <Button onClick={onMenu} variant="ghost" className="flex-1">
+              Menu
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

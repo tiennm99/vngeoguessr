@@ -22,6 +22,22 @@ export function buildShareText(regionName, score, distanceLabel, url) {
 }
 
 /**
+ * Build the share text for a daily challenge.
+ * @param {number} number Challenge number.
+ * @param {number} score Points earned, 0-5.
+ * @param {string} distanceLabel Formatted distance.
+ * @param {number} streak Consecutive days played.
+ * @param {string} url Absolute URL of the daily page.
+ * @returns {string}
+ */
+export function buildDailyShareText(number, score, distanceLabel, streak, url) {
+  const points = Math.min(Math.max(Math.trunc(score) || 0, 0), MAX_POINTS);
+  const squares = '🟩'.repeat(points) + '⬜'.repeat(MAX_POINTS - points);
+  const streakLine = streak > 1 ? ` · 🔥 ${streak} days` : '';
+  return `VNGeoGuessr Daily #${number}\n${squares} ${points}/${MAX_POINTS} · ${distanceLabel} away${streakLine}\n${url}`;
+}
+
+/**
  * Hand text to the platform share sheet, falling back to the clipboard.
  * @param {string} text
  * @returns {Promise<'shared'|'copied'|'failed'>} What actually happened.

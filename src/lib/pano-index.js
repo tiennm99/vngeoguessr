@@ -162,6 +162,62 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
 }
 
 /**
+ * A small, fast, non-cryptographic hash of a string (FNV-1a, 32-bit).
+ * @param {string} text
+ * @returns {number} Unsigned 32-bit value.
+ */
+function hash32(text) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Pick one panorama anywhere in the country, chosen by a seed rather than at
+ * random, so every caller with the same seed gets the same panorama.
+ *
+ * Draws the way pickRandomPano's country branch does -- a province first,
+ * uniformly, then a row within it -- so the daily challenge has the same
+ * geography as a country round. The row is addressed by rank within the
+ * province, so the pick is stable for as long as the index is; a reseed
+ * changes which row a rank names, which is fine for a challenge that only has
+ * to agree with itself for one day.
+ * @param {string} seed Any string; the same seed always yields the same pick.
+ * @returns {Promise<{id: string, lat: number, lng: number, regionCode: string}>}
+ */
+export async function pickPanoBySeed(seed) {
+  const provinces = childrenOf('VN').filter((child) => isPlayable(child)).sort();
+  if (provinces.length === 0) throw new Error('No playable province for a seeded pick');
+
+  // Start at the hashed province and walk on from there, so a province whose
+  // table is empty (mid-reseed) is skipped deterministically rather than
+  // failing the day.
+  const start = hash32(`${seed}:province`) % provinces.length;
+  for (let step = 0; step < provinces.length; step++) {
+    const province = provinces[(start + step) % provinces.length];
+    const total = await countPanos(province);
+    if (total === 0) continue;
+    const offset = hash32(`${seed}:offset`) % total;
+    const rows = await query(
+      getPanoDb(),
+      `SELECT id, lat, lng, district FROM panoramas
+       WHERE ${regionPredicate(province)} ORDER BY id OFFSET $2 LIMIT 1`,
+      [province, offset]
+    );
+    if (rows.length === 0) {
+      // Stale cached count; refresh and let the next province carry the day.
+      countCache.delete(province);
+      continue;
+    }
+    return toChoice(rows[0], province, 'province');
+  }
+  throw new Error('No panoramas anywhere for a seeded pick');
+}
+
+/**
  * An evenly spaced sample of a region's panoramas, for the coverage debug page.
  *
  * Sampling happens in SQL: Ha Noi holds 225,966 rows, which is far more than a

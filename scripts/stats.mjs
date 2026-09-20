@@ -35,7 +35,7 @@ for (const [key, value] of Object.entries(loadEnvFile())) {
   process.env[key] ??= value;
 }
 
-const LEVELS = ['country', 'province', 'district'];
+const LEVELS = ['country', 'province', 'district', 'daily'];
 const windowDays = Math.max(1, Number(process.argv[2]) || 14);
 
 const days = (await statsDays()).slice(-windowDays);

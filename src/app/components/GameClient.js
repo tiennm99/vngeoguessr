@@ -19,6 +19,8 @@ import { playSound } from '../../lib/audio';
 // regionPath(pickedRegion) -- computing it client-side from what the player
 // chose would make the reveal meaningless for a country round.
 import { getRegion, isRegion } from '../../lib/regions';
+import { dailyDay } from '../../lib/daily-calendar';
+import { getDailyProgress, saveDailyResult, currentStreak } from '../../lib/daily-progress';
 
 // Loaded on demand like the Leaflet map: the viewer drags three.js in with
 // it, the largest chunk in the app by far, and nothing on the game screen can
@@ -49,15 +51,20 @@ function resultSound(score) {
  * result-screen prefetch can call it without disturbing the round on screen.
  * @param {string} locationCode Region to play.
  * @param {string|null} currentSessionId Session id to reuse, or null for a new one.
- * @returns {Promise<Object>} The /api/new-game payload.
+ * @param {boolean} daily True for today's daily challenge instead of a region draw.
+ * @returns {Promise<Object>} The /api/new-game or /api/daily payload.
  */
-async function fetchNewRound(locationCode, currentSessionId) {
-  // Encoded: an unencoded value carrying its own '&sessionId=' would let a
-  // shared link choose the session key a victim's round is stored under.
-  const params = new URLSearchParams({ region: locationCode });
-  if (currentSessionId) params.set('sessionId', currentSessionId);
+async function fetchNewRound(locationCode, currentSessionId, daily) {
+  let url = '/api/daily';
+  if (!daily) {
+    // Encoded: an unencoded value carrying its own '&sessionId=' would let a
+    // shared link choose the session key a victim's round is stored under.
+    const params = new URLSearchParams({ region: locationCode });
+    if (currentSessionId) params.set('sessionId', currentSessionId);
+    url = `/api/new-game?${params.toString()}`;
+  }
 
-  const response = await fetch(`/api/new-game?${params.toString()}`);
+  const response = await fetch(url);
   const data = await response.json();
   if (!data.success) {
     throw new Error(data.error || 'No images found');
@@ -71,10 +78,14 @@ async function fetchNewRound(locationCode, currentSessionId) {
  * The region arrives as a prop from the /game/[region] page, which has already
  * resolved and validated it -- so there is no query string to read and nothing
  * to suspend on.
+ * In daily mode the round comes from /api/daily, there is exactly one of it,
+ * and its outcome is kept in localStorage so reopening the page shows the
+ * result again instead of a second attempt.
  * @param {Object} props
  * @param {string} props.region Validated, canonical-case region code to play.
+ * @param {boolean} [props.daily] True for today's daily challenge.
  */
-export default function GameClient({ region }) {
+export default function GameClient({ region, daily = false }) {
   const router = useRouter();
 
   const [imageData, setImageData] = useState(null);
@@ -115,6 +126,9 @@ export default function GameClient({ region }) {
   // only takes over the screen once tapped. Desktop keeps both side by side and
   // ignores this flag entirely.
   const [mapExpanded, setMapExpanded] = useState(false);
+  // Daily mode only: which day and number this round is, and the streak it
+  // counts toward. null until the round (or the stored result) is known.
+  const [dailyInfo, setDailyInfo] = useState(null);
 
   // What the player picked, resolved through the tree. The page validated the
   // code before rendering, so the isRegion guard is belt-and-braces rather
@@ -142,6 +156,13 @@ export default function GameClient({ region }) {
   useEffect(() => () => { mountedRef.current = false; }, []);
 
   const applyRound = useCallback((data) => {
+    if (data.day) {
+      setDailyInfo({
+        day: data.day,
+        number: data.number,
+        streak: currentStreak(getDailyProgress(), data.day),
+      });
+    }
     setSessionId(data.sessionId);
     setImageData({
       url: data.imageData.url,
@@ -161,7 +182,7 @@ export default function GameClient({ region }) {
 
   const loadRound = useCallback(async (locationCode, currentSessionId, epoch) => {
     try {
-      const data = await fetchNewRound(locationCode, currentSessionId);
+      const data = await fetchNewRound(locationCode, currentSessionId, daily);
       // Superseded while in flight: the newer action owns the screen and the
       // roundLoading flag, so touch nothing and report nothing to clear.
       if (epoch !== roundEpochRef.current) return true;
@@ -175,7 +196,7 @@ export default function GameClient({ region }) {
       setLoadError(error.message || 'No images found');
       return false;
     }
-  }, [applyRound]);
+  }, [applyRound, daily]);
 
   const loadLibrariesAndInitialize = useCallback(async (locationCode) => {
     if (initializingRef.current) return;
@@ -186,11 +207,26 @@ export default function GameClient({ region }) {
       const code = locationCode.toUpperCase();
       const center = isRegion(code) ? getRegion(code).center : null;
       if (center) setMapCenter(center);
+
+      // Already played today: show that result again rather than dealing a
+      // second attempt. The panorama, the pin and the outcome were all kept.
+      const played = daily ? getDailyProgress() : null;
+      if (played && played.day === dailyDay()) {
+        setDailyInfo({ day: played.day, number: played.number, streak: played.streak });
+        setImageData({ url: played.imageUrl, isPano: true });
+        setRoundKey((key) => key + 1);
+        setGuessCoordinates(played.guessCoordinates);
+        setResult(played.result);
+        setShowResult(true);
+        setInitialized(true);
+        return;
+      }
+
       roundEpochRef.current += 1;
       const loaded = await loadRound(locationCode, null, roundEpochRef.current);
       // Only a region that actually served a round is worth offering as
       // "Continue in ..." on the home page.
-      if (loaded && isRegion(code)) setLastRegion(code);
+      if (loaded && !daily && isRegion(code)) setLastRegion(code);
       setInitialized(true);
     } catch (error) {
       console.error('Failed to initialize:', error);
@@ -198,7 +234,7 @@ export default function GameClient({ region }) {
       initializingRef.current = false;
       setInitialLoading(false);
     }
-  }, [loadRound]);
+  }, [loadRound, daily]);
 
   useEffect(() => {
     if (initialized) return;
@@ -307,7 +343,7 @@ export default function GameClient({ region }) {
       if (submitted && !submitted.failed) {
         setSessionRounds((rounds) => rounds + 1);
         setSessionPoints((points) => points + (submitted.score ?? 0));
-        setResult({
+        const outcome = {
           failed: false,
           distance: submitted.distance,
           score: submitted.score,
@@ -319,7 +355,16 @@ export default function GameClient({ region }) {
           // the guess shared. Display only.
           hit: submitted.hit ?? 'none',
           leaderboardMessage: submitted.leaderboard?.message ?? '',
-        });
+        };
+        setResult(outcome);
+        if (daily && dailyInfo) {
+          // Today is done. Stored with everything the result screen needs,
+          // so a revisit shows this rather than a fresh round.
+          const saved = saveDailyResult(
+            dailyInfo.day, dailyInfo.number, outcome, guessCoordinates, imageData.url
+          );
+          setDailyInfo({ ...dailyInfo, streak: saved.streak });
+        }
         if (mountedRef.current) playSound(resultSound(submitted.score ?? 0));
       } else {
         // The guess did not record. Say so instead of rendering a 99999m round,
@@ -338,7 +383,8 @@ export default function GameClient({ region }) {
 
     setSubmitting(false);
     setShowResult(true);
-    startPrefetch(region, currentSession);
+    // One round a day: there is no next one to fetch.
+    if (!daily) startPrefetch(region, currentSession);
   };
 
   // Everything a round accumulates. Both Next Round and Skip come through here,
@@ -351,6 +397,11 @@ export default function GameClient({ region }) {
   };
 
   const handleNextRound = async () => {
+    // The daily has one round; the only way on is out.
+    if (daily) {
+      handleGoBack();
+      return;
+    }
     // Radix keeps the dialog interactive through its exit animation, so a
     // double-click would issue a second fetch and burn a session.
     if (roundLoading) return;
@@ -463,9 +514,14 @@ export default function GameClient({ region }) {
           <span className="text-sm font-bold text-foreground hidden sm:inline">VNGeoGuessr</span>
           {/* Truncates rather than pushing the controls off a 360px screen:
               a long district name loses its tail, not the mute button. */}
-          <Badge variant="brand" className="max-w-[8rem] truncate text-xs sm:max-w-none" title={regionName}>
-            {regionName}
+          <Badge variant="brand" className="max-w-[8rem] truncate text-xs sm:max-w-none" title={daily ? "Today's daily challenge" : regionName}>
+            {daily ? `Daily${dailyInfo ? ` #${dailyInfo.number}` : ''}` : regionName}
           </Badge>
+          {daily && dailyInfo?.streak > 0 && (
+            <Badge variant="secondary" className="text-xs tabular-nums" title="Consecutive days played">
+              🔥 {dailyInfo.streak}
+            </Badge>
+          )}
           {/* This visit's tally; invisible until the first round lands so the
               header opens no colder than it used to, and hidden on phones,
               where the header has no spare width -- the result dialog carries
@@ -603,16 +659,19 @@ export default function GameClient({ region }) {
             >
               {submitting ? 'Processing...' : guessCoordinates ? 'Submit Guess' : 'Place a guess first'}
             </Button>
-            <Button
-              onClick={handleSkipGuess}
-              disabled={submitting || roundLoading}
-              variant="outline"
-              className="px-5"
-              title="Skip this location — no penalty"
-              aria-label="Skip this location — no penalty"
-            >
-              Skip
-            </Button>
+            {/* No skipping the daily: everyone gets the same one place. */}
+            {!daily && (
+              <Button
+                onClick={handleSkipGuess}
+                disabled={submitting || roundLoading}
+                variant="outline"
+                className="px-5"
+                title="Skip this location — no penalty"
+                aria-label="Skip this location — no penalty"
+              >
+                Skip
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -627,6 +686,7 @@ export default function GameClient({ region }) {
         username={username}
         regionName={regionName}
         regionCode={pickedRegion?.code ?? 'VN'}
+        daily={daily ? dailyInfo : null}
         onNextRound={handleNextRound}
         onMenu={handleGoBack}
       />

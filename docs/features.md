@@ -166,7 +166,31 @@ ladder stay on the boards as they were recorded.
 The `leaderboard:city:` / `distance:city:` key prefix is kept deliberately —
 renaming it would orphan every score already recorded under it.
 
+## Daily Challenge
+- **One panorama, the same for everyone, once a day** at `/daily`. The pick is
+  deterministic from the day (`pickPanoBySeed` in `src/lib/pano-index.js`,
+  province first like a country round) and cached in Redis as `daily:{day}`
+  for 48 hours with its resolved image URL, so the Postgres draw and the
+  Mapillary lookup happen once a day, not once a player
+- **Days roll over at midnight Vietnam time** (`src/lib/daily-calendar.js`),
+  numbered from 2026-09-20 as #1
+- **Scored like any round**: `/api/daily` opens an ordinary session flagged
+  `mode: 'daily'`; `/api/guess` credits the boards once and counts the round
+  under its own `daily` level in the statistics. No skipping
+- **No daily leaderboard, on purpose**: the only identity is a cookie and a
+  localStorage name, so a dated board would be won by whoever opened the most
+  private windows. One attempt per day is enforced by the browser alone
+  (`src/lib/daily-progress.js`): the finished round is stored with its
+  panorama, pin and result, and reopening `/daily` shows that instead of a
+  second attempt. Clearing storage means playing again; with nothing to win,
+  that only cheats the player
+- **Streak**: consecutive days played, kept in the same record. The day after
+  the last play extends it, the same day keeps it, a gap restarts it. Shown in
+  the game header, the result dialog, the share text and the home page card
+
 ## Sharing
+- **Daily share text**: `VNGeoGuessr Daily #N`, the squares line, and the
+  streak once it is above one, linking to `/daily`
 - **Share button on the result dialog**: builds three lines -- the picked
   region, the score as five squares with the distance, and the region's
   `/game/{slug}` URL (`src/lib/share.js`) -- and hands them to the platform

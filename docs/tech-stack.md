@@ -49,7 +49,7 @@
 - **Multi-tenant Key Prefix**: All physical keys carry `KEY_PREFIX` (default `vngeoguessr:`) to safely share Upstash DB with other Vercel projects. Prefix applied centrally in `src/lib/upstash.js`; callers use logical keys only.
 - **Key Namespaces**: `session:{id}` (30-min TTL), `leaderboard:{scope}`,
   `distance:{scope}` (no expiry), `stats:{day}` and `stats:players:{day}`
-  (90-day TTL). `{scope}` is `vietnam` for the country and
+  (90-day TTL), `daily:{day}` (48-hour TTL). `{scope}` is `vietnam` for the country and
   `city:{regionCode}` for every province and district -- the `city:` segment is
   kept so existing scores stay addressable
 - **Sorted Sets**: Leaderboard ranking; score boards untrimmed and served as a top-200 window, distance boards trimmed to 200. Hash and HyperLogLog for the daily statistics

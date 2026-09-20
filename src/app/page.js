@@ -12,6 +12,7 @@ import UsernameModal from './components/UsernameModal';
 import DonateQRModal from './components/DonateQRModal';
 import LeaderboardModal from './components/LeaderboardModal';
 import RegionPicker from './components/RegionPicker';
+import DailyCard from './components/DailyCard';
 import { generateRandomUsername, getUsername, setUsername } from '../lib/username';
 import { playSound } from '../lib/audio';
 import { SCORE_BANDS, formatDistance } from '../lib/game';
@@ -143,6 +144,12 @@ export default function Home() {
             <p className="text-lg text-muted-foreground max-w-lg mx-auto">
               Explore Vietnamese streets and test your geography skills across iconic cities.
             </p>
+          </div>
+
+          {/* The daily challenge, first: it is the one thing that is new
+              every day and the reason to come back. */}
+          <div className="mb-6 max-w-5xl mx-auto">
+            <DailyCard onPlayClick={handlePlayClick} />
           </div>
 
           <div className="grid lg:grid-cols-5 gap-6 max-w-5xl mx-auto">

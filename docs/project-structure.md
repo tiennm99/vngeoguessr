@@ -43,6 +43,7 @@ Next.js 16 App Router structure:
   where its inline theme script cannot execute
 - `game/page.js` - Redirects the legacy `?region=` / `?location=` links to
   `/game/{slug}`; a region-less `/game` goes to the country round
+- `daily/page.js` - Today's daily challenge, the game client in daily mode
 - `credits/page.js` - Data sources, licenses, and open-source credits
 - `debug/page.js` - Debug hub: lists every debug tool as a peer
 - `debug/layout.js` - Shared shell for all debug pages: app bar, DebugNav, theme
@@ -55,6 +56,7 @@ Next.js 16 App Router structure:
 - `guess/route.js` - Processes guess submissions, scores, and fans out
 - `leaderboard/route.js` - Leaderboard data management with Redis
 - `skip/route.js` - Skip current round functionality
+- `daily/route.js` - Opens today's daily-challenge session
 - `debug/pano/route.js` - Resolve one panorama id to an image (closed in production without the debug key)
 - `debug/region-coverage/route.js` - A region's outline and panorama points (same gate)
 
@@ -65,6 +67,7 @@ Next.js 16 App Router structure:
 - `LeafletMap.js` - Interactive map for guess placement
 - `PanoramaViewer.js` - 360 degree street view display; owns the Mapillary
   attribution and a `topBarSlot` for host chrome sharing that row
+- `DailyCard.js` - Homepage door to the daily challenge: play, or today's result and share
 - `RegionPicker.js` - Homepage province accordion, one row per playable region
 - `RegionSelect.js` - Level buttons plus a grouped select, used where a single
   region has to be chosen from 67
@@ -138,6 +141,10 @@ Neon Postgres, which is what the app queries at runtime.
 - `pano-history.js` - **Server-side only.** The last 50 panoramas a player was
   shown, in Redis with a rolling 3-day expiry
 - `session.js` - Redis-based session management with 30-min expiry
+- `daily.js` - **Server-side only.** Today's panorama, picked from the day and
+  cached in Redis
+- `daily-calendar.js` - Which day a daily belongs to (Vietnam time) and its number
+- `daily-progress.js` - The player's daily record and streak in localStorage
 - `stats.js` - **Server-side only.** Daily round counts and distinct-player
   HyperLogLog in Redis, 90-day TTL; read by `scripts/stats.mjs`
 - `region-locate.js` - **Server-side only.** Which region a map point falls in,
@@ -164,7 +171,7 @@ Each carries a header comment with its flags and its cost.
 
 ## Tests (`tests/`)
 Vitest, mostly one file per `src/lib/` module, plus a route test for
-`new-game`, `guess`, `skip`, and `debug/region-coverage`. The `leaderboard`
+`new-game`, `guess`, `skip`, `daily`, and `debug/region-coverage`. The `leaderboard`
 and `debug/pano` routes have no dedicated test file; their underlying
 `src/lib/` logic (`leaderboard.js`, `mapillary.js`) is still covered. `fake-upstash-redis.js`, `mock-upstash.js`, `redis-harness.js` and
 `wait-for-srh.js` are the shared harness that lets the same files run against
