@@ -1,7 +1,7 @@
 import {
   getUpstash,
   zAdd,
-  zScore,
+  zIncrBy,
   zRangeWithScores,
   zRank,
   zRevRank,
@@ -19,8 +19,15 @@ const GLOBAL_LEADERBOARD_KEY = 'leaderboard:vietnam';
 const CITY_LEADERBOARD_PREFIX = 'leaderboard:city:';
 const DISTANCE_GLOBAL_KEY = 'distance:vietnam';
 const DISTANCE_CITY_PREFIX = 'distance:city:';
+// How much of a board is ever served, and how many distance records a board
+// keeps. Score boards are NOT trimmed to this: a score board holds one member
+// per player name, so it grows with the player count and no faster, and
+// trimming it used to delete the running total of anyone outside the window --
+// their next round then started again from zero, and once 200th place held
+// more than one round's worth of points nobody new could ever get on. Distance
+// boards gain a member every round, so those are still trimmed.
 const MAX_LEADERBOARD_SIZE = 200;
-// A caller asking for more than the board can hold is asking for the board.
+// A caller asking for more than the board serves is asking for the board.
 const MAX_LIMIT = MAX_LEADERBOARD_SIZE;
 
 /**
@@ -129,28 +136,20 @@ export async function getLeaderboard(regionCode = null, limit = 100, type = 'sco
  */
 async function creditScore(h, regionCode, points, username) {
   const key = getRegionLeaderboardKey(regionCode);
-  const existing = await zScore(h, key, username);
-  const total = (existing || 0) + points;
-
-  await zAdd(h, key, total, username);
-  // Trim to the top MAX_LEADERBOARD_SIZE. The set is ascending, so drop the
-  // lowest-ranked entries that fall outside the window.
-  await zRemRangeByRank(h, key, 0, -(MAX_LEADERBOARD_SIZE + 1));
-
+  // One atomic command: a read-then-write here lost an increment whenever two
+  // rounds under the same name finished together.
+  const total = await zIncrBy(h, key, points, username);
   const rank = await zRevRank(h, key, username);
-  // A player outside the top 200 is trimmed straight back out, so the total
-  // just computed is no longer stored anywhere. Reporting it would show a
-  // national score that silently resets on the next guess.
-  const trimmed = rank === null;
   return {
     code: regionCode,
     name: getRegion(regionCode).name,
     username,
     // What this round added at this level.
     points,
-    score: trimmed ? null : Number(total),
-    rank: trimmed ? null : rank + 1,
-    trimmed,
+    score: total,
+    // 1-based. Every player has one: the board is never trimmed, so a total
+    // is never lost, only served or not served by getLeaderboard's window.
+    rank: rank === null ? null : rank + 1,
   };
 }
 
@@ -307,6 +306,11 @@ export async function submitDistanceRecord(username, distance, regionCode) {
 
     const trimmedUsername = username.trim();
     const numDistance = Number(distance);
+    // The same rule the score path applies, for the same reason: Number(null)
+    // is a 0-metre record on every board.
+    if (!Number.isFinite(numDistance) || numDistance < 0) {
+      throw new Error(`Invalid distance: ${distance}`);
+    }
 
     // One id for all levels, so the same record is recognisable as one attempt
     // wherever it appears rather than looking like three separate guesses.

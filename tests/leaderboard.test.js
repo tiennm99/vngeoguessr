@@ -70,25 +70,33 @@ describe('score leaderboard', () => {
     expect(await getLeaderboard('HN', 10, 'score')).toEqual([]);
   });
 
-  it('keeps only the top entries once the cap is passed', async () => {
-    // Trimming is the only thing bounding this key's growth, and it uses a
-    // negative rank window that is easy to get backwards.
+  it("keeps every player's total and serves at most the top window", async () => {
+    // Score boards are never trimmed. Trimming used to delete the total of
+    // anyone outside the top 200, so their next round restarted from zero and
+    // once 200th place held more than one round's points the board was closed
+    // to new players for good.
     const overflow = MAX_LEADERBOARD_SIZE + 5;
     for (let i = 0; i < overflow; i++) {
       await submitScore(`player${String(i).padStart(3, '0')}`, i + 1, 'HN');
     }
 
-    const strongest = `player${String(overflow - 1).padStart(3, '0')}`;
+    // The weakest player is still on the board with their total intact, and
+    // ranked below the window rather than forgotten.
+    const weakest = await submitScore('player000', 1, 'HN');
+    expect(weakest.city.score).toBe(2);
+    expect(weakest.city.rank).toBe(overflow);
 
-    // Both the city key and the global key are trimmed, by separate calls with
-    // separate rank windows, so both need asserting.
     for (const scope of ['HN', null]) {
-      const all = await getLeaderboard(scope, overflow, 'score');
-      expect(all).toHaveLength(MAX_LEADERBOARD_SIZE);
-      // The five weakest players are the ones dropped, not the strongest.
-      expect(all[0].username).toBe(strongest);
-      expect(all.map((e) => e.username)).not.toContain('player000');
+      const served = await getLeaderboard(scope, overflow, 'score');
+      expect(served).toHaveLength(MAX_LEADERBOARD_SIZE);
+      expect(served[0].username).toBe(`player${String(overflow - 1).padStart(3, '0')}`);
     }
+  });
+
+  it('adds concurrent rounds under one name without losing any', async () => {
+    // A read-then-write here lost increments when two rounds finished together.
+    await Promise.all(Array.from({ length: 10 }, () => submitScore('mai', 1, 'HN')));
+    expect((await getLeaderboard('HN', 1, 'score'))[0].score).toBe(10);
   });
 
   it.each([

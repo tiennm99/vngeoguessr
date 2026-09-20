@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server';
 import { deleteGameSession } from '../../../lib/session.js';
+import { isUuid } from '../../../lib/player-id.js';
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { sessionId } = body;
+    const body = await request.json().catch(() => null);
+    const sessionId = body?.sessionId;
 
-    if (!sessionId) {
+    // Only an id the server could have minted reaches the keyspace. Anything
+    // else has nothing to delete, and would otherwise become `session:<value>`
+    // with whatever the caller put in it.
+    if (!isUuid(sessionId)) {
       return NextResponse.json({
         success: false,
-        error: 'Missing sessionId'
+        error: 'Missing or invalid sessionId'
       }, { status: 400 });
     }
 

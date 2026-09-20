@@ -33,7 +33,12 @@ export async function storedKeys() {
   if (isFake) {
     const client = FakeRedis.latest();
     if (!client) return [];
-    return [...client.strings.keys(), ...client.zsets.keys()].sort();
+    return [
+      ...client.strings.keys(),
+      ...client.zsets.keys(),
+      ...client.hashes.keys(),
+      ...client.hlls.keys(),
+    ].sort();
   }
   const h = getUpstash();
   return (await h.client.keys(`${h.prefix}*`)).sort();

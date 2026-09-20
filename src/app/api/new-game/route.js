@@ -9,6 +9,7 @@ import {
   readPlayerId,
   newPlayerId,
   playerCookieOptions,
+  isUuid,
 } from '../../../lib/player-id.js';
 
 // Generate a unique session ID
@@ -98,7 +99,11 @@ export async function GET(request) {
     const exactLocation = { lat: selectedImage.lat, lng: selectedImage.lng };
     const imageUrl = selectedImage.url;
 
-    const currentSessionId = sessionId || generateSessionId();
+    // Reuse the caller's id only when it is one this server could have minted.
+    // The value becomes a Redis key as-is; the player cookie gets the same test
+    // for the same reason, and a made-up id is simply replaced rather than
+    // rejected, because the client loses nothing by getting a fresh one.
+    const currentSessionId = isUuid(sessionId) ? sessionId : generateSessionId();
     await storeGameSession(currentSessionId, {
       sessionId: currentSessionId,
       // What the player chose. Safe to echo back.

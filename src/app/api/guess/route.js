@@ -3,55 +3,98 @@ import { submitRoundScore, submitDistanceRecord } from '../../../lib/leaderboard
 import { getGameSession, deleteGameSession } from '../../../lib/session.js';
 import { calculateDistance, calculateScore } from '../../../lib/game.js';
 import { publicRegion } from '../../../lib/region-request.js';
+import { validateUsername } from '../../../lib/username.js';
+import { locateRegion, regionHit } from '../../../lib/region-locate.js';
+import { getRegion, isRegion } from '../../../lib/regions.js';
+import { readPlayerId } from '../../../lib/player-id.js';
+import { recordRound } from '../../../lib/stats.js';
+
+/** A 400 with a machine-readable reason the client can turn into the right copy. */
+function reject(error, reason) {
+  return NextResponse.json({ success: false, error, reason }, { status: 400 });
+}
+
+/**
+ * A coordinate from the request body, or NaN for anything that is not a number
+ * or a numeric string. Number(null) and Number(true) are 0 and 1, which would
+ * otherwise pass as a point in the Gulf of Guinea.
+ * @param {unknown} value
+ * @returns {number}
+ */
+function toCoordinate(value) {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '') return Number(value);
+  return NaN;
+}
+
+/**
+ * Record the distance boards, tolerating a store failure.
+ *
+ * Runs after the session is consumed, so a throw here cannot be retried: the
+ * score boards may already hold this round. Reporting a 500 then would tell the
+ * player nothing was recorded while their points sit on the board. The distance
+ * boards are the lesser record, so they are the ones allowed to go missing.
+ */
+async function distanceOrNone(username, distance, regionCode) {
+  try {
+    return await submitDistanceRecord(username, distance, regionCode);
+  } catch (error) {
+    console.error('Distance record failed after scoring:', error);
+    return null;
+  }
+}
+
+/** Count the round in the daily statistics, tolerating a store failure. */
+async function recordRoundOrIgnore(level, score, playerId) {
+  try {
+    await recordRound(level, score, playerId);
+  } catch (error) {
+    console.error('Round statistics failed:', error);
+  }
+}
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { username, guessLat, guessLng, sessionId } = body;
+    // A malformed body is the caller's mistake, not a server failure.
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return reject('Request body must be JSON', 'invalid-request');
+    }
+    const { username: rawUsername, guessLat, guessLng, sessionId } = body;
 
-    // Validate required fields
-    if (!username || !sessionId ||
-        guessLat === undefined || guessLng === undefined) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required fields: username, sessionId, guess coordinates'
-      }, { status: 400 });
+    if (!sessionId || guessLat === undefined || guessLng === undefined) {
+      return reject('Missing required fields: username, sessionId, guess coordinates', 'invalid-request');
+    }
+
+    // The same rule the name prompt enforces, applied where it counts: this
+    // string becomes a sorted-set member on every board it touches.
+    const checked = validateUsername(rawUsername);
+    if (!checked.ok) return reject(checked.error, 'invalid-username');
+    const username = checked.value;
+
+    // Finite and in range. Math.abs(NaN) > 90 is false, so a range check alone
+    // let "abc" through to the distance calculation.
+    const numGuessLat = toCoordinate(guessLat);
+    const numGuessLng = toCoordinate(guessLng);
+    if (!Number.isFinite(numGuessLat) || Math.abs(numGuessLat) > 90) {
+      return reject('Invalid latitude values', 'invalid-guess');
+    }
+    if (!Number.isFinite(numGuessLng) || Math.abs(numGuessLng) > 180) {
+      return reject('Invalid longitude values', 'invalid-guess');
     }
 
     // Get session data from Redis
     const session = await getGameSession(sessionId);
     if (!session) {
-      return NextResponse.json({
-        success: false,
-        error: 'Session not found or expired'
-      }, { status: 400 });
+      return reject('Session not found or expired', 'session-expired');
     }
 
     // Get target coordinates from session
-    const targetLat = session.exactLocation.lat;
-    const targetLng = session.exactLocation.lng;
-
-    // Validate coordinate ranges
-    const numGuessLat = Number(guessLat);
-    const numGuessLng = Number(guessLng);
-    const numTargetLat = Number(targetLat);
-    const numTargetLng = Number(targetLng);
-
-    // Basic coordinate validation
-    if (Math.abs(numGuessLat) > 90 || Math.abs(numTargetLat) > 90) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid latitude values'
-      }, { status: 400 });
+    const numTargetLat = Number(session.exactLocation?.lat);
+    const numTargetLng = Number(session.exactLocation?.lng);
+    if (!Number.isFinite(numTargetLat) || !Number.isFinite(numTargetLng)) {
+      throw new Error(`Session ${sessionId} holds no usable target location`);
     }
-
-    if (Math.abs(numGuessLng) > 180 || Math.abs(numTargetLng) > 180) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid longitude values'
-      }, { status: 400 });
-    }
-
 
     // Calculate distance between guess and target (server-side)
     const distance = calculateDistance(
@@ -78,26 +121,37 @@ export async function POST(request) {
     // minutes and a retry would re-credit every level that already succeeded.
     const consumed = await deleteGameSession(sessionId);
     if (!consumed) {
-      return NextResponse.json({
-        success: false,
-        error: 'Session already submitted or expired'
-      }, { status: 400 });
+      return reject('Session already submitted or expired', 'session-consumed');
     }
 
     // Boards are credited per level from the raw distance against the same
-    // ladder, so every level records the identical points for this round.
-    const leaderboardResult = await submitRoundScore(username.trim(), distance, scoringRegion);
-    const distanceResult = await submitDistanceRecord(username.trim(), distance, scoringRegion);
+    // ladder, so every level records the identical points for this round. The
+    // two fan-outs touch disjoint keys, so they run together.
+    const [leaderboardResult, distanceResult] = await Promise.all([
+      submitRoundScore(username, distance, scoringRegion),
+      distanceOrNone(username, distance, scoringRegion),
+    ]);
 
-    // Log the submission for anti-cheat monitoring
+    // Where the guess landed, against where the panorama was. Display only:
+    // it changes no score, but it turns "0 points" into "right province,
+    // wrong district" for a round the ladder cannot grade.
+    const guessedRegion = locateRegion(numGuessLat, numGuessLng);
+    const hit = regionHit(guessedRegion, scoringRegion);
+
+    // Counted by the level the player chose to play, which is what decides how
+    // hard the round was.
+    const pickedLevel = isRegion(session.pickedRegion)
+      ? getRegion(session.pickedRegion).level
+      : 'country';
+    await recordRoundOrIgnore(pickedLevel, finalScore, readPlayerId(request));
+
+    // For monitoring. Deliberately without the name or either coordinate pair:
+    // the logs are not a second copy of who guessed where.
     console.log('Game submission:', {
-      username: username.trim(),
+      region: scoringRegion,
       distance: `${distance}m`,
       score: finalScore,
-      coordinates: {
-        guess: [numGuessLat, numGuessLng],
-        target: [numTargetLat, numTargetLng]
-      },
+      hit,
       timestamp: new Date().toISOString()
     });
 
@@ -109,14 +163,17 @@ export async function POST(request) {
         // One entry per level credited, outermost last. The client renders
         // these directly rather than a fixed global/city pair.
         levels: leaderboardResult.levels,
-        distanceLevels: distanceResult.levels,
+        distanceLevels: distanceResult?.levels ?? [],
         // Where the panorama actually was. Safe now, and only now: the guess
         // is in.
         region: publicRegion(scoringRegion),
+        // Where the guess was, and how much of the answer's region it shares.
+        guessedRegion: guessedRegion ? publicRegion(guessedRegion) : null,
+        hit,
         globalRank: leaderboardResult.global?.rank ?? null,
         cityRank: leaderboardResult.province?.rank ?? null,
-        globalDistanceRank: distanceResult.globalDistance?.rank ?? null,
-        cityDistanceRank: distanceResult.provinceDistance?.rank ?? null,
+        globalDistanceRank: distanceResult?.globalDistance?.rank ?? null,
+        cityDistanceRank: distanceResult?.provinceDistance?.rank ?? null,
         exactLocation: {
           lat: numTargetLat,
           lng: numTargetLng

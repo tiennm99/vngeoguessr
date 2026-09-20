@@ -214,6 +214,16 @@ describe('POST /api/new-game', () => {
     expect(serialised).not.toContain('exactLocation');
   });
 
+  it('replaces a session id it could not have minted rather than keying on it', async () => {
+    // The value becomes `session:<value>` in Redis as-is. A glob, a colon or a
+    // long string must not get there; the client loses nothing by being handed
+    // a fresh id instead.
+    const body = await (await GET(request('region=HN&sessionId=not-a-uuid*'))).json();
+    expect(body.success).toBe(true);
+    expect(body.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.sessionId).not.toBe('not-a-uuid*');
+  });
+
   it('404s an unknown session', async () => {
     const response = await POST(
       new Request('http://localhost/api/new-game', {

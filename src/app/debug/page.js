@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ArrowRight, Map, ScanSearch } from 'lucide-react';
+import { ArrowRight, Map } from 'lucide-react';
 
 // Every debug tool, one card each, all at the same level. The hub owns
 // /debug; each tool lives one segment below it and the shared layout's
@@ -14,13 +14,6 @@ const TOOLS = [
     description:
       'Every indexed panorama in a region, drawn over its boundary. Click a dot to open the picture.',
   },
-  {
-    href: '/debug/bbox',
-    icon: ScanSearch,
-    name: 'Bbox & Mapillary tester',
-    description:
-      'Visualize a bounding box on the map and probe the live Mapillary API for imagery inside it.',
-  },
 ];
 
 export default function DebugHubPage() {
@@ -28,7 +21,9 @@ export default function DebugHubPage() {
     <div className="container mx-auto max-w-5xl px-4 py-6">
       <h1 className="text-xl font-bold text-foreground">Debug Tools</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        Diagnostics for the panorama index and its data sources
+        Diagnostics for the panorama index and its data sources. In production the
+        debug API answers only with the debug key, because it returns panorama
+        coordinates.
       </p>
 
       <div className="grid gap-3">

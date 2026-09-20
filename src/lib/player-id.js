@@ -32,6 +32,17 @@ export const PLAYER_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
+ * True for a lowercase UUID, the only shape this app mints for ids that become
+ * Redis keys. Shared by the player cookie and the game session id: both reach
+ * the keyspace, so both get the same rule.
+ * @param {unknown} value Candidate id.
+ * @returns {boolean}
+ */
+export function isUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}
+
+/**
  * Read the player id off a request, if it has a valid one.
  *
  * Parses the Cookie header by hand rather than reading NextRequest.cookies or
@@ -57,7 +68,7 @@ export function readPlayerId(request) {
     // path, another to '.domain' -- and stopping at the first bad one would let
     // a single stale or crafted duplicate disable the history for that browser
     // permanently, with nothing anywhere reporting it.
-    if (UUID_PATTERN.test(value)) return value;
+    if (isUuid(value)) return value;
   }
   return null;
 }

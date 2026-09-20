@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { validateUsername } from '../../lib/username';
 
 // Set or change the leaderboard name. With no saved name yet, the secondary
 // action skips into a generated name; when editing an existing name it is a
@@ -34,30 +35,15 @@ export default function UsernameModal({ isOpen, onSubmit, onSkip, onClose, initi
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const trimmedUsername = username.trim();
-
-    if (!trimmedUsername) {
-      setError('Please enter a username');
+    // The same rule /api/guess applies, so a name accepted here is never
+    // rejected at the first submit.
+    const checked = validateUsername(username);
+    if (!checked.ok) {
+      setError(checked.error);
       return;
     }
 
-    if (trimmedUsername.length < 2) {
-      setError('Username must be at least 2 characters');
-      return;
-    }
-
-    if (trimmedUsername.length > 20) {
-      setError('Username must be less than 20 characters');
-      return;
-    }
-
-    const validUsername = /^[a-zA-Z0-9_-]+$/.test(trimmedUsername);
-    if (!validUsername) {
-      setError('Username can only contain letters, numbers, hyphens, and underscores');
-      return;
-    }
-
-    onSubmit(trimmedUsername);
+    onSubmit(checked.value);
     setError('');
     setUsername('');
   };

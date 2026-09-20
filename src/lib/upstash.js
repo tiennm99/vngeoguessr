@@ -9,6 +9,8 @@ import { Redis } from '@upstash/redis';
 //   leaderboard:city:{regionCode}    sorted set (score)
 //   distance:vietnam                 sorted set (distance) -- the VN node
 //   distance:city:{regionCode}       sorted set (distance)
+//   stats:{YYYY-MM-DD}               hash, TTL 90 days     -- rounds per level and score
+//   stats:players:{YYYY-MM-DD}       HyperLogLog, TTL 90 days -- distinct players
 //
 // The ':city:' segment is a misnomer now that regions form a country >
 // province > district tree, and {regionCode} may be any node below the
@@ -103,6 +105,21 @@ export async function del(h, key) {
  */
 export async function zAdd(h, key, score, member) {
   await h.client.zadd(pkey(h, key), { score, member });
+}
+
+/**
+ * Add to a member's score, creating it at zero, and return the new score.
+ *
+ * One command where a read-then-write took two, and atomic where that pair was
+ * not: two rounds finishing together under one name used to lose an increment.
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} key
+ * @param {number} increment
+ * @param {string} member
+ * @returns {Promise<number>} The member's score after the increment.
+ */
+export async function zIncrBy(h, key, increment, member) {
+  return Number(await h.client.zincrby(pkey(h, key), increment, member));
 }
 
 /**
@@ -204,6 +221,63 @@ export async function scanKeys(h, pattern) {
  */
 export async function zRemRangeByRank(h, key, start, stop) {
   return await h.client.zremrangebyrank(pkey(h, key), start, stop);
+}
+
+/**
+ * Add to one field of a hash, creating it at zero.
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} key
+ * @param {string} field
+ * @param {number} increment
+ * @returns {Promise<number>} The field's value after the increment.
+ */
+export async function hIncrBy(h, key, field, increment) {
+  return Number(await h.client.hincrby(pkey(h, key), field, increment));
+}
+
+/**
+ * Every field of a hash as numbers. Empty object when the key is missing.
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} key
+ * @returns {Promise<Record<string, number>>}
+ */
+export async function hGetAllNumbers(h, key) {
+  const raw = await h.client.hgetall(pkey(h, key));
+  if (!raw) return {};
+  return Object.fromEntries(Object.entries(raw).map(([field, value]) => [field, Number(value)]));
+}
+
+/**
+ * Add a member to a HyperLogLog.
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} key
+ * @param {string} member
+ * @returns {Promise<boolean>} True when the estimate changed, i.e. the member was new.
+ */
+export async function pfAdd(h, key, member) {
+  return Number(await h.client.pfadd(pkey(h, key), member)) === 1;
+}
+
+/**
+ * Approximate distinct count across one or more HyperLogLogs (their union).
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string[]} keys
+ * @returns {Promise<number>}
+ */
+export async function pfCount(h, keys) {
+  if (keys.length === 0) return 0;
+  return Number(await h.client.pfcount(...keys.map((key) => pkey(h, key))));
+}
+
+/**
+ * Set a key's TTL in seconds.
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} key
+ * @param {number} ttlSeconds
+ * @returns {Promise<void>}
+ */
+export async function expire(h, key, ttlSeconds) {
+  await h.client.expire(pkey(h, key), ttlSeconds);
 }
 
 // Normalize the two shapes Upstash SDK may return for zrange + withScores:

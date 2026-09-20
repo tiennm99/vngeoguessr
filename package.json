@@ -19,6 +19,7 @@
     "data:districts": "node scripts/assign-pano-districts.mjs",
     "data:repartition": "npm run data:boundaries -- --regenerate && npm run data:districts",
     "data:seed": "node scripts/seed-pano-db.mjs",
+    "stats": "node scripts/stats.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -9,10 +9,14 @@ import { usePathname } from 'next/navigation';
 // Tabs, not a dropdown: with this few destinations, hiding the peers
 // behind a click would only obscure that they exist. Revisit as a
 // dropdown if the toolset ever outgrows one row.
+//
+// The bbox tester that used to sit here probed Mapillary's /images?bbox=
+// search, which lib/mapillary.js documents as failing in every dense
+// district; it was an open proxy spending the API token for a call the
+// game never makes, so it was removed rather than gated.
 const PAGES = [
   { href: '/debug', label: 'Overview' },
   { href: '/debug/coverage', label: 'Coverage' },
-  { href: '/debug/bbox', label: 'Bbox' },
 ];
 
 export default function DebugNav() {

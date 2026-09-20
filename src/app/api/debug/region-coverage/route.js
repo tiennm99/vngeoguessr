@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { REGION_BOUNDARIES } from '../../../../data/boundaries/index.js';
 import { getRegionPanoSample, countPanos, getProvinceMeta } from '../../../../lib/pano-index.js';
 import { getRegion, isRegion, provinceOf } from '../../../../lib/regions.js';
+import { debugAccessAllowed, debugForbidden } from '../../../../lib/debug-access.js';
 
 // Serves a region's outline and its panorama locations for the coverage debug
 // page. Works at province or district level; the country has no polygon of its
@@ -12,6 +13,10 @@ const DEFAULT_LIMIT = 12000;
 const MAX_LIMIT = 40000;
 
 export async function GET(request) {
+  // Every panorama location in a region, and a Neon scan per call. Closed in
+  // production unless the caller holds the debug key.
+  if (!debugAccessAllowed(request)) return debugForbidden();
+
   const { searchParams } = new URL(request.url);
   // Any level with an outline. Empty-string params are why this is || and not
   // ??: URLSearchParams returns '' for ?region=, which ?? would keep.
@@ -51,32 +56,42 @@ export async function GET(request) {
     }
   }
 
-  const sample = await getRegionPanoSample(code, west, south, east, north, limit);
-  const meta = await getProvinceMeta(provinceOf(code) ?? code);
+  try {
+    const sample = await getRegionPanoSample(code, west, south, east, north, limit);
+    const meta = await getProvinceMeta(provinceOf(code) ?? code);
 
-  return NextResponse.json({
-    success: true,
-    region: {
-      code,
-      name: region.name,
-      level: region.level,
-      province: provinceOf(code),
-    },
-    // Only the first request for a region carries the outline. Returning it with
-    // every viewport query gave the client a new object each time, which made
-    // the map refit to the region and cancel whatever the user had zoomed into.
-    boundary: bboxParam ? undefined : boundary,
-    // When the province's panorama index was seeded. The page shows it so a
-    // sparse-looking district can be told apart from a stale snapshot.
-    generatedAt: meta?.generatedAt ?? null,
-    counts: {
-      total: await countPanos(code),
-      inView: sample.inView,
-      shown: sample.panos.length,
-      // True when the viewport holds more points than were sent, so the page
-      // can say the dots are a sample rather than the whole picture.
-      sampled: sample.panos.length < sample.inView,
-    },
-    panos: sample.panos,
-  });
+    return NextResponse.json({
+      success: true,
+      region: {
+        code,
+        name: region.name,
+        level: region.level,
+        province: provinceOf(code),
+      },
+      // Only the first request for a region carries the outline. Returning it with
+      // every viewport query gave the client a new object each time, which made
+      // the map refit to the region and cancel whatever the user had zoomed into.
+      boundary: bboxParam ? undefined : boundary,
+      // When the province's panorama index was seeded. The page shows it so a
+      // sparse-looking district can be told apart from a stale snapshot.
+      generatedAt: meta?.generatedAt ?? null,
+      counts: {
+        total: await countPanos(code),
+        inView: sample.inView,
+        shown: sample.panos.length,
+        // True when the viewport holds more points than were sent, so the page
+        // can say the dots are a sample rather than the whole picture.
+        sampled: sample.panos.length < sample.inView,
+      },
+      panos: sample.panos,
+    });
+  } catch (error) {
+    // The same shape every other route fails with, instead of an unhandled
+    // rejection when Neon is down.
+    console.error(`Coverage lookup failed for ${code}:`, error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to load region coverage' },
+      { status: 500 }
+    );
+  }
 }
