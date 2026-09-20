@@ -40,3 +40,15 @@ Both were fixed in the same change: the comment now states the exposure, and
 `data/boundaries`. Treat the invariant as enforced, and treat any *new*
 server-only module holding pano ids the same way -- the walk only guards what
 is named in it.
+
+Third exposure, found 2026-09-21 on branch `dev`: the daily challenge. `/api/daily`
+mints a fresh session for the SAME panorama on every call with no per-player check,
+and `/api/guess` scores it onto the permanent (untrimmed) score boards. Since the
+first submit returns `exactLocation`, the loop GET /api/daily -> POST /api/guess
+with the known coordinates is +5 on three boards for two HTTP requests, unbounded.
+Ordinary rounds are immune only because `/api/new-game` draws randomly and reveals
+nothing. The team's "browser-only attempt limit is fine, there is no daily board"
+rationale assumes the daily credits no board; it credits the main ones.
+
+**How to apply:** whenever a mode makes the answer repeatable (daily, replay,
+shared link), check what it credits before accepting a client-side attempt limit.

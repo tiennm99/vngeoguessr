@@ -36,3 +36,10 @@ members).
 non-top-200 player's total lives. Also note the read-modify-write in the same
 function is not atomic — concurrent rounds under one username lose an update;
 `upstash.js` has no `zIncrBy` yet. Related: [[project-anti-cheat-invariant]].
+
+Update 2026-09-21 (`dev`): the top-200 trim is GONE from the score boards
+(`leaderboard.js`) and `creditScore` now uses ZINCRBY (2 commands/level instead of
+4). Distance boards are still trimmed at 200; `MAX_LEADERBOARD_SIZE` is only a
+serving window for scores. The `trimmed` field and the `score === null` ->
+"Below top 200" dialog branch are gone — but `tests/e2e/helpers.js` still emits
+`trimmed: false`.
