@@ -1,6 +1,7 @@
 import { getUpstash, getJson, putJson, del } from './upstash.js';
 import { pickPanoBySeed } from './pano-index.js';
 import { fetchPanoramaById } from './mapillary.js';
+import { isAuthFailure } from './errors.js';
 
 // The daily challenge: one panorama, the same for everyone, for one day.
 //
@@ -39,7 +40,7 @@ export async function getDailyRound(day) {
     try {
       return withImage(cached, await fetchPanoramaById(cached.id));
     } catch (error) {
-      if (error.message === 'Mapillary authentication failed') throw error;
+      if (isAuthFailure(error)) throw error;
       // The day's pick no longer resolves. Forget it and choose again, skipping
       // this id, so the day recovers instead of failing until the cache expires.
       console.error(`Daily ${day} cached panorama ${cached.id} failed: ${error.message}`);
@@ -63,7 +64,7 @@ export async function getDailyRound(day) {
       await putJson(h, key, pick, DAILY_TTL_SECONDS);
       return withImage(pick, image);
     } catch (error) {
-      if (error.message === 'Mapillary authentication failed') throw error;
+      if (isAuthFailure(error)) throw error;
       lastError = error.message;
       console.error(`Daily ${day} candidate ${candidate.id} failed (${attempt + 1}/${MAX_ATTEMPTS}): ${lastError}`);
     }

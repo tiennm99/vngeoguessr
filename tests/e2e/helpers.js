@@ -61,21 +61,34 @@ export function guessResponse(username) {
         distanceLevel('TPHCM', 'Hồ Chí Minh', 3),
         distanceLevel('VN', 'Vietnam', 9),
       ],
+      partial: false,
       region: {
         code: 'TPHCM-Q7',
         name: 'Quận 7',
         path: ['Vietnam', 'Hồ Chí Minh', 'Quận 7'],
         level: 'district',
       },
-      globalRank: 5,
-      cityRank: 2,
-      globalDistanceRank: 9,
-      cityDistanceRank: 3,
+      guessedRegion: {
+        code: 'TPHCM-Q7',
+        name: 'Quận 7',
+        path: ['Vietnam', 'Hồ Chí Minh', 'Quận 7'],
+        level: 'district',
+      },
+      hit: 'district',
       exactLocation: { lat: 10.7411, lng: 106.7218 },
     },
-    leaderboard: { message: 'Score added at 3 levels (+3, +3, +3)' },
-    distance: { message: 'Distance record: 123m' },
-    message: 'Game result processed successfully',
+  };
+}
+
+/** /api/daily response: today's challenge, day #1, on the same TPHCM image. */
+export function dailyResponse(sessionId) {
+  return {
+    success: true,
+    sessionId,
+    day: '2026-09-20',
+    number: 1,
+    region: { code: 'VN', name: 'Vietnam', path: ['Vietnam'], level: 'country' },
+    imageData: { url: `${PANO_IMAGE_URL}?daily=1`, isPano: true },
   };
 }
 
@@ -87,11 +100,6 @@ export function leaderboardResponse() {
       { username: 'top-player', score: 42, rank: 1 },
       { username: 'runner-up', score: 17, rank: 2 },
     ],
-    count: 2,
-    region: { code: 'VN', name: 'Vietnam' },
-    leaderboardType: 'score',
-    type: 'global',
-    cityCode: null,
   };
 }
 
@@ -111,6 +119,9 @@ export async function stubGameApis(page, username) {
   });
   await page.route('**/api/guess', async (route) => {
     await route.fulfill({ json: guessResponse(username) });
+  });
+  await page.route('**/api/daily', async (route) => {
+    await route.fulfill({ json: dailyResponse('e2e-daily-session') });
   });
   await page.route('**/api/skip', async (route) => {
     await route.fulfill({ json: { success: true } });

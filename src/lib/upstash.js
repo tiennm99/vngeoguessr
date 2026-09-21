@@ -123,18 +123,6 @@ export async function zIncrBy(h, key, increment, member) {
 }
 
 /**
- * Get a member's score, or null if absent.
- * @param {{ client: Redis, prefix: string }} h
- * @param {string} key
- * @param {string} member
- * @returns {Promise<number|null>}
- */
-export async function zScore(h, key, member) {
-  const result = await h.client.zscore(pkey(h, key), member);
-  return result == null ? null : Number(result);
-}
-
-/**
  * Range query on a sorted set, returning [{ value, score }, ...].
  * @param {{ client: Redis, prefix: string }} h
  * @param {string} key

@@ -10,7 +10,7 @@ import {
   putJson,
   del,
   zAdd,
-  zScore,
+  zIncrBy,
   zRangeWithScores,
   zRank,
   zRevRank,
@@ -100,21 +100,17 @@ describe('upstash adapter', () => {
       await zAdd(h, 'lb', 20, 'chi');
     }
 
-    it('reads back a score', async () => {
-      const h = getUpstash();
-      await seed(h);
-      expect(await zScore(h, 'lb', 'binh')).toBe(30);
-    });
-
-    it('returns null for an absent member', async () => {
-      expect(await zScore(getUpstash(), 'lb', 'ghost')).toBeNull();
-    });
-
     it('overwrites rather than accumulating on re-add', async () => {
       const h = getUpstash();
       await zAdd(h, 'lb', 10, 'anh');
       await zAdd(h, 'lb', 25, 'anh');
-      expect(await zScore(h, 'lb', 'anh')).toBe(25);
+      expect(await zRangeWithScores(h, 'lb', 0, -1, false)).toEqual([{ value: 'anh', score: 25 }]);
+    });
+
+    it('increments atomically, creating an absent member at zero', async () => {
+      const h = getUpstash();
+      expect(await zIncrBy(h, 'lb', 5, 'ghost')).toBe(5);
+      expect(await zIncrBy(h, 'lb', 2, 'ghost')).toBe(7);
     });
 
     it('ranges ascending', async () => {

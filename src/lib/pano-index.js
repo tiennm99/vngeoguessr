@@ -14,6 +14,7 @@
 
 import { getPanoDb, query } from './pano-db.js';
 import { getRegion, childrenOf, isPlayable } from './regions.js';
+import { DryPoolError } from './errors.js';
 
 /**
  * WHERE clause for one region. The country has no predicate of its own;
@@ -103,15 +104,15 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
         // Only a dry pool falls through to the next province. A connection or
         // query failure would hit all five identically, and five retries would
         // just relabel it "no panoramas left".
-        if (!String(error.message).startsWith('No panoramas left')) throw error;
+        if (!(error instanceof DryPoolError)) throw error;
       }
     }
-    throw new Error(`No panoramas left to try for ${code}`);
+    throw new DryPoolError(code);
   }
 
   const where = regionPredicate(code);
   let total = await countPanos(code);
-  if (total === 0) throw new Error(`No panoramas left to try for ${code}`);
+  if (total === 0) throw new DryPoolError(code);
 
   // Rejection sampling rather than filtering. excludeIds holds the ids already
   // tried this round plus the player's recent-location history, so up to ~52 --
@@ -134,7 +135,7 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
       // retry budget on it, every round, until the process recycles.
       countCache.delete(code);
       total = await countPanos(code);
-      if (total === 0) throw new Error(`No panoramas left to try for ${code}`);
+      if (total === 0) throw new DryPoolError(code);
       continue;
     }
     if (!excludeIds.has(rows[0].id)) {
@@ -150,7 +151,7 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
     [code, ids]
   );
   const usable = usableRows[0].n;
-  if (usable === 0) throw new Error(`No panoramas left to try for ${code}`);
+  if (usable === 0) throw new DryPoolError(code);
   const offset = Math.floor(Math.random() * usable);
   const rows = await query(
     getPanoDb(),
@@ -293,11 +294,3 @@ export async function getProvinceMeta(provinceCode) {
   };
 }
 
-/**
- * Province codes that currently have an index seeded.
- * @returns {Promise<string[]>} Codes.
- */
-export async function indexedProvinces() {
-  const rows = await query(getPanoDb(), 'SELECT code FROM pano_provinces ORDER BY code', []);
-  return rows.map((row) => row.code);
-}

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getLeaderboard } from '../../../lib/leaderboard.js';
-import { regionName, COUNTRY_CODE } from '../../../lib/regions.js';
 import { resolveRegion } from '../../../lib/region-request.js';
 
 export async function GET(request) {
@@ -26,16 +25,7 @@ export async function GET(request) {
 
     const leaderboard = await getLeaderboard(regionCode, limit, type);
 
-    return NextResponse.json({
-      success: true,
-      leaderboard,
-      count: leaderboard.length,
-      region: { code: regionCode, name: regionName(regionCode) },
-      leaderboardType: type,
-      // Pre-tree field names, kept so existing callers keep working.
-      type: regionCode === COUNTRY_CODE ? 'global' : 'city',
-      cityCode: regionCode === COUNTRY_CODE ? null : regionCode,
-    });
+    return NextResponse.json({ success: true, leaderboard });
 
   } catch (error) {
     console.error('Leaderboard GET Error:', error);

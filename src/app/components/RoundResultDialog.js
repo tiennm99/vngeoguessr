@@ -360,9 +360,6 @@ export default function RoundResultDialog({
                         Some boards could not be updated this round. The ones above were.
                       </p>
                     )}
-                    {result.leaderboardMessage && !result.partial && (
-                      <p className="text-sm text-success font-medium">{result.leaderboardMessage}</p>
-                    )}
                   </div>
                 </details>
               )}

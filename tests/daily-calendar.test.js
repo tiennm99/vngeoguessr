@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dailyDay, previousDay, dailyNumber, isDay, DAILY_EPOCH } from '../src/lib/daily-calendar.js';
+import { dailyDay, previousDay, dailyNumber, DAILY_EPOCH } from '../src/lib/daily-calendar.js';
 
 describe('daily calendar', () => {
   it('rolls the day over at midnight in Vietnam, not UTC', () => {
@@ -17,11 +17,5 @@ describe('daily calendar', () => {
     expect(previousDay('2026-10-01')).toBe('2026-09-30');
     expect(previousDay('2027-01-01')).toBe('2026-12-31');
     expect(previousDay('2028-03-01')).toBe('2028-02-29');
-  });
-
-  it('recognises a well-formed day', () => {
-    expect(isDay('2026-09-21')).toBe(true);
-    expect(isDay('2026-13-40')).toBe(false);
-    expect(isDay(20260921)).toBe(false);
   });
 });

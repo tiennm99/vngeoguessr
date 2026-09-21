@@ -7,7 +7,6 @@ vi.mock('@neondatabase/serverless', async () => {
 import {
   pickRandomPano,
   countPanos,
-  indexedProvinces,
   getRegionPanoSample,
   getProvinceMeta,
 } from '../src/lib/pano-index.js';
@@ -169,10 +168,6 @@ describe('getRegionPanoSample', () => {
 });
 
 describe('province metadata', () => {
-  it('lists seeded provinces', async () => {
-    expect(await indexedProvinces()).toEqual(['DN', 'HN', 'LA', 'LD', 'TPHCM']);
-  });
-
   it('reports seed-time metadata', async () => {
     const meta = await getProvinceMeta('LD');
     expect(meta.count).toBe(fixtureIds('LD').length);

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getRegion } from '../../../lib/regions.js';
 import { resolvePlayableRegion, publicRegion } from '../../../lib/region-request.js';
 import { fetchRegionPanorama } from '../../../lib/mapillary.js';
-import { storeGameSession, getGameSession } from '../../../lib/session.js';
+import { storeGameSession } from '../../../lib/session.js';
+import { isAuthFailure } from '../../../lib/errors.js';
 import { getRecentPanoIds, recordPanoId } from '../../../lib/pano-history.js';
 import {
   PLAYER_COOKIE,
@@ -77,13 +78,21 @@ export async function GET(request) {
     const imageResult = await fetchRegionPanorama(pickedRegion, new Set(recentIds));
 
     if (!imageResult.success) {
-      // The user-facing message is generic; keep the real cause in the logs so
-      // an API outage is not silently reported as missing coverage.
-      console.error(`Mapillary search failed for ${pickedName}: ${imageResult.error}`);
+      console.error(`Round draw failed for ${pickedName} (${imageResult.kind}): ${imageResult.error}`);
+      // Two different facts. A dry pool is about the region and gets the
+      // coverage message; an outage is about the service and must not be
+      // reported as missing coverage, or a Mapillary incident reads as the
+      // map having shrunk.
+      if (imageResult.kind === 'upstream') {
+        return NextResponse.json({
+          success: false,
+          error: 'Street view is not answering right now. Please try again in a moment.',
+        }, { status: 502 });
+      }
       return NextResponse.json({
         success: false,
         error: `No street view images found in ${pickedName}. This region may not have sufficient Mapillary coverage.`
-      });
+      }, { status: 404 });
     }
 
     const selectedImage = imageResult.data;
@@ -122,7 +131,9 @@ export async function GET(request) {
     // do not want this location again.
     await recordPanoOrIgnore(playerId, selectedImage.id);
 
-    console.log(`Session ${currentSessionId} created in ${selectedImage.regionCode}`);
+    // Deliberately without the resolved district: that is the answer, and the
+    // session store is the only place it should be written before the guess.
+    console.log(`Session ${currentSessionId} created for ${pickedRegion}`);
 
     const response = NextResponse.json({
       success: true,
@@ -147,56 +158,21 @@ export async function GET(request) {
   } catch (error) {
     console.error('Location/Mapillary API Error:', error);
 
+    // `error` may not be an Error: a rejected promise can carry anything, and
+    // a handler that reads `.message.includes` off it would itself throw.
+    const detail = String(error?.message ?? error);
     let errorMessage = 'Failed to fetch street view images. Please try again.';
-
-    if (error.message.includes('without a resolved region')) {
+    if (detail.includes('without a resolved region')) {
       errorMessage = 'Panorama index is missing its district assignments. ' +
         'Run scripts/assign-pano-districts.mjs.';
-    } else if (error.message.includes('Mapillary authentication failed')) {
+    } else if (isAuthFailure(error)) {
       errorMessage = 'Mapillary authentication failed. Please check API token.';
-    } else if (error.message.includes('fetch')) {
-      errorMessage = 'Network error. Please check your connection.';
     }
 
     return NextResponse.json({
       success: false,
       error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, { status: 500 });
-  }
-}
-
-// Get session data (for debugging)
-export async function POST(request) {
-  const body = await request.json().catch(() => null);
-  const sessionId = body?.sessionId;
-
-  if (!sessionId) {
-    return NextResponse.json({ success: false, error: 'Missing sessionId' }, { status: 400 });
-  }
-
-  try {
-    const session = await getGameSession(sessionId);
-    if (!session) {
-      return NextResponse.json({ success: false, error: 'Session not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      session: {
-        sessionId: session.sessionId,
-        // Only what the player picked. Neither exactLocation nor regionCode is
-        // exposed: the caller owns this session id, so either one would hand
-        // them the answer to their own round.
-        pickedRegion: session.pickedRegion ?? null,
-        createdAt: session.createdAt
-      }
-    });
-  } catch (error) {
-    console.error('Session lookup error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to look up session'
+      details: process.env.NODE_ENV === 'development' ? detail : undefined
     }, { status: 500 });
   }
 }

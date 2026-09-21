@@ -134,7 +134,7 @@ export async function POST(request) {
     // The daily is scored and counted, never credited.
     const isDaily = session.mode === 'daily';
     const [leaderboardResult, distanceResult] = isDaily
-      ? [{ levels: [], message: '' }, null]
+      ? [{ levels: [], partial: false }, null]
       : await Promise.all([
           submitRoundScore(username, distance, scoringRegion),
           distanceOrNone(username, distance, scoringRegion),
@@ -184,18 +184,11 @@ export async function POST(request) {
         // Where the guess was, and how much of the answer's region it shares.
         guessedRegion: guessedRegion ? publicRegion(guessedRegion) : null,
         hit,
-        globalRank: leaderboardResult.global?.rank ?? null,
-        cityRank: leaderboardResult.province?.rank ?? null,
-        globalDistanceRank: distanceResult?.globalDistance?.rank ?? null,
-        cityDistanceRank: distanceResult?.provinceDistance?.rank ?? null,
         exactLocation: {
           lat: numTargetLat,
           lng: numTargetLng
         }
       },
-      leaderboard: leaderboardResult,
-      distance: distanceResult,
-      message: 'Game result processed successfully'
     });
 
   } catch (error) {

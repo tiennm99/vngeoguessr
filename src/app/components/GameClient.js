@@ -64,7 +64,16 @@ async function fetchNewRound(locationCode, currentSessionId, daily) {
     url = `/api/new-game?${params.toString()}`;
   }
 
-  const response = await fetch(url);
+  // A ceiling on the wait: the server gives itself eight seconds to draw a
+  // round, so a request still open after fifteen is not coming back, and the
+  // error panel with its retry beats a spinner that never resolves.
+  let response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+  } catch (error) {
+    if (error?.name === 'TimeoutError') throw new Error('The round took too long to load. Please try again.');
+    throw new Error('Network error. Please check your connection.');
+  }
   const data = await response.json();
   if (!data.success) {
     throw new Error(data.error || 'No images found');
@@ -115,7 +124,6 @@ export default function GameClient({ region, daily = false }) {
   const [result, setResult] = useState(null);
   const [showDonate, setShowDonate] = useState(false);
   const [username, setUsernameState] = useState('');
-  const [mapCenter, setMapCenter] = useState([10.8231, 106.6297]);
   // This visit's tally, client-side only: rounds submitted and points earned
   // since the page loaded. The result dialog shows leaderboard totals, but
   // those arrive per-board and per-region; this is the simple "how am I doing
@@ -136,6 +144,10 @@ export default function GameClient({ region, daily = false }) {
   // string this component read itself.
   const pickedRegion = isRegion(region) ? getRegion(region) : null;
   const regionName = pickedRegion ? regionNameOf(pickedRegion.code) : 'Vietnam';
+  // Derived, not state: the region is a prop and the page keys this component
+  // on it, so the centre is fixed for the component's whole life. Holding it
+  // in state painted one frame of Ho Chi Minh on every other region.
+  const mapCenter = pickedRegion?.center ?? [10.8231, 106.6297];
 
   const initializingRef = useRef(false);
   // The next round, fetched while the result dialog is open so Next Round can
@@ -205,8 +217,6 @@ export default function GameClient({ region, daily = false }) {
 
     try {
       const code = locationCode.toUpperCase();
-      const center = isRegion(code) ? getRegion(code).center : null;
-      if (center) setMapCenter(center);
 
       // Already played today: show that result again rather than dealing a
       // second attempt. The panorama, the pin and the outcome were all kept.
@@ -269,9 +279,7 @@ export default function GameClient({ region, daily = false }) {
       });
 
       const data = await response.json();
-      if (data.success) {
-        return { ...data.gameResult, leaderboard: data.leaderboard };
-      }
+      if (data.success) return data.gameResult;
       console.error('Failed to submit game result:', data.error);
       // The server says why. An expired round and a write failure used to
       // share one message, and only one of them is anything the player did.
@@ -354,7 +362,9 @@ export default function GameClient({ region, daily = false }) {
           // 'district' | 'province' | 'none': how much of the answer's region
           // the guess shared. Display only.
           hit: submitted.hit ?? 'none',
-          leaderboardMessage: submitted.leaderboard?.message ?? '',
+          // True when a board failed to write after the session was consumed;
+          // the dialog then qualifies the levels it lists.
+          partial: submitted.partial ?? false,
         };
         setResult(outcome);
         if (daily && dailyInfo) {

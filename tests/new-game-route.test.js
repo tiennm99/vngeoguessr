@@ -8,7 +8,7 @@ vi.mock('@neondatabase/serverless', async () => {
   return neonModule();
 });
 
-import { GET, POST } from '../src/app/api/new-game/route.js';
+import { GET } from '../src/app/api/new-game/route.js';
 import { getGameSession } from '../src/lib/session.js';
 import { getRecentPanoIds } from '../src/lib/pano-history.js';
 import { PLAYER_COOKIE } from '../src/lib/player-id.js';
@@ -123,6 +123,33 @@ describe('GET /api/new-game', () => {
   });
 });
 
+describe('GET /api/new-game failure statuses', () => {
+  it('answers 404 with the coverage message when the draw finds nothing', async () => {
+    // Binh Duong is playable in the real counts but holds no fixture rows, so
+    // the draw itself runs dry. A dry pool is about the region, not the
+    // service: it keeps the coverage message and must not be a 200.
+    const response = await GET(request('region=BD'));
+    expect(response.status).toBe(404);
+    const body = await response.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toMatch(/coverage/);
+  });
+
+  it('answers 502, not "no coverage", when Mapillary does not answer', async () => {
+    // An outage is about the service, not the region. Reporting it as missing
+    // coverage read as the map having shrunk.
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('fetch failed');
+    });
+    const response = await GET(request('region=TPHCM'));
+    expect(response.status).toBe(502);
+    const body = await response.json();
+    expect(body.success).toBe(false);
+    expect(body.error).not.toMatch(/coverage/);
+  });
+
+});
+
 describe('GET /api/new-game and the recent-location history', () => {
   const PLAYER = '3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 
@@ -192,28 +219,7 @@ describe('GET /api/new-game and the recent-location history', () => {
   });
 });
 
-describe('POST /api/new-game', () => {
-  it('exposes the picked region but never the answer', async () => {
-    // This handler echoes session fields back to whoever owns the session id --
-    // which is the player. Returning the resolved district here would hand them
-    // their own answer.
-    const created = await (await GET(request('region=VN'))).json();
-    const session = await getGameSession(created.sessionId);
-
-    const response = await POST(
-      new Request('http://localhost/api/new-game', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId: created.sessionId }),
-      })
-    );
-    const body = await response.json();
-
-    expect(body.session.pickedRegion).toBe('VN');
-    const serialised = JSON.stringify(body);
-    expect(serialised).not.toContain(session.regionCode);
-    expect(serialised).not.toContain('exactLocation');
-  });
-
+describe('GET /api/new-game session ids', () => {
   it('replaces a session id it could not have minted rather than keying on it', async () => {
     // The value becomes `session:<value>` in Redis as-is. A glob, a colon or a
     // long string must not get there; the client loses nothing by being handed
@@ -222,15 +228,5 @@ describe('POST /api/new-game', () => {
     expect(body.success).toBe(true);
     expect(body.sessionId).toMatch(/^[0-9a-f-]{36}$/);
     expect(body.sessionId).not.toBe('not-a-uuid*');
-  });
-
-  it('404s an unknown session', async () => {
-    const response = await POST(
-      new Request('http://localhost/api/new-game', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId: 'nope' }),
-      })
-    );
-    expect(response.status).toBe(404);
   });
 });

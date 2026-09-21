@@ -6,13 +6,46 @@ vi.mock('@upstash/redis', async (importOriginal) => {
 
 import {
   getLeaderboard,
-  submitScore,
   submitRoundScore,
   submitDistanceRecord,
 } from '../src/lib/leaderboard.js';
+import { SCORE_BANDS } from '../src/lib/game.js';
 import { resetStore, storedKeys } from './redis-harness.js';
 
 const MAX_LEADERBOARD_SIZE = 200;
+
+/**
+ * A distance that scores exactly `points` on the ladder, so a test can award
+ * a known point value through the one write path production uses.
+ */
+function distanceFor(points) {
+  if (points === 0) return SCORE_BANDS[SCORE_BANDS.length - 1].maxMeters + 1;
+  const band = SCORE_BANDS.find((b) => b.points === points);
+  const index = SCORE_BANDS.indexOf(band);
+  return index === 0 ? 0 : SCORE_BANDS[index - 1].maxMeters + 1;
+}
+
+/** Credit `points` to a region and everything above it. */
+function award(username, points, regionCode) {
+  return submitRoundScore(username, distanceFor(points), regionCode);
+}
+
+/** Reach an exact total through rounds of at most five points. */
+async function awardTotal(username, total, regionCode) {
+  let left = total;
+  let last = null;
+  while (left > 0) {
+    const points = Math.min(5, left);
+    last = await award(username, points, regionCode);
+    left -= points;
+  }
+  return last;
+}
+
+/** The level entry for one region code out of a fan-out result. */
+function at(result, code) {
+  return result.levels.find((level) => level.code === code) ?? null;
+}
 
 describe('score leaderboard', () => {
   beforeEach(async () => {
@@ -20,30 +53,30 @@ describe('score leaderboard', () => {
   });
 
   it('accumulates repeat submissions rather than replacing them', async () => {
-    await submitScore('mai', 3, 'TPHCM');
-    const second = await submitScore('mai', 4, 'TPHCM');
-    expect(second.global.score).toBe(7);
-    expect(second.city.score).toBe(7);
+    await award('mai', 3, 'TPHCM');
+    const second = await award('mai', 4, 'TPHCM');
+    expect(at(second, 'VN').score).toBe(7);
+    expect(at(second, 'TPHCM').score).toBe(7);
   });
 
   it('keeps city totals independent of each other', async () => {
-    await submitScore('mai', 5, 'TPHCM');
-    const inHanoi = await submitScore('mai', 2, 'HN');
-    expect(inHanoi.city.score).toBe(2);
+    await award('mai', 5, 'TPHCM');
+    const inHanoi = await award('mai', 2, 'HN');
+    expect(at(inHanoi, 'HN').score).toBe(2);
     // The global total spans both cities.
-    expect(inHanoi.global.score).toBe(7);
+    expect(at(inHanoi, 'VN').score).toBe(7);
   });
 
   it('lowercases the city key', async () => {
-    await submitScore('mai', 1, 'TPHCM');
+    await award('mai', 1, 'TPHCM');
     expect(await storedKeys()).toContain('vngeoguessr:leaderboard:city:tphcm');
   });
 
   it('ranks the highest total first, counting from one', async () => {
-    await submitScore('anh', 2, 'HN');
-    await submitScore('binh', 5, 'HN');
-    const chi = await submitScore('chi', 4, 'HN');
-    expect(chi.city.rank).toBe(2);
+    await award('anh', 2, 'HN');
+    await award('binh', 5, 'HN');
+    const chi = await award('chi', 4, 'HN');
+    expect(at(chi, 'HN').rank).toBe(2);
 
     const leaderboard = await getLeaderboard('HN', 10, 'score');
     expect(leaderboard).toEqual([
@@ -54,14 +87,14 @@ describe('score leaderboard', () => {
   });
 
   it('moves a player up as their total grows', async () => {
-    await submitScore('anh', 5, 'HN');
-    await submitScore('binh', 3, 'HN');
-    expect((await submitScore('binh', 4, 'HN')).city.rank).toBe(1);
+    await award('anh', 5, 'HN');
+    await award('binh', 3, 'HN');
+    expect(at(await award('binh', 4, 'HN'), 'HN').rank).toBe(1);
   });
 
   it('honours the requested limit', async () => {
     for (const name of ['anh', 'binh', 'chi', 'dung']) {
-      await submitScore(name, 1, 'HN');
+      await award(name, 1, 'HN');
     }
     expect(await getLeaderboard('HN', 2, 'score')).toHaveLength(2);
   });
@@ -77,14 +110,14 @@ describe('score leaderboard', () => {
     // to new players for good.
     const overflow = MAX_LEADERBOARD_SIZE + 5;
     for (let i = 0; i < overflow; i++) {
-      await submitScore(`player${String(i).padStart(3, '0')}`, i + 1, 'HN');
+      await awardTotal(`player${String(i).padStart(3, '0')}`, i + 1, 'HN');
     }
 
     // The weakest player is still on the board with their total intact, and
     // ranked below the window rather than forgotten.
-    const weakest = await submitScore('player000', 1, 'HN');
-    expect(weakest.city.score).toBe(2);
-    expect(weakest.city.rank).toBe(overflow);
+    const weakest = await award('player000', 1, 'HN');
+    expect(at(weakest, 'HN').score).toBe(2);
+    expect(at(weakest, 'HN').rank).toBe(overflow);
 
     for (const scope of ['HN', null]) {
       const served = await getLeaderboard(scope, overflow, 'score');
@@ -95,20 +128,20 @@ describe('score leaderboard', () => {
 
   it('adds concurrent rounds under one name without losing any', async () => {
     // A read-then-write here lost increments when two rounds finished together.
-    await Promise.all(Array.from({ length: 10 }, () => submitScore('mai', 1, 'HN')));
+    await Promise.all(Array.from({ length: 10 }, () => award('mai', 1, 'HN')));
     expect((await getLeaderboard('HN', 1, 'score'))[0].score).toBe(10);
   });
 
   it.each([
-    ['username', ['', 3, 'HN']],
-    ['cityCode', ['mai', 3, '']],
+    ['username', ['', 100, 'HN']],
+    ['regionCode', ['mai', 100, '']],
   ])('rejects a submission missing %s', async (_field, args) => {
-    await expect(submitScore(...args)).rejects.toThrow(/Missing required fields/);
+    await expect(submitRoundScore(...args)).rejects.toThrow(/Missing required fields/);
   });
 
   it('trims surrounding whitespace from the username', async () => {
-    const result = await submitScore('  mai  ', 3, 'HN');
-    expect(result.global.username).toBe('mai');
+    const result = await award('  mai  ', 3, 'HN');
+    expect(at(result, 'VN').username).toBe('mai');
     expect((await getLeaderboard('HN', 10, 'score'))[0].username).toBe('mai');
   });
 });
@@ -122,7 +155,7 @@ describe('distance leaderboard', () => {
     await submitDistanceRecord('anh', 900, 'DL');
     await submitDistanceRecord('binh', 120, 'DL');
     const chi = await submitDistanceRecord('chi', 400, 'DL');
-    expect(chi.cityDistance.rank).toBe(2);
+    expect(at(chi, 'DL').rank).toBe(2);
 
     const leaderboard = await getLeaderboard('DL', 10, 'distance');
     expect(leaderboard.map((e) => [e.username, e.distance])).toEqual([
@@ -187,14 +220,14 @@ describe('global leaderboard', () => {
   });
 
   it('spans every city', async () => {
-    await submitScore('anh', 5, 'HN');
-    await submitScore('binh', 3, 'TPHCM');
+    await award('anh', 5, 'HN');
+    await award('binh', 3, 'TPHCM');
     const global = await getLeaderboard(null, 10, 'score');
     expect(global.map((e) => e.username)).toEqual(['anh', 'binh']);
   });
 
   it('defaults to the score leaderboard', async () => {
-    await submitScore('anh', 5, 'HN');
+    await award('anh', 5, 'HN');
     expect(await getLeaderboard()).toEqual([{ username: 'anh', score: 5, rank: 1 }]);
   });
 });
@@ -205,7 +238,7 @@ describe('fan-out up the region tree', () => {
   });
 
   it('credits the district, its province and the country by the same amount', async () => {
-    const result = await submitScore('mai', 3, 'TPHCM-Q7');
+    const result = await award('mai', 3, 'TPHCM-Q7');
     expect(result.levels.map((l) => l.code)).toEqual(['TPHCM-Q7', 'TPHCM', 'VN']);
     for (const level of result.levels) expect(level.score).toBe(3);
 
@@ -216,38 +249,37 @@ describe('fan-out up the region tree', () => {
   });
 
   it('rolls a second district into the same province and country totals', async () => {
-    await submitScore('mai', 3, 'TPHCM-Q7');
-    const second = await submitScore('mai', 2, 'TPHCM-Q1');
+    await award('mai', 3, 'TPHCM-Q7');
+    const second = await award('mai', 2, 'TPHCM-Q1');
 
-    expect(second.district.score).toBe(2); // Q1 alone
-    expect(second.province.score).toBe(5); // Q7 + Q1
-    expect(second.global.score).toBe(5);
+    expect(at(second, 'TPHCM-Q1').score).toBe(2); // Q1 alone
+    expect(at(second, 'TPHCM').score).toBe(5); // Q7 + Q1
+    expect(at(second, 'VN').score).toBe(5);
   });
 
   it('keeps Da Lat under Lam Dong', async () => {
     // Pre-2025 units: Duc Hoa belongs to Long An, not the Tay Ninh it merged
     // into. Both leaf codes stay bare so their history stays attached.
-    const daLat = await submitScore('mai', 4, 'DL');
+    const daLat = await award('mai', 4, 'DL');
     expect(daLat.levels.map((l) => l.code)).toEqual(['DL', 'LD', 'VN']);
 
-    const ducHoa = await submitScore('mai', 1, 'DH');
+    const ducHoa = await award('mai', 1, 'DH');
     expect(ducHoa.levels.map((l) => l.code)).toEqual(['DH', 'LA', 'VN']);
-    expect(ducHoa.global.score).toBe(5);
+    expect(at(ducHoa, 'VN').score).toBe(5);
   });
 
   it('credits two levels when the panorama sat outside every district', async () => {
     // A province-level code is a legitimate scoring target: the panorama fell
     // in a gap between simplified district outlines.
-    const result = await submitScore('mai', 2, 'DN');
+    const result = await award('mai', 2, 'DN');
     expect(result.levels.map((l) => l.code)).toEqual(['DN', 'VN']);
-    expect(result.district).toBeNull();
-    expect(result.province.score).toBe(2);
+    expect(at(result, 'DN').score).toBe(2);
   });
 
   it('maps the country to the pre-existing global key', async () => {
     // Not leaderboard:city:vn -- the national board players already have has to
     // keep accumulating rather than restarting under a new name.
-    await submitScore('mai', 1, 'DL');
+    await award('mai', 1, 'DL');
     const keys = await storedKeys();
     expect(keys).toContain('vngeoguessr:leaderboard:vietnam');
     expect(keys).not.toContain('vngeoguessr:leaderboard:city:vn');
@@ -263,7 +295,7 @@ describe('fan-out up the region tree', () => {
       ['TPHCM', 0],
       ['VN', 0],
     ]);
-    expect(result.message).toBe('Score added at 3 levels (+0, +0, +0)');
+    expect(result.partial).toBe(false);
     expect((await getLeaderboard('VN'))[0].score).toBe(0);
     expect((await getLeaderboard('TPHCM-Q7'))[0].score).toBe(0);
   });
@@ -302,7 +334,6 @@ describe('region validation', () => {
   });
 
   it.each([
-    ['submitScore', () => submitScore('mai', 3, 'NOPE')],
     ['submitRoundScore', () => submitRoundScore('mai', 100, 'NOPE')],
     ['submitDistanceRecord', () => submitDistanceRecord('mai', 100, 'NOPE')],
     ['getLeaderboard', () => getLeaderboard('NOPE')],
@@ -314,7 +345,7 @@ describe('region validation', () => {
   });
 
   it('creates no key for a rejected region', async () => {
-    await expect(submitScore('mai', 3, 'NOPE')).rejects.toThrow();
+    await expect(submitRoundScore('mai', 100, 'NOPE')).rejects.toThrow();
     expect(await storedKeys()).toEqual([]);
   });
 
@@ -330,12 +361,12 @@ describe('region validation', () => {
   ])('clamps a limit of %s to %i rows', async (limit, expected) => {
     // Seeded past the cap so each clamp lands on a distinguishable length. A
     // board with one entry cannot tell a working clamp from a missing one.
-    for (let i = 0; i < 250; i++) await submitScore(`p${i}`, (i % 5) + 1, 'DL');
+    for (let i = 0; i < 250; i++) await award(`p${i}`, (i % 5) + 1, 'DL');
     expect((await getLeaderboard('DL', limit, 'score')).length).toBe(expected);
   });
 
   it('treats a null region as the country', async () => {
-    await submitScore('mai', 3, 'DL');
+    await award('mai', 3, 'DL');
     expect(await getLeaderboard(null)).toEqual(await getLeaderboard('VN'));
   });
 });

@@ -12,13 +12,17 @@
 // here; the failure is on Mapillary's side and no retry budget fixes it.
 
 import { pickRandomPano } from './pano-index.js';
+import { DryPoolError, UpstreamError, isAuthFailure } from './errors.js';
 
 const GRAPH_API = 'https://graph.mapillary.com';
 const FIELDS = 'id,thumb_2048_url,thumb_original_url,geometry,is_pano';
 // A by-ID lookup is reliable, but an individual image can have been deleted
 // since the index was built, so allow a couple of alternates.
 const MAX_ATTEMPTS = 3;
-const REQUEST_TIMEOUT_MS = 10000;
+const REQUEST_TIMEOUT_MS = 5000;
+// The whole draw, all attempts included, stops retrying past this: a Vercel
+// function has ten seconds, and a player waiting longer has already left.
+const DRAW_BUDGET_MS = 8000;
 
 /**
  * Read the access token, failing loudly when it is absent.
@@ -40,16 +44,22 @@ function requireAccessToken() {
  */
 async function fetchImage(imageId, accessToken) {
   const url = `${GRAPH_API}/${imageId}?access_token=${accessToken}&fields=${FIELDS}`;
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    next: { revalidate: 0 },
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      next: { revalidate: 0 },
+    });
+  } catch (error) {
+    const timedOut = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+    throw new UpstreamError(timedOut ? 'timeout' : 'network', `Mapillary ${imageId}: ${error?.message ?? error}`);
+  }
 
-  if (response.status === 401) throw new Error('Mapillary authentication failed');
+  if (response.status === 401) throw new UpstreamError('auth', 'Mapillary authentication failed');
   if (!response.ok) {
     const body = await response.text().catch(() => '<unreadable>');
-    throw new Error(`${response.status}: ${body.slice(0, 200)}`);
+    throw new UpstreamError('http', `Mapillary ${imageId}: ${response.status}: ${body.slice(0, 200)}`);
   }
   return await response.json();
 }
@@ -91,7 +101,7 @@ async function drawCandidate(regionCode, excludeIds) {
   try {
     return { pano: await pickRandomPano(regionCode, excludeIds), dryMessage: null };
   } catch (error) {
-    if (!String(error.message).startsWith('No panoramas left')) throw error;
+    if (!(error instanceof DryPoolError)) throw error;
     return { pano: null, dryMessage: error.message };
   }
 }
@@ -107,10 +117,14 @@ async function drawCandidate(regionCode, excludeIds) {
  * @param {string} regionCode Region code at any level, e.g. 'VN', 'TPHCM', 'TPHCM-Q7'.
  * @param {Set<string>} recentIds Panoramas this player has recently seen, to
  *   avoid if the region can afford it.
- * @returns {Promise<{success: boolean, data?: Object, error?: string}>}
+ * `kind` on a failure tells a dry pool ('dry': the region has nothing left to
+ * show, a game condition) from an upstream failure ('upstream': Mapillary or
+ * the network, an outage). The two deserve different statuses and copy.
+ * @returns {Promise<{success: boolean, data?: Object, error?: string, kind?: 'dry'|'upstream'}>}
  */
 export async function fetchRegionPanorama(regionCode, recentIds = new Set()) {
   requireAccessToken();
+  const deadline = Date.now() + DRAW_BUDGET_MS;
 
   const tried = new Set();
   // Two exclusion sets with different strengths. `tried` is hard: a candidate
@@ -143,7 +157,7 @@ export async function fetchRegionPanorama(regionCode, recentIds = new Set()) {
       }
     }
 
-    if (!candidate) return { success: false, error: dryMessage };
+    if (!candidate) return { success: false, kind: 'dry', error: dryMessage };
     tried.add(candidate.id);
 
     try {
@@ -165,13 +179,16 @@ export async function fetchRegionPanorama(regionCode, recentIds = new Set()) {
       };
     } catch (error) {
       lastError = error.message;
-      if (error.message === 'Mapillary authentication failed') throw error;
+      if (isAuthFailure(error)) throw error;
       console.error(`Mapillary lookup ${candidate.id} failed (${attempt}/${MAX_ATTEMPTS}): ${lastError}`);
+      // Out of time: another attempt would outlive the request.
+      if (Date.now() >= deadline) break;
     }
   }
 
   return {
     success: false,
-    error: `No panorama could be loaded after ${MAX_ATTEMPTS} attempts (last: ${lastError})`,
+    kind: 'upstream',
+    error: `No panorama could be loaded (last: ${lastError})`,
   };
 }

@@ -38,12 +38,3 @@ export function previousDay(day) {
 export function dailyNumber(day) {
   return Math.round((Date.parse(`${day}T00:00:00Z`) - Date.parse(`${DAILY_EPOCH}T00:00:00Z`)) / DAY_MS) + 1;
 }
-
-/**
- * True for a well-formed 'YYYY-MM-DD'.
- * @param {unknown} day
- * @returns {boolean}
- */
-export function isDay(day) {
-  return typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) && !Number.isNaN(Date.parse(`${day}T00:00:00Z`));
-}

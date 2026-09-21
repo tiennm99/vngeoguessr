@@ -7,7 +7,7 @@ import {
   zRevRank,
   zRemRangeByRank,
 } from './upstash.js';
-import { ancestorsOf, getRegion, isRegion, regionName, COUNTRY_CODE } from './regions.js';
+import { ancestorsOf, isRegion, regionName, COUNTRY_CODE } from './regions.js';
 import { calculateScore } from './game.js';
 
 // Leaderboard logical key constants (prefix is applied inside the adapter).
@@ -183,57 +183,11 @@ async function fanOutScore(h, username, regionCode, pointsFor) {
     throw failures[0]?.reason ?? new Error('No level could be credited');
   }
 
-  // Named aliases alongside the array: the chain is district -> province ->
-  // country for a leaf, but only province -> country when a panorama fell
-  // outside every district polygon, so callers cannot index by position.
-  const byLevel = (level) =>
-    levels.find((entry) => getRegion(entry.code).level === level) ?? null;
-
-  return {
-    success: true,
-    levels,
-    partial: failures.length > 0,
-    district: byLevel('district'),
-    province: byLevel('province'),
-    global: byLevel('country'),
-    // `city` is the pre-tree name for the province level. Kept so /api/guess
-    // keeps reporting a rank until the API surface moves to `levels`.
-    city: byLevel('province'),
-  };
-}
-
-/**
- * Submit a known point value to a region and every region above it.
- *
- * Every level is credited by the same amount. NOT for round scoring: the game
- * route goes through submitRoundScore, which grades each board by its own
- * regional ladder -- a flat fan-out here is exactly the country-round
- * asymmetry that change removed. This primitive exists for tests and manual
- * backfills that already hold a per-board point value.
- * @param {string} username Player username.
- * @param {number} score Points to add (0-5).
- * @param {string} regionCode Region the panorama was in.
- * @returns {Promise<Object>} Per-level results.
- */
-export async function submitScore(username, score, regionCode) {
-  try {
-    const h = getUpstash();
-
-    if (!username || score === undefined || !regionCode) {
-      throw new Error('Missing required fields: username, score, regionCode');
-    }
-    requireRegion(regionCode);
-
-    const numScore = Number(score);
-    const result = await fanOutScore(h, username.trim(), regionCode, () => numScore);
-    return {
-      ...result,
-      message: `Score added at ${result.levels.length} levels (+${numScore})`,
-    };
-  } catch (error) {
-    console.error('Error submitting score:', error);
-    throw new Error(error.message || 'Failed to submit score');
-  }
+  // `levels` is the whole answer: innermost first, and the chain is district ->
+  // province -> country for a leaf but only province -> country when a
+  // panorama fell outside every district polygon, so callers look a level up
+  // by code rather than by position.
+  return { levels, partial: failures.length > 0 };
 }
 
 /**
@@ -260,16 +214,7 @@ export async function submitRoundScore(username, distance, regionCode) {
     if (typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0) {
       throw new Error(`Invalid distance: ${distance}`);
     }
-    const numDistance = distance;
-    const result = await fanOutScore(h, username.trim(), regionCode, () =>
-      calculateScore(numDistance)
-    );
-    return {
-      ...result,
-      message: `Score added at ${result.levels.length} levels (${result.levels
-        .map((level) => `+${level.points}`)
-        .join(', ')})`,
-    };
+    return await fanOutScore(h, username.trim(), regionCode, () => calculateScore(distance));
   } catch (error) {
     console.error('Error submitting round score:', error);
     throw new Error(error.message || 'Failed to submit round score');
@@ -337,19 +282,7 @@ export async function submitDistanceRecord(username, distance, regionCode) {
       )
     );
 
-    const byLevel = (level) =>
-      levels.find((entry) => getRegion(entry.code).level === level) ?? null;
-
-    return {
-      success: true,
-      levels,
-      districtDistance: byLevel('district'),
-      provinceDistance: byLevel('province'),
-      globalDistance: byLevel('country'),
-      // Pre-tree name for the province level; see submitScore.
-      cityDistance: byLevel('province'),
-      message: `Distance record: ${numDistance}m`,
-    };
+    return { levels };
   } catch (error) {
     console.error('Error submitting distance record:', error);
     throw new Error(error.message || 'Failed to submit distance record');
