@@ -14,26 +14,10 @@
 // already played on another day in the window, the cheapest available
 // measure of whether anyone comes back.
 
-import { readFileSync, existsSync } from 'node:fs';
 import { statsDays, readDay, distinctPlayersAcross } from '../src/lib/stats.js';
+import { applyEnvFile } from './lib/env.mjs';
 
-/** Read .env the way the other scripts do, without pulling in a dependency. */
-function loadEnvFile() {
-  if (!existsSync('.env')) return {};
-  return Object.fromEntries(
-    readFileSync('.env', 'utf8')
-      .split(/\r?\n/)
-      .filter((line) => line && !line.startsWith('#') && line.includes('='))
-      .map((line) => {
-        const at = line.indexOf('=');
-        return [line.slice(0, at).trim(), line.slice(at + 1).trim().replace(/^"(.*)"$/, '$1')];
-      })
-  );
-}
-
-for (const [key, value] of Object.entries(loadEnvFile())) {
-  process.env[key] ??= value;
-}
+applyEnvFile();
 
 const LEVELS = ['country', 'province', 'district', 'daily'];
 const windowDays = Math.max(1, Number(process.argv[2]) || 14);

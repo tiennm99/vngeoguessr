@@ -27,23 +27,9 @@ import { REGION_COUNTS } from '../src/data/regions/counts.js';
 import { PANO_DIR } from './lib/paths.mjs';
 import { panoramasDdl, PANO_PROVINCES_DDL } from './lib/pano-schema.mjs';
 import { validatePanoArtifact } from './lib/pano-artifacts.mjs';
+import { loadEnvFile } from './lib/env.mjs';
 
 const BATCH_SIZE = 5000;
-
-/** Read .env the way the other scripts do, without pulling in a dependency. */
-function loadEnvFile() {
-  if (!existsSync('.env')) return {};
-  return Object.fromEntries(
-    readFileSync('.env', 'utf8')
-      .split(/\r?\n/)
-      .filter((line) => line && !line.startsWith('#') && line.includes('='))
-      .map((line) => {
-        const at = line.indexOf('=');
-        // `vercel env pull` quotes its values; the raw URL is what dials.
-        return [line.slice(0, at).trim(), line.slice(at + 1).trim().replace(/^"(.*)"$/, '$1')];
-      })
-  );
-}
 
 function databaseUrl() {
   const env = loadEnvFile();

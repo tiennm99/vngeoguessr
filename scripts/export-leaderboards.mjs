@@ -8,26 +8,11 @@
 // board is dumped whole, member and score, under its logical key, so the file
 // can be replayed with ZADD against any prefix.
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { getUpstash, scanKeys, zRangeWithScores } from '../src/lib/upstash.js';
+import { applyEnvFile } from './lib/env.mjs';
 
-/** Read .env the way the other scripts do, without pulling in a dependency. */
-function loadEnvFile() {
-  if (!existsSync('.env')) return {};
-  return Object.fromEntries(
-    readFileSync('.env', 'utf8')
-      .split(/\r?\n/)
-      .filter((line) => line && !line.startsWith('#') && line.includes('='))
-      .map((line) => {
-        const at = line.indexOf('=');
-        return [line.slice(0, at).trim(), line.slice(at + 1).trim().replace(/^"(.*)"$/, '$1')];
-      })
-  );
-}
-
-for (const [key, value] of Object.entries(loadEnvFile())) {
-  process.env[key] ??= value;
-}
+applyEnvFile();
 
 const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
 const outPath = process.argv[2] ?? `leaderboard-backup-${stamp}.json`;

@@ -12,6 +12,11 @@
 // scripts/build-region-boundaries.mjs. Output is data-build/panos/<code>.json
 // (gitignored), which is plain JSON, safe to prune by hand, and uploaded to
 // Postgres by scripts/seed-pano-db.mjs.
+//
+// A full rebuild of every city costs roughly 2,800 tile requests against
+// tiles.mapillary.com's 50,000/day cap -- see TILE_RETRIES below. `npm run
+// data:refresh` runs this as one step of the full pipeline; budget for that
+// cost before invoking it.
 
 import { mkdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { VectorTile } from '@mapbox/vector-tile';
@@ -20,6 +25,7 @@ import * as turf from '@turf/turf';
 import { REGIONS } from '../src/data/regions/index.js';
 import { assignPanos } from './lib/assign-districts.mjs';
 import { BOUNDARY_DIR, PANO_DIR as OUT_DIR } from './lib/paths.mjs';
+import { loadEnvFile } from './lib/env.mjs';
 
 // The image layer, the one carrying per-image points, only exists at z14.
 const ZOOM = 14;
@@ -46,16 +52,8 @@ const GRID_DEG = 0.0003;
 const MAX_PER_CITY = Infinity;
 
 function loadToken() {
-  const env = Object.fromEntries(
-    readFileSync('.env', 'utf8')
-      .split(/\r?\n/)
-      .filter((line) => line && !line.startsWith('#') && line.includes('='))
-      .map((line) => {
-        const at = line.indexOf('=');
-        return [line.slice(0, at).trim(), line.slice(at + 1).trim()];
-      })
-  );
-  const token = env.MAPILLARY_ACCESS_TOKEN;
+  const env = loadEnvFile();
+  const token = process.env.MAPILLARY_ACCESS_TOKEN ?? env.MAPILLARY_ACCESS_TOKEN;
   if (!token) throw new Error('MAPILLARY_ACCESS_TOKEN missing from .env');
   return token;
 }
