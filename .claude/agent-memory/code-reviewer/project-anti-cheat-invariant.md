@@ -50,5 +50,15 @@ Ordinary rounds are immune only because `/api/new-game` draws randomly and revea
 nothing. The team's "browser-only attempt limit is fine, there is no daily board"
 rationale assumes the daily credits no board; it credits the main ones.
 
+CLOSED at 77654d2, verified 2026-09-21: `guess/route.js` reads `session.mode === 'daily'`
+and skips both fan-outs, so the daily credits nothing. `/api/daily` still mints an
+unlimited number of sessions for the same panorama and `recordRound('daily', ...)` still
+fires, so the daily row in `npm run stats` stays inflatable — cosmetic, not a board.
+
 **How to apply:** whenever a mode makes the answer repeatable (daily, replay,
 shared link), check what it credits before accepting a client-side attempt limit.
+
+`src/lib/daily.js` is server-only and holds the day's answer, but it is NOT in the
+`FORBIDDEN` list of the client-safety walk in `tests/regions.test.js` (still only
+data/panos, pano-index, pano-db, pano-history, data/boundaries). The walk guards
+only what is named in it — check the list on any new server-only module.

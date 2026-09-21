@@ -41,5 +41,16 @@ Update 2026-09-21 (`dev`): the top-200 trim is GONE from the score boards
 (`leaderboard.js`) and `creditScore` now uses ZINCRBY (2 commands/level instead of
 4). Distance boards are still trimmed at 200; `MAX_LEADERBOARD_SIZE` is only a
 serving window for scores. The `trimmed` field and the `score === null` ->
-"Below top 200" dialog branch are gone — but `tests/e2e/helpers.js` still emits
-`trimmed: false`.
+"Below top 200" dialog branch are gone, and `tests/e2e/helpers.js` no longer emits
+`trimmed` (re-verified 2026-09-21).
+
+The alias layer around the boards is entirely dead, verified by grep 2026-09-21:
+`city`/`cityDistance`/`districtDistance` in `leaderboard.js` have zero readers;
+`global`/`province`/`globalDistance`/`provinceDistance` are read only to build
+`gameResult.globalRank`/`cityRank`/`globalDistanceRank`/`cityDistanceRank`, which
+no client reads either (`GameClient.js` consumes `levels`/`distanceLevels`), and
+`/api/leaderboard`'s `count`/`region`/`type`/`cityCode`/`leaderboardType` are unread
+(`LeaderboardModal.js` takes `data.leaderboard` only). `submitScore` has no
+production caller but is the primary write path in `tests/leaderboard.test.js`.
+Everything that still emits these is `tests/e2e/helpers.js` — so the deletion is one
+atomic commit with no client migration.

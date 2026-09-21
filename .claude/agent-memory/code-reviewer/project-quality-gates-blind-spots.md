@@ -36,8 +36,19 @@ an env var silently un-stubs the suite - `npm run dev` loads `.env`, so the mome
 a real key exists the "offline" run hits the vendor and spends metered credits.
 Any diff that makes an outbound host configurable must widen the matcher too.
 
+Third stub-drift instance, found 2026-09-21: `guessResponse()` in `helpers.js` omits
+`hit`, which `GameClient.js` and `RoundResultDialog` both consume, so the region-hit
+line renders in zero e2e runs; and there is no `**/api/daily**` stub at all while
+`/daily` exists and `GameClient` fetches it. A cheap durable gate: a vitest test
+asserting the stub's key set is a superset of the real route response's.
+
 **Still open, verified 2026-08-30 on the Phase 6 docs review:**
-- React prop/state contracts. `no-undef` does not see a prop a parent forgot to
+- React prop/state contracts. Live instance found 2026-09-21: `/api/guess` returns
+  `gameResult.partial`, `RoundResultDialog` renders on `result.partial`, and
+  `GameClient.js` never copies it into the `outcome` object between them — so a
+  partly-written round silently shows the success message. Lint, 357 tests and the
+  build are all green over it. When a route adds a response field, grep the field
+  name through the component chain, not just the route test. `no-undef` does not see a prop a parent forgot to
   pass, a stale value left in state when a sibling is cleared, or a Leaflet
   layer never removed. Reason through the render and effect order by hand.
 - Doc claims. Nothing asserts that `/docs/` matches the code. Two real misses in
@@ -73,6 +84,23 @@ query plans are only ever proven by a manual smoke test against real Neon. There
 is also no perf gate: an unindexed `ORDER BY ... OFFSET` or a window-function
 sort over 226k rows passes every check. Ask for the index list whenever a diff
 adds a query.
+
+**Duplicate-mount state, found 2026-09-21:** the game header mounts breakpoint
+pairs of the same control (`GameClient.js:550-571` renders ThemeToggle and
+SoundToggle twice, one wrapper `display:none`). SoundToggle survives that because
+`audio.js` exports `watch*` subscriptions; ThemeToggle does not, so its two copies
+disagree after a click. `audio.js`'s getter+setter+`watch*` trio is the local
+pattern for browser-preference state - a module lacking `watch*` (`theme.js`,
+`username.js`, `last-region.js`, `daily-progress.js` as of this date) cannot be
+read correctly by more than one mounted component. Check for a second mount before
+accepting a mount-time `useState` seed.
+
+**React version note, 2026-09-21:** React is 19.2.8, where `useEffectEvent` and
+`useSyncExternalStore` are both stable (`typeof React.useEffectEvent === 'function'`
+- verify, do not assume). `eslint.config.mjs:36-41` justifies all 21 hook warnings
+as deliberate, but that comment predates 19.2: the callback-props-into-refs sites
+are now a plain `useEffectEvent` fix, not a false positive. Only a ref holding
+DATA (not a callback) is genuinely unfixable that way.
 
 **How to apply:** when a diff removes or renames state, props, helpers, or
 imports, grep the whole file. For any React change, state plainly in the report
