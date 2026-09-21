@@ -282,6 +282,10 @@ describe('client safety', () => {
       'pano-db',
       'pano-history',
       'data/boundaries',
+      // The daily pick passes the day's answer through; a client bundle that
+      // reached it would hold every player's round.
+      'lib/daily.js',
+      'region-locate',
     ];
 
     const collectSourceFiles = (dir, out) => {

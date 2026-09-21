@@ -139,5 +139,5 @@ points added at every level are the same number.
 ### 10. Continue or Exit
 - Option to start next round with new session and location in the same region
 - Option to return to the region picker and choose somewhere else
-- Option to view full leaderboard with pagination
+- Option to view the leaderboards (top 200 per board)
 - Redis session cleanup ensures fresh start for each round

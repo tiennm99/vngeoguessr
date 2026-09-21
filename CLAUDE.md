@@ -25,7 +25,7 @@ For detailed information about this project, refer to the documentation files in
 
 **Key Guidelines:**
 - **JavaScript Only**: No TypeScript files (.ts, .tsx)
-- **Function Parameters**: Use individual parameters, not object destructuring
+- **Function Parameters**: Use individual parameters, not object destructuring, in library functions, scripts and route helpers. React components take a single props object and destructure it, as every component here does
 - **File Modifications**: Only modify source code, `/docs`, and `/plans`
 - **Generated Data**: `src/data/` is build output; the panorama index lives in
   Neon Postgres, seeded from gitignored `data-build/panos/` artifacts. Change

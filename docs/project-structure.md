@@ -63,7 +63,10 @@ Next.js 16 App Router structure:
 #### React Components (`src/app/components/`)
 - `AppBackground.js` - The key art (`public/bg.png`) on one fixed layer under
   every page, served through `next/image`
-- `GameClient.js` - Main game client component
+- `GameClient.js` - The round lifecycle: fetch, epochs, prefetch, submit,
+  daily replay. Layout lives in the components it renders
+- `GameHeader.js` - The game screen's app bar, presentational
+- `PlaceName.js` - A Vietnamese place name marked `lang="vi"`
 - `LeafletMap.js` - Interactive map for guess placement
 - `PanoramaViewer.js` - 360 degree street view display; owns the Mapillary
   attribution and a `topBarSlot` for host chrome sharing that row
@@ -100,7 +103,6 @@ the shadcn CLI when a screen needs them, rather than keeping unused ones around.
 - `label.jsx` - Form labels
 - `select.jsx` - Grouped select (region picker)
 - `skeleton.jsx` - Loading skeletons
-- `tabs.jsx` - Tab navigation
 
 ### Generated Data (`src/data/`)
 Both directories are build output. Do not hand-edit; see *Rebuilding the
@@ -150,6 +152,13 @@ Neon Postgres, which is what the app queries at runtime.
 - `region-locate.js` - **Server-side only.** Which region a map point falls in,
   from the generated boundaries; feeds the result dialog's region-hit line
 - `debug-access.js` - The production gate on `/api/debug/*`
+- `errors.js` - `DryPoolError` and `UpstreamError`, the two ways a draw fails
+- `storage.js` - The one place localStorage is touched: guarded read, write,
+  and change notification across this tab and others
+- `use-stored-value.js` - **Client-side only.** Renders a stored value via
+  useSyncExternalStore
+- `first-round-hint.js` - Whether the how-to-play hint has been seen
+- `geo-search.js` - Client-safe region and street search for the guess map
 - `share.js` - Client-safe share text for a round and the share-sheet call
 - `upstash.js` - Upstash Redis REST client adapter with multi-tenant key prefix
 - `theme.js`, `use-count-up.js` - Theme persistence and a count-up hook
@@ -170,6 +179,10 @@ Each carries a header comment with its flags and its cost.
   (`npm run leaderboard:export`; run weekly by a GitHub Actions workflow)
 - `lib/assign-districts.mjs` - District assignment shared by the two pano scripts
 - `lib/pano-schema.mjs` - Panorama table DDL shared by the seed and the tests
+- `lib/env.mjs` - The `.env` parser and loader every script shares
+- `lib/region-config.mjs` - The hand-edited region configuration the boundary
+  builder reads (input data, distinct from the generated tree)
+- `lib/barrel.mjs`, `lib/paths.mjs` - Barrel writer and output paths
 
 ## Tests (`tests/`)
 Vitest, mostly one file per `src/lib/` module, plus a route test for

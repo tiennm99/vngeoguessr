@@ -108,3 +108,49 @@ modules; `development.md` says tests run "well under a second" (24.5s
 measured); `game-flow.md` describes leaderboard pagination that does not
 exist; `tech-stack.md` two stale lines. All listed with line numbers in the
 architecture report.
+
+## Resolution (same day)
+
+Applied on `dev` in five commits, one per area, all gates green throughout
+(401 tests, lint 0 errors and 0 warnings, production compile).
+
+- **Bugs 1–8**: `partial` reaches the dialog; new-game answers 404 for a dry
+  pool and 502 for an upstream failure, its error handler tolerates a
+  non-Error, and it no longer logs the answer's district; the theme toggle
+  pair reads one store; every localStorage access goes through a guarded
+  module; the map centre is derived; the e2e stubs carry `hit`, `partial`,
+  `guessedRegion` and a `/api/daily` stub, and `tests/e2e-stub-contract.test.js`
+  asserts each stub is a superset of the real route; the scripts share one
+  `.env` loader with the unquoting.
+- **Dead surface**: aliases, legacy ranks, duplicated envelope, `submitScore`,
+  unread leaderboard fields, the new-game debug POST, `zScore`, `isDay`,
+  `indexedProvinces`, `@radix-ui/react-tabs` — all gone. `leaderboard.test.js`
+  awards points through `submitRoundScore`.
+- **Item 2** (envelope): `/api/guess` returns `gameResult` alone;
+  `/api/leaderboard` returns the rows alone.
+- **Item 3** (error seam): `src/lib/errors.js`; eight string-match sites
+  replaced; an eight-second draw budget and a fifteen-second client timeout.
+- **Item 4** (storage): `src/lib/storage.js` and `useStoredValue`; 20 lint
+  warnings fixed with useSyncExternalStore, useEffectEvent, render-time
+  adjustment and derived values; the one data ref carries its reason; both
+  react-hooks rules are now errors.
+- **Item 5** (GameClient): GameHeader extracted (713 → 644 lines); the daily
+  replay derives from the stored record rather than six setState calls. The
+  `use-round` hook is deferred until a multi-round feature needs it.
+- **Item 6** (scripts): `scripts/lib/env.mjs`, `scripts/lib/region-config.mjs`,
+  `data:refresh`. `drawFromProvinces` not extracted: `pickPanoBySeed` keeps its
+  own walk because its skip-empty-province rule differs from the random draw.
+- **Item 7**: 28 tests for `assign-districts.mjs`, 14 for the env loader.
+- **Item 8**: PlaceName with `lang="vi"` at the pure-name sites, the expanded
+  guess map is a dialog, MapSearchBox loads with the map, debug hub is a
+  server component, header buttons use the default touch size. Not done:
+  `cardRowVariants`, `safe-x` utility, the reveal-sequence class — cosmetic
+  and each touches several files for no behaviour change.
+- **Item 9**: conventions codified in `docs/development.md`; the parameter
+  rule amended in `CLAUDE.md`; doc drift fixed.
+
+Decisions taken (defaults, override freely): upstream outage is a 502, not a
+200; the lint warnings are fixed rather than the comment updated;
+`submitScore` is deleted (no backfill procedure references it); the
+`use-round` hook waits for a multi-round feature; the home-page username
+interception stays.

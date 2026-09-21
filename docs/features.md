@@ -23,7 +23,10 @@
   from `/images?bbox=` search, which returns HTTP 500 in exactly the dense
   districts the game wants to play. See the header of `src/lib/mapillary.js`
 - **Runtime cost is one lookup**: `fetchPanoramaById` resolves a chosen id in
-  ~230ms; a couple of alternates are tried in case an image was deleted upstream
+  ~230ms; a couple of alternates are tried in case an image was deleted
+  upstream, within an eight-second budget for the whole draw. A region with
+  nothing left to show is a 404 with the coverage message; Mapillary not
+  answering is a 502, never reported as missing coverage
 - **Country draws pick a province first**, uniformly, so Vietnam rounds are not
   97% Ha Noi and Ho Chi Minh by panorama count
 - **No immediate repeats**: the last 50 panoramas a player was shown are
@@ -86,8 +89,9 @@
 - **Single-use sessions**: the session is claimed with an atomic `DEL` before any
   score is written, so a replayed or concurrent submit scores exactly once.
   After the claim the score fan-out settles per level: the levels that wrote
-  are returned, `partial: true` marks a level that did not, and only a round
-  where no level wrote is reported as unsaved. The failure carries a `reason` (`session-expired`, `session-consumed`,
+  are returned in `gameResult.levels`, `gameResult.partial` marks a level that
+  did not, and only a round where no level wrote is reported as unsaved. The
+  response is `gameResult` alone. The failure carries a `reason` (`session-expired`, `session-consumed`,
   `invalid-guess`, `invalid-username`, `invalid-request`) and the result dialog
   words each one differently, so an expired round is not reported as a failed
   write

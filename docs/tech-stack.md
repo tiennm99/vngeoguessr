@@ -58,7 +58,7 @@
 
 ## UI Components & Styling
 - **shadcn/ui**: Complete component library with "new-york" style
-- **Radix UI**: Headless component primitives -- dialog, label, slot, tabs, plus
+- **Radix UI**: Headless component primitives -- dialog, label, slot, plus
   accordion (province expansion) and select (region picker)
 - **Lucide React**: Icon library
 - **class-variance-authority**: Component variant management
@@ -66,7 +66,7 @@
 
 ## Testing
 - **Vitest**: Test runner for the logic in `src/lib/`, the API routes, the
-  generated region data, and the leaderboard migration
+  generated region data, and the pipeline script helpers
 - **In-memory Upstash fake**: Default Redis backing store, no service required
 - **PGlite**: In-process Postgres (WASM) mocked in at the
   `@neondatabase/serverless` boundary, so the panorama queries run against real

@@ -23,9 +23,55 @@
 - All components and utilities should be .js or .jsx files
 
 ### Function Parameters
-- All functions should use **individual parameters** instead of object destructuring
-- Use `function(param1, param2)` instead of `function({param1, param2})`
-- This applies to React components, utility functions, and API handlers
+- Library functions, scripts and route helpers use **individual parameters**
+  instead of object destructuring: `function(param1, param2)`, not
+  `function({param1, param2})`
+- React components are the exception: they take one props object and
+  destructure it, which is what every component here does and what React
+  expects
+
+### Conventions the code follows
+Each of these is enforced by a test or a lint rule where one exists; the rest
+are the shape the code has and new code should keep.
+
+- **Server-only modules say so** in their header comment, and the import-graph
+  test in `tests/regions.test.js` keeps `src/lib/regions.js` from reaching
+  `pano-index.js`, `pano-db.js` or `daily.js`. Anything that touches exact
+  panorama coordinates is server-only.
+- **The route decides what is best-effort; the library never swallows.** A
+  library function throws on failure. A route wraps the writes it can afford
+  to lose (recent-location history, distance records, statistics) in a small
+  `...OrIgnore` / `...OrNone` helper with a comment saying why, and lets the
+  load-bearing write (the session, the score) fail loudly.
+- **Failure kinds are classes, not message prefixes**: `DryPoolError` and
+  `UpstreamError` in `src/lib/errors.js`. A route maps them to statuses (404
+  for a dry pool, 502 for an upstream failure); nothing string-matches an
+  error message.
+- **Claim before write.** A session is consumed with an atomic `DEL` before any
+  board is written, and the fan-out after it settles per level rather than
+  all-or-nothing, because nothing after the claim can be retried.
+- **One module per browser-storage concern**, all reading through
+  `src/lib/storage.js` (never throws, notifies watchers) and rendered through
+  `useStoredValue` in `src/lib/use-stored-value.js`. No component seeds state
+  from storage in an effect; the `react-hooks/set-state-in-effect` rule is an
+  error.
+- **Callback props reach imperative handlers through `useEffectEvent`**, not
+  refs written during render; the `react-hooks/refs` rule is an error. The one
+  data ref written in render (`CoverageMap.js`) carries an inline disable and
+  its reason.
+- **Logical Redis keys are unprefixed** and the adapter in `src/lib/upstash.js`
+  applies `KEY_PREFIX`. A new Redis command means a new adapter function and a
+  matching method on `tests/fake-upstash-redis.js`.
+- **Three region levels, fixed**: country, province, district. Codes are
+  uppercase inside the app and lowercase in URLs (`regionSlug`); players see
+  `regionName()`, the accented form.
+- **`URLSearchParams.get` is read with `||`, not `??`**: `?region=` yields
+  `''`, which must mean "absent".
+- **API responses are `{ success, ... }` on success and
+  `{ success: false, error, reason? }` on failure**, with a real HTTP status.
+  `/api/guess` returns `gameResult` alone; the e2e stubs in
+  `tests/e2e/helpers.js` must carry every key a route emits, and
+  `tests/e2e-stub-contract.test.js` checks that they do.
 
 ### File Modification Policy
 - **Only modify source code files**, documentation (/docs), and plans (/plans)
@@ -97,13 +143,15 @@ Restore with
 
 Tests live in `tests/` and cover the logic in `src/lib/` (scoring and distance,
 the Upstash key adapter, game sessions, the region tree, the panorama indexes
-and the leaderboards), the API routes, and the leaderboard migration. Run
+and the leaderboards), the API routes, the district-assignment and env-loading
+script helpers, and the e2e stubs' agreement with the routes. Run
 `npm test` after changing anything under `src/lib/` or `src/data/`.
 
 The suite runs against two backing stores, from one set of test files:
 
 - `npm test` uses `tests/fake-upstash-redis.js`, an in-memory stand-in mocked in
-  at the `@upstash/redis` boundary. No service, no Docker, well under a second.
+  at the `@upstash/redis` boundary, and PGlite for Postgres. No service, no
+  Docker; about 25 seconds for the whole suite, most of it PGlite start-up.
   This is the default.
 - `npm run test:integration` runs the same files against a real Redis. Two of
   them skip: one asserts a response shape only an older SDK produces, and one
