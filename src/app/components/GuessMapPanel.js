@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import MapSearchBox from './MapSearchBox';
+// Loaded on demand with the map it sits on: it only ever renders over the
+// Leaflet pane, and it carries the region tree for offline search, which the
+// game page's first load has no use for.
+const MapSearchBox = dynamic(() => import('./MapSearchBox'), { ssr: false });
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
@@ -41,8 +44,9 @@ export default function GuessMapPanel({
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return;
       // A dialog on top owns Escape; collapsing the map behind it would make
-      // one keypress do two things.
-      if (document.querySelector('[role="dialog"]')) return;
+      // one keypress do two things. Radix content, not role=dialog: the
+      // expanded map is itself a dialog now.
+      if (document.querySelector('[data-slot="dialog-content"]')) return;
       onExpandedChange(false);
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -77,6 +81,12 @@ export default function GuessMapPanel({
       className={`absolute isolate z-(--z-floating) overflow-hidden rounded-xl border border-border bg-card p-1 shadow-lg transition-all duration-200 ease-out bottom-[calc(var(--action-bar-h)+0.75rem)] lg:relative lg:inset-auto lg:h-auto lg:w-auto lg:min-h-0 lg:p-1.5 ${
         expanded ? 'inset-x-3 top-3' : 'right-3 h-[min(9rem,30vh)] w-[min(9rem,30vh)]'
       }`}
+      // Expanded, the minimap covers the phone screen and takes focus like a
+      // modal, so it is announced as one; collapsed and on desktop it is a
+      // plain region of the page.
+      role={expanded ? 'dialog' : undefined}
+      aria-modal={expanded ? 'true' : undefined}
+      aria-label={expanded ? 'Guess map' : undefined}
     >
       {/* Leaflet's own chrome is sized for a full map, and the phone states
           are not one, so each gets what fits.

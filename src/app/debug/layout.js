@@ -21,9 +21,8 @@ export default function DebugLayout({ children }) {
           <Button
             asChild
             variant="ghost"
-            size="sm"
             aria-label="Back to home"
-            className="min-h-11 text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground"
           >
             <Link href="/">
               <ArrowLeft className="size-4" aria-hidden="true" />

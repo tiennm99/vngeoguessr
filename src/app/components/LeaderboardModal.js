@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import LeaderboardList from './LeaderboardList';
 import RegionSelect from './RegionSelect';
 import { COUNTRY_CODE, regionName } from '../../lib/regions';
+import PlaceName from './PlaceName';
 
 // The leaderboard feature: the header trigger button plus the dialog it opens.
 // Owning the button here keeps the open gesture and the cache clear in one
@@ -99,7 +100,7 @@ export default function LeaderboardModal({ currentUsername }) {
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl text-center font-bold">
-              {region ? regionName(region) : 'Leaderboards'}
+              {region ? <PlaceName>{regionName(region)}</PlaceName> : 'Leaderboards'}
             </DialogTitle>
             {/* sr-only: the region select and type toggle right below say the
                 same thing visually; Radix still needs a description. */}

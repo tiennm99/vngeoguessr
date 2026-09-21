@@ -18,6 +18,7 @@ import {
   provinces,
   regionName,
 } from '../../lib/regions';
+import PlaceName from './PlaceName';
 
 const LEVELS = [
   { id: 'country', label: 'Vietnam' },
@@ -120,7 +121,7 @@ export default function RegionSelect({
                 {group.label && <SelectLabel>{group.label}</SelectLabel>}
                 {group.codes.map((code) => (
                   <SelectItem key={code} value={code}>
-                    {regionName(code)}
+                    <PlaceName>{regionName(code)}</PlaceName>
                     {isThin(code) ? ' · few streets' : ''}
                   </SelectItem>
                 ))}
