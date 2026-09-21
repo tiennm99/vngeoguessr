@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 // Bundled from the leaflet package rather than fetched from a CDN: a blocked
@@ -28,12 +28,11 @@ export default function LeafletMap({
   const mapRef = useRef(null);
   const leafletMapRef = useRef(null);
   const markersRef = useRef([]);
-  const onMapClickRef = useRef(onMapClick);
-  const onReadyRef = useRef(onReady);
-
-  // Update refs when callbacks change
-  onMapClickRef.current = onMapClick;
-  onReadyRef.current = onReady;
+  // Effect events: always call the latest callback props without making them
+  // effect dependencies, so a parent re-rendering with a new function identity
+  // does not tear the map down.
+  const emitMapClick = useEffectEvent((coords) => onMapClick?.(coords));
+  const emitReady = useEffectEvent((map) => onReady?.(map));
 
   useEffect(() => {
     const initMap = async () => {
@@ -71,30 +70,21 @@ export default function LeafletMap({
 
         // Handle click events
         map.on('click', (e) => {
-          if (onMapClickRef.current) {
-            // Clear existing markers
-            markersRef.current.forEach(marker => {
-              map.removeLayer(marker);
-            });
-            markersRef.current = [];
+          // Clear existing markers
+          markersRef.current.forEach(marker => {
+            map.removeLayer(marker);
+          });
+          markersRef.current = [];
 
-            // Add new marker
-            const marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
-            markersRef.current.push(marker);
+          // Add new marker
+          const marker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+          markersRef.current.push(marker);
 
-            // Call callback
-            onMapClickRef.current({
-              lat: e.latlng.lat,
-              lng: e.latlng.lng
-            });
-          }
+          emitMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
         });
 
         leafletMapRef.current = map;
-        
-        if (onReadyRef.current) {
-          onReadyRef.current(map);
-        }
+        emitReady(map);
 
       } catch (error) {
         console.error('Error initializing Leaflet map:', error);
@@ -115,9 +105,7 @@ export default function LeafletMap({
         markersRef.current = [];
         // The handle given out by onReady is now a destroyed map; a parent
         // still holding it would crash on the first pan/zoom call.
-        if (onReadyRef.current) {
-          onReadyRef.current(null);
-        }
+        emitReady(null);
       }
     };
   }, [bbox, center, zoom, zoomPosition]); // Include props used in initialization

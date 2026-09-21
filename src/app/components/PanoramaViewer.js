@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useRef, memo } from 'react';
+import { useEffect, useEffectEvent, useRef, memo } from 'react';
 import Image from 'next/image';
 import { Viewer } from '@photo-sphere-viewer/core';
 import '@photo-sphere-viewer/core/index.css';
 
 function PanoramaViewer({ imageUrl, onReady, onError, topBarSlot }) {
   const containerRef = useRef(null);
-  const onReadyRef = useRef(onReady);
-  const onErrorRef = useRef(onError);
-
-  // Kept in refs so a changing callback identity cannot tear down the viewer.
-  onReadyRef.current = onReady;
-  onErrorRef.current = onError;
+  // Effect events, so a changing callback identity cannot tear down the
+  // viewer: the effect below depends on the image alone and still reaches the
+  // latest callbacks when it fires them.
+  const emitReady = useEffectEvent(() => onReady?.());
+  const emitError = useEffectEvent((error) => onError?.(error));
 
   useEffect(() => {
     const container = containerRef.current;
@@ -62,19 +61,19 @@ function PanoramaViewer({ imageUrl, onReady, onError, topBarSlot }) {
         });
 
         viewer.addEventListener('ready', () => {
-          if (!disposed) onReadyRef.current?.();
+          if (!disposed) emitReady();
         });
 
         viewer.addEventListener('panorama-error', (event) => {
           console.error('Panorama failed to render, falling back to a flat image:', event);
           showFallbackImage();
-          onReadyRef.current?.();
+          emitReady();
         });
       } catch (error) {
         console.error('Could not create the panorama viewer:', error);
         showFallbackImage();
-        onReadyRef.current?.();
-        onErrorRef.current?.(error);
+        emitReady();
+        emitError(error);
       }
     };
 

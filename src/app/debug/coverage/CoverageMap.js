@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getTileConfig } from '../../../lib/map-tiles';
@@ -31,13 +31,15 @@ export default function CoverageMap({
   const boundaryLayerRef = useRef(null);
   const dotsLayerRef = useRef(null);
   const highlightRef = useRef(null);
+  // The click handler is bound once, when the map is created, and needs the
+  // CURRENT points -- not the empty array of the first render. Data, not a
+  // callback, so an effect event does not fit; the ref is written during
+  // render on purpose and read only inside Leaflet's handler.
   const panosRef = useRef(panos);
-  const onBoundsChangeRef = useRef(onBoundsChange);
-  const onSelectPanoRef = useRef(onSelectPano);
-
+  // eslint-disable-next-line react-hooks/refs -- data snapshot for a once-bound imperative handler
   panosRef.current = panos;
-  onBoundsChangeRef.current = onBoundsChange;
-  onSelectPanoRef.current = onSelectPano;
+  const emitBoundsChange = useEffectEvent((bounds) => onBoundsChange?.(bounds));
+  const emitSelectPano = useEffectEvent((point) => onSelectPano?.(point));
 
   // Create the map once. Data arrives through the effects below.
   useEffect(() => {
@@ -62,14 +64,14 @@ export default function CoverageMap({
       clearTimeout(moveTimer);
       moveTimer = setTimeout(() => {
         const b = map.getBounds();
-        onBoundsChangeRef.current?.([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+        emitBoundsChange([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
       }, MOVE_DEBOUNCE_MS);
     };
     map.on('moveend', report);
 
     const pick = (event) => {
       const points = panosRef.current;
-      if (!points?.length || !onSelectPanoRef.current) return;
+      if (!points?.length) return;
 
       // Compare in screen space so the tolerance means the same thing at every
       // zoom level.
@@ -84,7 +86,7 @@ export default function CoverageMap({
           best = point;
         }
       }
-      if (best && bestDistance <= CLICK_TOLERANCE_PX) onSelectPanoRef.current(best);
+      if (best && bestDistance <= CLICK_TOLERANCE_PX) emitSelectPano(best);
     };
     map.on('click', pick);
 

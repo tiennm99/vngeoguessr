@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,35 +18,7 @@ import { validateUsername } from '../../lib/username';
 // action skips into a generated name; when editing an existing name it is a
 // plain Cancel, because "skip" would read as discarding the current name.
 export default function UsernameModal({ isOpen, onSubmit, onSkip, onClose, initialValue }) {
-  const [username, setUsername] = useState('');
-  const [error, setError] = useState('');
   const hasExistingName = Boolean(initialValue);
-
-  // Re-seed the field each time the dialog opens: it stays mounted between
-  // opens, and an edit session must start from the saved name, not the
-  // leftovers of the previous visit.
-  useEffect(() => {
-    if (isOpen) {
-      setUsername(initialValue || '');
-      setError('');
-    }
-  }, [isOpen, initialValue]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    // The same rule /api/guess applies, so a name accepted here is never
-    // rejected at the first submit.
-    const checked = validateUsername(username);
-    if (!checked.ok) {
-      setError(checked.error);
-      return;
-    }
-
-    onSubmit(checked.value);
-    setError('');
-    setUsername('');
-  };
 
   const handleSecondary = () => {
     if (!hasExistingName && onSkip) onSkip();
@@ -66,6 +38,41 @@ export default function UsernameModal({ isOpen, onSubmit, onSkip, onClose, initi
               : 'Enter a username for the leaderboard'}
           </DialogDescription>
         </DialogHeader>
+        {/* The form lives inside the content, which Radix unmounts when the
+            dialog closes, so every open starts a fresh form seeded from the
+            saved name -- no effect re-seeding a field that outlived its
+            previous edit session. */}
+        <UsernameForm
+          initialValue={initialValue}
+          hasExistingName={hasExistingName}
+          onSubmit={onSubmit}
+          onSecondary={handleSecondary}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UsernameForm({ initialValue, hasExistingName, onSubmit, onSecondary }) {
+  const [username, setUsername] = useState(initialValue || '');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    // The same rule /api/guess applies, so a name accepted here is never
+    // rejected at the first submit.
+    const checked = validateUsername(username);
+    if (!checked.ok) {
+      setError(checked.error);
+      return;
+    }
+
+    onSubmit(checked.value);
+  };
+
+  return (
+    <>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -99,7 +106,7 @@ export default function UsernameModal({ isOpen, onSubmit, onSkip, onClose, initi
             <Button
               type="button"
               variant="ghost"
-              onClick={handleSecondary}
+              onClick={onSecondary}
               className="flex-1"
             >
               {hasExistingName ? 'Cancel' : 'Skip — random name'}
@@ -116,7 +123,6 @@ export default function UsernameModal({ isOpen, onSubmit, onSkip, onClose, initi
         <p className="text-xs text-muted-foreground text-center">
           Displayed on the leaderboard
         </p>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

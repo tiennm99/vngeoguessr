@@ -2,16 +2,22 @@
 // browser-storage concern, so server code importing lib/game.js for scoring
 // never touches window.
 
+import { readItem, writeItem, watchItem } from './storage.js';
+
 export const USERNAME_STORAGE_KEY = 'vngeoguessr_username';
 
+/** The stored name, or '' when there is none. Never throws. */
 export function getUsername() {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(USERNAME_STORAGE_KEY);
+  return readItem(USERNAME_STORAGE_KEY) ?? '';
 }
 
 export function setUsername(username) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(USERNAME_STORAGE_KEY, username);
+  writeItem(USERNAME_STORAGE_KEY, username);
+}
+
+/** Be told when the name changes, here or in another tab. */
+export function watchUsername(onChange) {
+  return watchItem(USERNAME_STORAGE_KEY, onChange);
 }
 
 export const USERNAME_MIN_LENGTH = 2;

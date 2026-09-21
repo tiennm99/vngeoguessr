@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,14 +23,16 @@ export default function LeaderboardModal({ currentUsername }) {
   const [leaderboardError, setLeaderboardError] = useState(null);
   const fetchIdRef = useRef(0);
 
-  const fetchLeaderboard = async (regionCode, type) => {
+  const fetchLeaderboard = async (regionCode, type, fresh) => {
     const key = `${regionCode}-${type}`;
 
     // Bump first: a cache hit still supersedes whatever is in flight, and it
     // has to clear the spinner that request raised or a cached board renders
     // behind skeletons until an unrelated fetch settles.
     const currentFetchId = ++fetchIdRef.current;
-    if (leaderboards[key]) {
+    // `fresh` is the open click, which has just cleared the cache in a state
+    // update this closure cannot see yet.
+    if (!fresh && leaderboards[key]) {
       setLoadingLeaderboard(false);
       return;
     }
@@ -60,17 +62,25 @@ export default function LeaderboardModal({ currentUsername }) {
 
   // Only the board on screen is fetched. Fetching every one was viable at five
   // cities; at 67 regions it would be 134 requests on a single click.
-  useEffect(() => {
-    if (open && region) fetchLeaderboard(region, activeTypeTab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, region, activeTypeTab]);
-
+  // Fetched from the action that puts a board on screen -- opening, changing
+  // region, changing type -- rather than from an effect watching those three.
   const handleLeaderboardClick = () => {
     // Cleared on open so a player who just scored does not see their old total.
     // Kept within a session so switching level or type back is free.
     setLeaderboards({});
     setLeaderboardError(null);
     setOpen(true);
+    fetchLeaderboard(region, activeTypeTab, true);
+  };
+
+  const handleRegionChange = (code) => {
+    setRegion(code);
+    fetchLeaderboard(code, activeTypeTab, false);
+  };
+
+  const handleTypeChange = (type) => {
+    setActiveTypeTab(type);
+    fetchLeaderboard(region, type, false);
   };
 
   const rows = leaderboards[`${region}-${activeTypeTab}`] ?? [];
@@ -102,7 +112,7 @@ export default function LeaderboardModal({ currentUsername }) {
               level={level}
               onLevelChange={setLevel}
               region={region}
-              onRegionChange={setRegion}
+              onRegionChange={handleRegionChange}
             />
 
             <div className="flex gap-3">
@@ -113,7 +123,7 @@ export default function LeaderboardModal({ currentUsername }) {
                     <button
                       key={type}
                       type="button"
-                      onClick={() => setActiveTypeTab(type)}
+                      onClick={() => handleTypeChange(type)}
                       aria-pressed={activeTypeTab === type}
                       className={`h-11 px-3 text-left text-sm font-semibold capitalize outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:-ring-offset-1 ${
                         index > 0 ? 'border-t border-border' : ''

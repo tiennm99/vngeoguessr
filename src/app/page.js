@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Beer, Wrench } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ThemeToggle from './components/ThemeToggle';
@@ -13,7 +13,8 @@ import DonateQRModal from './components/DonateQRModal';
 import LeaderboardModal from './components/LeaderboardModal';
 import RegionPicker from './components/RegionPicker';
 import DailyCard from './components/DailyCard';
-import { generateRandomUsername, getUsername, setUsername } from '../lib/username';
+import { generateRandomUsername, getUsername, setUsername, watchUsername } from '../lib/username';
+import { useStoredValue } from '../lib/use-stored-value';
 import { playSound } from '../lib/audio';
 import { SCORE_BANDS, formatDistance } from '../lib/game';
 
@@ -40,25 +41,25 @@ const SCORING_ROWS = [
 export default function Home() {
   const router = useRouter();
   const [showDonateModal, setShowDonateModal] = useState(false);
-  const [showUsernameModal, setShowUsernameModal] = useState(false);
-  const [username, setUsernameState] = useState('');
+  // The stored name: null while unknown (server render and hydration), '' when
+  // the browser has none, otherwise the name. Written through setUsername and
+  // re-read here, so this page, the header chip and the game agree.
+  const storedName = useStoredValue(getUsername, watchUsername, null);
+  const username = storedName ?? '';
+  // Opened by the header chip to change an existing name.
+  const [editingName, setEditingName] = useState(false);
+  // With no stored name the prompt opens right on landing: every path out of
+  // it (save, skip, or dismiss) leaves a name behind, so the suggestion to
+  // pick one comes before Play instead of interrupting it, and saving is what
+  // closes it.
+  const showUsernameModal = editingName || storedName === '';
   // The Play destination held while the name prompt is up, so navigation
   // resumes after the name is settled.
   const [pendingHref, setPendingHref] = useState(null);
 
-  // With no stored name the prompt opens right on landing: every path out of
-  // it (save, skip, or dismiss) leaves a name behind, so the suggestion to
-  // pick one comes before Play instead of interrupting it.
-  useEffect(() => {
-    const stored = getUsername() || '';
-    setUsernameState(stored);
-    if (!stored) setShowUsernameModal(true);
-  }, []);
-
   const saveUsername = (newUsername) => {
     setUsername(newUsername);
-    setUsernameState(newUsername);
-    setShowUsernameModal(false);
+    setEditingName(false);
   };
 
   const handleUsernameSubmit = (newUsername) => {
@@ -83,7 +84,7 @@ export default function Home() {
       handleUsernameSkip();
       return;
     }
-    setShowUsernameModal(false);
+    setEditingName(false);
     setPendingHref(null);
   };
 
@@ -93,7 +94,7 @@ export default function Home() {
     playSound('click');
     if (getUsername()) return false;
     setPendingHref(href);
-    setShowUsernameModal(true);
+    setEditingName(true);
     return true;
   };
 
@@ -115,7 +116,7 @@ export default function Home() {
                   rather than overflowing the header row. */}
               <button
                 type="button"
-                onClick={() => setShowUsernameModal(true)}
+                onClick={() => setEditingName(true)}
                 className="min-h-11 max-w-44 truncate rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                 title={username ? 'Change your name' : 'Set your leaderboard name'}
               >

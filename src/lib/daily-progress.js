@@ -1,4 +1,5 @@
 import { previousDay } from './daily-calendar.js';
+import { readItem, writeItem, watchItem } from './storage.js';
 
 // The player's daily-challenge record in localStorage, mirroring username.js:
 // one module owns one browser-storage concern.
@@ -21,15 +22,28 @@ export const DAILY_STORAGE_KEY = 'vngeoguessr_daily';
  * @property {boolean} isPano Whether it renders in the 360 viewer or flat.
  */
 
+// The last raw string parsed and what it parsed to. useSyncExternalStore
+// compares snapshots by identity, so the same stored text must yield the same
+// object, not a fresh parse every read.
+let cachedRaw = null;
+let cachedProgress = null;
+
 /** @returns {DailyProgress|null} */
 export function getDailyProgress() {
-  if (typeof window === 'undefined') return null;
+  const raw = readItem(DAILY_STORAGE_KEY);
+  if (raw === cachedRaw) return cachedProgress;
+  cachedRaw = raw;
   try {
-    const raw = localStorage.getItem(DAILY_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    cachedProgress = raw ? JSON.parse(raw) : null;
   } catch {
-    return null;
+    cachedProgress = null;
   }
+  return cachedProgress;
+}
+
+/** Be told when the record changes. */
+export function watchDailyProgress(onChange) {
+  return watchItem(DAILY_STORAGE_KEY, onChange);
 }
 
 /**
@@ -68,13 +82,8 @@ export function saveDailyResult(day, number, result, guessCoordinates, imageUrl,
     imageUrl,
     isPano: isPano !== false,
   };
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(progress));
-    } catch {
-      // Best-effort: losing it means the player may play today twice.
-    }
-  }
+  // Best effort: if storage refuses, the player may get to play today twice.
+  writeItem(DAILY_STORAGE_KEY, JSON.stringify(progress));
   return progress;
 }
 

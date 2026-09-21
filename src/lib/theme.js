@@ -5,6 +5,8 @@
 // utilities and the token palette switch together. layout.js runs an inlined
 // copy of resolveDark before paint; keep the two in step.
 
+import { readItem, writeItem, watchItem } from './storage.js';
+
 export const THEME_STORAGE_KEY = 'vngeoguessr_theme';
 export const DEFAULT_THEME = 'system';
 
@@ -23,15 +25,8 @@ const DARK_QUERY = '(prefers-color-scheme: dark)';
  * @returns {string} 'light', 'dark' or 'system'.
  */
 export function getStoredTheme() {
-  if (typeof window === 'undefined') return DEFAULT_THEME;
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    return THEMES.some((theme) => theme.value === stored) ? stored : DEFAULT_THEME;
-  } catch {
-    // Private browsing and blocked site data both throw here; following the
-    // system is a fine answer when the choice cannot be read.
-    return DEFAULT_THEME;
-  }
+  const stored = readItem(THEME_STORAGE_KEY);
+  return THEMES.some((theme) => theme.value === stored) ? stored : DEFAULT_THEME;
 }
 
 /**
@@ -40,12 +35,17 @@ export function getStoredTheme() {
  * @returns {void}
  */
 export function setStoredTheme(choice) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, choice);
-  } catch {
-    // Not being able to remember the choice must not break changing it.
-  }
+  writeItem(THEME_STORAGE_KEY, choice);
+}
+
+/**
+ * Be told when the stored choice changes. Every mounted toggle subscribes, so
+ * a breakpoint pair of them never disagrees after a click.
+ * @param {Function} onChange
+ * @returns {Function} Unsubscribe.
+ */
+export function watchStoredTheme(onChange) {
+  return watchItem(THEME_STORAGE_KEY, onChange);
 }
 
 /**

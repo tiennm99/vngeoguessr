@@ -13,34 +13,21 @@ const FRAME_MS = 1000 / 60;
  * the score feel earned. Written by hand rather than pulled from an animation
  * library: this is the only animated number in the app.
  *
+ * Only the animation frames live in state. Inactive, zero and reduced-motion
+ * are derived on the way out, so nothing has to be reset in an effect.
+ *
  * @param {number} value Final value to land on.
  * @param {boolean} active False holds the counter at zero, so a reveal can wait
  *   its turn in the sequence.
  * @returns {number} The value to render this frame.
  */
 export function useCountUp(value, active) {
-  const [shown, setShown] = useState(0);
+  // The frames of the current animation, keyed by what they animate towards
+  // so a stale run for a previous value is never shown against a new one.
+  const [frame, setFrame] = useState({ target: null, shown: 0 });
 
   useEffect(() => {
-    if (!active) {
-      setShown(0);
-      return;
-    }
-
-    // Nothing to count towards, and no reason to spin a timer for it.
-    if (!value) {
-      setShown(value);
-      return;
-    }
-
-    // prefers-reduced-motion means show the answer, not a slower animation.
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
-      setShown(value);
-      return;
-    }
+    if (!active || !value || prefersReducedMotion()) return undefined;
 
     const startedAt = Date.now();
     const timer = setInterval(() => {
@@ -48,12 +35,19 @@ export function useCountUp(value, active) {
       const progress = Math.min(1, elapsed / DURATION_MS);
       // Ease out cubic: fast at first, settling onto the final number.
       const eased = 1 - Math.pow(1 - progress, 3);
-      setShown(Math.round(value * eased));
+      setFrame({ target: value, shown: Math.round(value * eased) });
       if (progress >= 1) clearInterval(timer);
     }, FRAME_MS);
 
     return () => clearInterval(timer);
   }, [value, active]);
 
-  return shown;
+  if (!active) return 0;
+  // prefers-reduced-motion means show the answer, not a slower animation.
+  if (!value || prefersReducedMotion()) return value;
+  return frame.target === value ? frame.shown : 0;
+}
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }

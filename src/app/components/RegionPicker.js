@@ -1,9 +1,10 @@
 "use client";
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+
 import { ArrowRight } from 'lucide-react';
-import { getLastRegion } from '../../lib/last-region';
+import { getLastRegion, watchLastRegion } from '../../lib/last-region';
+import { useStoredValue } from '../../lib/use-stored-value';
 import {
   Accordion,
   AccordionContent,
@@ -120,18 +121,13 @@ function UnavailableRow({ code }) {
  * so the common case stays one click while 61 districts stay reachable.
  */
 export default function RegionPicker({ onPlayClick }) {
-  // Read in an effect, not during render: localStorage does not exist on the
-  // server and a hydration mismatch is worse than the row appearing a frame
-  // late. Only one row keeps the accent style -- two competing primary
-  // actions is worse than none -- so this renders un-emphasised.
-  const [lastRegion, setLastRegionState] = useState(null);
-
-  useEffect(() => {
-    const code = getLastRegion();
-    if (code && code !== COUNTRY_CODE && isRegion(code) && isPlayable(code)) {
-      setLastRegionState(code);
-    }
-  }, []);
+  // The server sees null and renders no row; the client reads the stored code
+  // and adds it, so there is no hydration mismatch and no effect. Only one row
+  // keeps the accent style -- two competing primary actions is worse than
+  // none -- so this renders un-emphasised.
+  const stored = useStoredValue(getLastRegion, watchLastRegion, null);
+  const lastRegion =
+    stored && stored !== COUNTRY_CODE && isRegion(stored) && isPlayable(stored) ? stored : null;
 
   return (
     <div className="grid gap-3">

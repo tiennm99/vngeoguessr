@@ -30,13 +30,16 @@ const eslintConfig = [
     rules: {
       "no-undef": "error",
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
-      // Next 16 turned these React-Compiler-era rules on as errors. This app's
-      // hits are deliberate: setState-in-effect is the localStorage/hydration
-      // sync pattern (theme, username, count-up), and the ref reads feed
-      // imperative Leaflet/PhotoSphere containers that render nothing. Kept
-      // visible as warnings; revisit if the React Compiler is ever adopted.
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/refs": "warn",
+      // Next 16 turns these React-Compiler-era rules on as errors, and the
+      // code now satisfies them: browser-stored preferences are read through
+      // useSyncExternalStore (lib/use-stored-value.js) rather than seeded in
+      // an effect, and callback props reach imperative Leaflet/PhotoSphere
+      // handlers through useEffectEvent rather than refs written in render.
+      // The one ref written during render (a data snapshot in
+      // debug/coverage/CoverageMap.js) carries an inline disable with its
+      // reason. Kept as errors so the patterns do not creep back.
+      "react-hooks/set-state-in-effect": "error",
+      "react-hooks/refs": "error",
     },
   },
 ];

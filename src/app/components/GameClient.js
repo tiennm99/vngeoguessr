@@ -12,7 +12,8 @@ import GuessMapPanel from './GuessMapPanel';
 import RoundResultDialog from './RoundResultDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { generateRandomUsername, getUsername, setUsername } from '../../lib/username';
+import { generateRandomUsername, getUsername, setUsername, watchUsername } from '../../lib/username';
+import { useStoredValue } from '../../lib/use-stored-value';
 import { setLastRegion } from '../../lib/last-region';
 import { playSound } from '../../lib/audio';
 // The revealed path comes from /api/guess (the RESOLVED district), not from
@@ -20,7 +21,7 @@ import { playSound } from '../../lib/audio';
 // chose would make the reveal meaningless for a country round.
 import { getRegion, isRegion, regionName as regionNameOf } from '../../lib/regions';
 import { dailyDay } from '../../lib/daily-calendar';
-import { getDailyProgress, saveDailyResult, currentStreak } from '../../lib/daily-progress';
+import { getDailyProgress, watchDailyProgress, saveDailyResult, currentStreak } from '../../lib/daily-progress';
 
 // Loaded on demand like the Leaflet map: the viewer drags three.js in with
 // it, the largest chunk in the app by far, and nothing on the game screen can
@@ -97,7 +98,7 @@ async function fetchNewRound(locationCode, currentSessionId, daily) {
 export default function GameClient({ region, daily = false }) {
   const router = useRouter();
 
-  const [imageData, setImageData] = useState(null);
+  const [imageDataState, setImageData] = useState(null);
   // Bumped once per applied round and used as the viewer's key. The image URL
   // is not enough: a small district can serve the same panorama twice in a
   // row, and without a remount the viewer never fires 'ready' again, which is
@@ -115,15 +116,16 @@ export default function GameClient({ region, daily = false }) {
   // left an empty screen whose only way out was the browser back button.
   const [loadError, setLoadError] = useState(null);
   const [initialized, setInitialized] = useState(false);
-  const [guessCoordinates, setGuessCoordinates] = useState(null);
-  const [showResult, setShowResult] = useState(false);
+  const [guessCoordinatesState, setGuessCoordinates] = useState(null);
+  const [showResultState, setShowResult] = useState(false);
   // Everything a submitted round produced, in one object set in exactly one
   // place per outcome. null until a round has been submitted; failed:true
   // marks a round the server never recorded, so the result screen cannot
   // present a write failure as a confident 99999m miss.
-  const [result, setResult] = useState(null);
+  const [resultState, setResult] = useState(null);
   const [showDonate, setShowDonate] = useState(false);
-  const [username, setUsernameState] = useState('');
+  // The stored name, kept current by storage rather than copied into state.
+  const username = useStoredValue(getUsername, watchUsername, '');
   // This visit's tally, client-side only: rounds submitted and points earned
   // since the page loaded. The result dialog shows leaderboard totals, but
   // those arrive per-board and per-region; this is the simple "how am I doing
@@ -136,7 +138,22 @@ export default function GameClient({ region, daily = false }) {
   const [mapExpanded, setMapExpanded] = useState(false);
   // Daily mode only: which day and number this round is, and the streak it
   // counts toward. null until the round (or the stored result) is known.
-  const [dailyInfo, setDailyInfo] = useState(null);
+  const [dailyInfoState, setDailyInfo] = useState(null);
+
+  // Daily mode: today's finished round, if there is one, straight from the
+  // browser's record. Everything the result screen needs is derived from it,
+  // so reopening /daily replays the round without a fetch and without any
+  // state being seeded in an effect -- and the record written at submit time
+  // takes over from the live round's state seamlessly, being the same data.
+  const progress = useStoredValue(getDailyProgress, watchDailyProgress, null);
+  const replay = daily && progress && progress.day === dailyDay() ? progress : null;
+  const imageData = replay ? { url: replay.imageUrl, isPano: replay.isPano ?? true } : imageDataState;
+  const guessCoordinates = replay ? replay.guessCoordinates : guessCoordinatesState;
+  const result = replay ? replay.result : resultState;
+  const showResult = replay ? true : showResultState;
+  const dailyInfo = replay
+    ? { day: replay.day, number: replay.number, streak: replay.streak }
+    : dailyInfoState;
 
   // What the player picked, resolved through the tree. The page validated the
   // code before rendering, so the isRegion guard is belt-and-braces rather
@@ -210,28 +227,15 @@ export default function GameClient({ region, daily = false }) {
     }
   }, [applyRound, daily]);
 
+  // initialLoading starts true and nothing here touches it before the first
+  // await, so this can run from the mount effect without a synchronous
+  // setState.
   const loadLibrariesAndInitialize = useCallback(async (locationCode) => {
     if (initializingRef.current) return;
     initializingRef.current = true;
-    setInitialLoading(true);
 
     try {
       const code = locationCode.toUpperCase();
-
-      // Already played today: show that result again rather than dealing a
-      // second attempt. The panorama, the pin and the outcome were all kept.
-      const played = daily ? getDailyProgress() : null;
-      if (played && played.day === dailyDay()) {
-        setDailyInfo({ day: played.day, number: played.number, streak: played.streak });
-        setImageData({ url: played.imageUrl, isPano: played.isPano ?? true });
-        setRoundKey((key) => key + 1);
-        setGuessCoordinates(played.guessCoordinates);
-        setResult(played.result);
-        setShowResult(true);
-        setInitialized(true);
-        return;
-      }
-
       roundEpochRef.current += 1;
       const loaded = await loadRound(locationCode, null, roundEpochRef.current);
       // Only a region that actually served a round is worth offering as
@@ -247,11 +251,10 @@ export default function GameClient({ region, daily = false }) {
   }, [loadRound, daily]);
 
   useEffect(() => {
-    if (initialized) return;
-    const existingUsername = getUsername();
-    setUsernameState(existingUsername || '');
+    // Already played today: the stored round is on screen, nothing to fetch.
+    if (initialized || replay) return;
     loadLibrariesAndInitialize(region);
-  }, [region, loadLibrariesAndInitialize, initialized]);
+  }, [region, loadLibrariesAndInitialize, initialized, replay]);
 
   const submitGameResult = async (guessCoords) => {
     if (!guessCoords || !sessionId) return null;
@@ -263,7 +266,6 @@ export default function GameClient({ region, daily = false }) {
     if (!playerName) {
       playerName = generateRandomUsername();
       setUsername(playerName);
-      setUsernameState(playerName);
     }
 
     try {
@@ -368,12 +370,11 @@ export default function GameClient({ region, daily = false }) {
         };
         setResult(outcome);
         if (daily && dailyInfo) {
-          // Today is done. Stored with everything the result screen needs,
-          // so a revisit shows this rather than a fresh round.
-          const saved = saveDailyResult(
+          // Today is done. Stored with everything the result screen needs;
+          // the derived `replay` above takes over from here.
+          saveDailyResult(
             dailyInfo.day, dailyInfo.number, outcome, guessCoordinates, imageData.url, imageData.isPano
           );
-          setDailyInfo({ ...dailyInfo, streak: saved.streak });
         }
         if (mountedRef.current) playSound(resultSound(submitted.score ?? 0));
       } else {
@@ -491,7 +492,7 @@ export default function GameClient({ region, daily = false }) {
 
   // Only the very first load owns the screen. Everything after it keeps the
   // game chrome mounted -- tearing it down destroys the panorama viewer.
-  if (initialLoading) {
+  if (initialLoading && !replay) {
     return (
       <div className="flex-1 flex items-center justify-center vn-surface">
         <div className="text-center space-y-4 animate-fade-in-up" role="status" aria-live="polite">

@@ -36,20 +36,21 @@ export default function MapSearchBox({ map, rootCode, expanded }) {
   const regions = useMemo(() => searchRegions(query, rootCode), [query, rootCode]);
 
   // A round reset collapses the mobile minimap; a stale query from the last
-  // round should not survive into the next one.
-  useEffect(() => {
+  // round should not survive into the next one. Adjusted during render on the
+  // prop's edge rather than in an effect, so the reset lands in the same
+  // commit as the collapse instead of one frame later.
+  const [wasExpanded, setWasExpanded] = useState(expanded);
+  if (expanded !== wasExpanded) {
+    setWasExpanded(expanded);
     if (!expanded) {
       setQuery('');
       setOpen(false);
       setActiveIndex(-1);
     }
-  }, [expanded]);
+  }
 
   useEffect(() => {
     const trimmed = query.trim();
-    // A fresh query invalidates whatever the previous one produced -- results
-    // and the unavailable row alike must never describe a stale request.
-    setPlaces([]);
     if (trimmed.length < 3 || trimmed === lastSelectedRef.current) {
       return undefined;
     }
@@ -131,6 +132,10 @@ export default function MapSearchBox({ map, rootCode, expanded }) {
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
+            // A fresh query invalidates whatever the previous one produced --
+            // results and the unavailable row alike must never describe a
+            // stale request.
+            setPlaces([]);
             setOpen(true);
             setActiveIndex(-1);
           }}

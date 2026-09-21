@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import {
   THEMES,
   DEFAULT_THEME,
   getStoredTheme,
   setStoredTheme,
+  watchStoredTheme,
   applyTheme,
   watchSystemTheme,
 } from '../../lib/theme';
+import { useStoredValue } from '../../lib/use-stored-value';
 
 // Lucide, matching the rest of the chrome's icon language (Trophy, Wrench,
 // ArrowLeft ...); emoji ignored currentColor and read noisier than the rest.
@@ -27,35 +29,29 @@ const THEME_ICONS = {
  * @param {boolean} [props.compact] True for the single cycling button.
  */
 export default function ThemeToggle({ className = '', compact = false }) {
-  const [theme, setTheme] = useState(DEFAULT_THEME);
-  // The stored choice only exists on the client, so the first paint has to
-  // match the server's default and correct itself after mount.
-  const [mounted, setMounted] = useState(false);
+  // The stored choice, read from storage and re-read whenever it changes --
+  // including a change made by the other copy of this control (the header
+  // mounts a breakpoint pair). null until the browser value is known, so the
+  // server marks nothing selected rather than guessing.
+  const theme = useStoredValue(getStoredTheme, watchStoredTheme, null);
 
   useEffect(() => {
-    setTheme(getStoredTheme());
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
+    if (theme === null) return undefined;
     applyTheme(theme);
-    if (theme !== 'system') return;
+    if (theme !== 'system') return undefined;
     // Only while following the system does an OS change mean anything.
     return watchSystemTheme(() => applyTheme('system'));
-  }, [theme, mounted]);
+  }, [theme]);
 
-  const handleSelect = (choice) => {
-    setTheme(choice);
-    setStoredTheme(choice);
-  };
+  // Writing storage is the whole update: every mounted toggle re-reads.
+  const handleSelect = (choice) => setStoredTheme(choice);
 
   const groupClass = `inline-flex h-11 items-center rounded-lg border border-border bg-card ${className}`;
 
   if (compact) {
     // One cell that steps light -> dark -> system. Shows the CURRENT theme's
     // icon, so the button reads as a status as well as a control.
-    const index = THEMES.findIndex((option) => option.value === theme);
+    const index = THEMES.findIndex((option) => option.value === (theme ?? DEFAULT_THEME));
     const current = THEMES[index === -1 ? 0 : index];
     const next = THEMES[(index + 1) % THEMES.length];
     const Icon = THEME_ICONS[current.value];
@@ -84,7 +80,7 @@ export default function ThemeToggle({ className = '', compact = false }) {
       className={groupClass}
     >
       {THEMES.map((option) => {
-        const selected = mounted && theme === option.value;
+        const selected = theme === option.value;
         const Icon = THEME_ICONS[option.value];
         return (
           <button

@@ -1,16 +1,21 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowRight, Calendar, Check, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { dailyDay, dailyNumber } from '../../lib/daily-calendar';
-import { getDailyProgress, currentStreak } from '../../lib/daily-progress';
+import { getDailyProgress, watchDailyProgress, currentStreak } from '../../lib/daily-progress';
+import { useStoredValue } from '../../lib/use-stored-value';
 import { buildDailyShareText, shareText } from '../../lib/share';
 import { formatDistance } from '../../lib/game';
 
 const MAX_POINTS = 5;
+
+// The day never changes under an open page in a way worth subscribing to; a
+// reload at midnight is the refresh.
+const subscribeNothing = () => () => {};
 
 /**
  * The home page's door to today's daily challenge.
@@ -22,26 +27,19 @@ const MAX_POINTS = 5;
  * @param {Function} props.onPlayClick Same interception hook as the region rows.
  */
 export default function DailyCard({ onPlayClick }) {
-  const [state, setState] = useState(null);
   const [shareState, setShareState] = useState(null);
 
-  useEffect(() => {
-    const today = dailyDay();
-    const progress = getDailyProgress();
-    setState({
-      today,
-      number: dailyNumber(today),
-      streak: currentStreak(progress, today),
-      played: progress?.day === today ? progress : null,
-    });
-  }, []);
+  // Today's day is browser-only knowledge: the page is prerendered, and a day
+  // computed at build time would be frozen into the HTML and disagree with
+  // the client on every later day. Read through the same store hook as the
+  // record, with null as the server value, so nothing dated renders until
+  // the browser says what day it is.
+  const today = useStoredValue(dailyDay, subscribeNothing, null);
+  const progress = useStoredValue(getDailyProgress, watchDailyProgress, null);
 
-  // Everything below comes from `state` alone. The page is prerendered, so a
-  // fallback computed at render time would freeze the build day's number into
-  // the HTML and mismatch the client's on every later day.
-  const number = state?.number ?? null;
-  const played = state?.played ?? null;
-  const streak = state?.streak ?? 0;
+  const number = today ? dailyNumber(today) : null;
+  const played = today && progress?.day === today ? progress : null;
+  const streak = today ? currentStreak(progress, today) : 0;
   const shareLabel = shareState === 'copied' ? 'Copied' : shareState === 'failed' ? 'Retry' : 'Share';
   const ShareIcon = shareState === 'copied' ? Check : shareState === 'failed' ? AlertCircle : Share2;
   const shareStatus =

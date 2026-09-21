@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from 'react';
 import { Music, Volume2, VolumeX } from 'lucide-react';
 import {
   getStoredMusicEnabled,
@@ -11,6 +10,7 @@ import {
   watchMusicPreference,
   watchSfxPreference,
 } from '../../lib/audio';
+import { useStoredValue } from '../../lib/use-stored-value';
 
 /**
  * Music and sound-effect switches, styled as a sibling of ThemeToggle so the
@@ -29,23 +29,11 @@ import {
  * @returns {JSX.Element} The control.
  */
 export default function SoundToggle({ className = '', compact = false }) {
-  // Seeded with the same defaults the server renders, so the first client
-  // render matches the HTML and the effect below only ever corrects a player
-  // who has actually chosen otherwise. No `mounted` gate: with a default of
-  // on, gating would paint every load as muted and then flip.
-  const [musicOn, setMusicOn] = useState(true);
-  const [sfxOn, setSfxOn] = useState(true);
-
-  useEffect(() => {
-    setMusicOn(getStoredMusicEnabled());
-    setSfxOn(getStoredSfxEnabled());
-    const unwatchMusic = watchMusicPreference(setMusicOn);
-    const unwatchSfx = watchSfxPreference(setSfxOn);
-    return () => {
-      unwatchMusic();
-      unwatchSfx();
-    };
-  }, []);
+  // Read from storage and re-read on every change, with `true` -- the
+  // default -- as the server value, so the first paint matches the HTML and
+  // only a player who has actually chosen otherwise sees a correction.
+  const musicOn = useStoredValue(getStoredMusicEnabled, watchMusicPreference, true);
+  const sfxOn = useStoredValue(getStoredSfxEnabled, watchSfxPreference, true);
 
   // A click here is a real user gesture, which is the one thing the audio
   // context needs -- so unmuting is audible immediately rather than on the

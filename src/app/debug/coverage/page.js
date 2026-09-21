@@ -101,16 +101,23 @@ export default function CoveragePage() {
     }
   }, []);
 
-  useEffect(() => {
-    regionRef.current = region;
+  // Switching region is an action: everything derived from the previous
+  // region goes, then the new one loads. The first load happens once on mount.
+  const selectRegion = useCallback((code) => {
+    setRegion(code);
+    regionRef.current = code;
     setBoundary(null);
     setPanos(null);
     setCounts(null);
     setGeneratedAt(null);
     setSelected(null);
     setPano(null);
-    load(region, null);
-  }, [region, load]);
+    load(code, null);
+  }, [load]);
+
+  useEffect(() => {
+    load(regionRef.current, null);
+  }, [load]);
 
   const handleSelectPano = useCallback(async (point) => {
     const requestId = ++panoRequestRef.current;
@@ -179,7 +186,7 @@ export default function CoveragePage() {
           level={level}
           onLevelChange={setLevel}
           region={region}
-          onRegionChange={setRegion}
+          onRegionChange={selectRegion}
           levels={['province', 'district']}
         />
       </div>

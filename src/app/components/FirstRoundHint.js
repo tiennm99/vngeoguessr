@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
-
-const HINT_STORAGE_KEY = 'vngeoguessr_hint_seen';
+import { getHintSeen, setHintSeen, watchHintSeen } from '../../lib/first-round-hint';
+import { useStoredValue } from '../../lib/use-stored-value';
 
 /**
  * One-time how-to-play banner, rendered into the panorama pane's top row. All
@@ -21,30 +21,18 @@ const HINT_STORAGE_KEY = 'vngeoguessr_hint_seen';
  * @param {boolean} props.hasGuess True once a guess pin exists this round.
  */
 export default function FirstRoundHint({ hasGuess }) {
-  const [visible, setVisible] = useState(false);
+  // Treated as seen on the server, so the banner appears only once the
+  // browser has said it has not been: a frame late beats a hydration mismatch.
+  const seen = useStoredValue(getHintSeen, watchHintSeen, true);
 
-  // Read in an effect: localStorage does not exist on the server, and the
-  // banner appearing a frame late beats a hydration mismatch.
+  // Placing a pin proves the hint has been understood. Recorded, not just
+  // render-hidden on `hasGuess`: the next round clears the guess, and an
+  // already-understood banner must not come back.
   useEffect(() => {
-    if (!localStorage.getItem(HINT_STORAGE_KEY)) setVisible(true);
-  }, []);
-
-  const dismiss = () => {
-    setVisible(false);
-    localStorage.setItem(HINT_STORAGE_KEY, '1');
-  };
-
-  // Placing a pin proves the hint has been understood. State must flip too,
-  // not just render-hide on `hasGuess`: the next round clears the guess, and
-  // an already-understood banner must not come back.
-  useEffect(() => {
-    if (hasGuess) {
-      setVisible(false);
-      localStorage.setItem(HINT_STORAGE_KEY, '1');
-    }
+    if (hasGuess) setHintSeen();
   }, [hasGuess]);
 
-  if (!visible || hasGuess) return null;
+  if (seen || hasGuess) return null;
 
   return (
     // role="status" rather than "note": the banner appears after hydration, so
@@ -64,7 +52,7 @@ export default function FirstRoundHint({ hasGuess }) {
           panorama drag instead of dismissing the hint. */}
       <button
         type="button"
-        onClick={dismiss}
+        onClick={setHintSeen}
         aria-label="Dismiss the how-to-play hint"
         className="pointer-events-auto flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-card/95 text-muted-foreground shadow-lg backdrop-blur transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
