@@ -80,7 +80,13 @@ Next.js 16 App Router structure:
 - `FirstRoundHint.js` - One-time how-to-play banner, rendered in flow into
   the panorama pane's top row via `PanoramaViewer`'s `topBarSlot`
 - `DonateQRModal.js` - Donation QR code modal
-- `ThemeToggle.js` - Light/dark switch
+- `ThemeToggle.js` - Light/dark switch; only writes the stored choice
+- `ThemeSync.js` - Applies the stored theme (and OS flips while it is
+  'system') to the document. Renders nothing; mounted once in the root layout
+- `ShareButton.js` - Share-sheet/clipboard button with its outcome label and
+  screen-reader status, used by the result dialog and the daily card
+- `PlayLink.js` - A game link whose plain click the home page can intercept
+  for the name prompt
 - `SoundToggle.js` - Music and sound-effect switches; `compact` renders one
   mute-everything button for the game header below `sm`
 - `MusicPlayer.js` - The background loop. Renders nothing and is mounted in the
@@ -140,6 +146,8 @@ Neon Postgres, which is what the app queries at runtime.
 - `mapillary.js` - Mapillary lookup by image id
 - `player-id.js` - **Server-side only.** The anonymous `vng_pid` cookie that
   identifies a browser for repeat-avoidance, and nothing else
+- `cookies.js` - Cookie-header parsing for plain `Request`s, shared by
+  `player-id.js` and `debug-access.js`
 - `pano-history.js` - **Server-side only.** The last 50 panoramas a player was
   shown, in Redis with a rolling 3-day expiry
 - `session.js` - Redis-based session management with 30-min expiry
@@ -192,7 +200,9 @@ and `debug/pano` routes have no dedicated test file; their underlying
 `wait-for-srh.js` are the shared harness that lets the same files run against
 either the in-memory fake or a real Redis. `fake-neon.js`, `mock-neon.js` and
 `pano-fixtures.js` are the equivalent for the panorama store: PGlite behind the
-Neon SDK boundary, loaded with small synthetic rows.
+Neon SDK boundary, loaded with small synthetic rows. `mapillary-stub.js`
+stubs the Mapillary Graph API around every test of a file that calls
+`stubMapillary()`.
 
 `tests/e2e/` holds the Playwright smoke specs (`*.spec.js`, so vitest never
 collects them): the homepage picker, the username modal, one full round, and

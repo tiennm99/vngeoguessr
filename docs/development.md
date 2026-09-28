@@ -51,7 +51,8 @@ are the shape the code has and new code should keep.
   board is written, and the fan-out after it settles per level rather than
   all-or-nothing, because nothing after the claim can be retried.
 - **One module per browser-storage concern**, all reading through
-  `src/lib/storage.js` (never throws, notifies watchers) and rendered through
+  `src/lib/storage.js` (never throws, keeps a write the browser refuses in
+  memory for the visit, notifies watchers) and rendered through
   `useStoredValue` in `src/lib/use-stored-value.js`. No component seeds state
   from storage in an effect; the `react-hooks/set-state-in-effect` rule is an
   error.

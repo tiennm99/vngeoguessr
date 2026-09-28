@@ -78,8 +78,9 @@
   the name prompt and by `/api/guess`; a colon is excluded because the distance
   boards pack `username:distance:timestamp` into one member. Guess coordinates
   must be finite numbers, checked before the session is consumed so a malformed
-  submit costs nothing. A `sessionId` that is not a UUID is replaced on
-  `/api/new-game` and rejected on `/api/skip`; only server-minted ids reach the
+  submit costs nothing. `/api/new-game` mints a fresh session id every round
+  and ignores any the client offers; a `sessionId` that is not a UUID is
+  rejected on `/api/guess` and `/api/skip`. Only server-minted ids reach the
   keyspace
 - **Server-resolved region**: the district a panorama sits in is decided at
   session creation and never sent to the client; a `regionCode` in the guess
@@ -95,9 +96,9 @@
   `invalid-guess`, `invalid-username`, `invalid-request`) and the result dialog
   words each one differently, so an expired round is not reported as a failed
   write
-- **Skipped rounds get a fresh id**: the skip request deletes the old session
-  without being awaited, so the next round never reuses that id -- a late
-  delete used to land after the new round's write and kill it
+- **Every round gets a fresh id**: a reused id let a late skip delete, or a
+  guess claiming the previous round, land on the new round's session and kill
+  it
 - **Server-side Calculations**: all distance and scoring computed server-side
   using Turf.js
 
@@ -188,7 +189,10 @@ renaming it would orphan every score already recorded under it.
   for 48 hours, so the Postgres draw happens once a day. The image URL is
   resolved from Mapillary on every request, as every round does, so a signed
   URL that stops working never breaks the day; a pick deleted upstream is
-  forgotten and the next seeded candidate takes over
+  forgotten and the next seeded candidate takes over. A timeout or 5xx is not
+  proof of deletion and keeps the pick (the request fails with a 502), so a
+  Mapillary blip cannot give one day two panoramas. The pick is written with
+  `SET NX`, so two instances that draw differently still serve the first one
 - **Days roll over at midnight Vietnam time** (`src/lib/daily-calendar.js`),
   numbered from 2026-09-20 as #1
 - **Scored, counted, never credited**: `/api/daily` opens an ordinary session
