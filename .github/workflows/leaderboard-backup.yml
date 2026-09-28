@@ -1,10 +1,14 @@
 # Weekly copy of every leaderboard, kept as a workflow artifact for 90 days.
 # Upstash's free plan has no scheduled backups, and the boards are the only
-# player data the game holds. Needs three repository secrets: the Redis pair
-# the app reads, KV_REST_API_URL and KV_REST_API_TOKEN (plus KEY_PREFIX if the
-# deployment sets one), and BACKUP_PASSPHRASE. The file is encrypted with the
-# passphrase before upload: on a public repository any signed-in GitHub user
-# can download an artifact, and the boards list every player name.
+# player data the game holds. Needs the repository secrets KV_REST_API_URL,
+# KV_REST_API_TOKEN and BACKUP_PASSPHRASE, plus KEY_PREFIX if the deployment
+# sets one. Only the KV_* names are passed through, not UPSTASH_REDIS_REST_*.
+# An export that finds no boards fails the job rather than uploading an empty
+# file. GitHub disables scheduled workflows after 60 days without repository
+# activity; re-enable it from the Actions tab if it goes quiet. The file is
+# encrypted with the passphrase before upload: on a public repository any
+# signed-in GitHub user can download an artifact, and the boards list every
+# player name.
 # Restore with: openssl enc -d -aes-256-cbc -pbkdf2 -in <file>.enc -out <file>
 name: Leaderboard backup
 
@@ -12,6 +16,9 @@ on:
   schedule:
     - cron: '17 3 * * 1'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   export:

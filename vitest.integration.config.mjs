@@ -11,6 +11,10 @@ export default defineConfig({
     // Real network round-trips, and the overflow tests issue a few hundred of
     // them, so the default timeout is too tight.
     testTimeout: 30_000,
+    // Seven files start PGlite (WASM Postgres) in beforeAll. Start-up alone
+    // measured ~7s on an ARM host, so with workers starting several at once
+    // the 10s default failed whole files at random.
+    hookTimeout: 60_000,
     // One file at a time: they all share a single Redis and each flushes the
     // keyspace between tests.
     fileParallelism: false,

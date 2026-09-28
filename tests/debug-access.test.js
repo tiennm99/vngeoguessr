@@ -33,7 +33,9 @@ describe('debugAccessAllowed', () => {
       delete process.env.DEBUG_ACCESS_KEY;
       expect(debugAccessAllowed(request())).toBe(false);
     } finally {
-      process.env.NODE_ENV = original;
+      // Assigning undefined would store the string "undefined".
+      if (original === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = original;
     }
   });
 

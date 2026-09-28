@@ -8,6 +8,14 @@ on:
     branches: [main, dev]
   pull_request:
 
+permissions:
+  contents: read
+
+# A newer push to the same branch supersedes the run still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest

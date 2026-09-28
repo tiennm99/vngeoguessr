@@ -19,6 +19,13 @@ const outPath = process.argv[2] ?? `leaderboard-backup-${stamp}.json`;
 
 const h = getUpstash();
 const keys = [...(await scanKeys(h, 'leaderboard:*')), ...(await scanKeys(h, 'distance:*'))].sort();
+// Nothing found is a misconfiguration (a wrong KEY_PREFIX, the wrong
+// database), not an empty game. Failing here keeps the weekly job from
+// uploading an empty file and reporting success.
+if (keys.length === 0) {
+  console.error(`No boards found under prefix "${h.prefix}"; check KEY_PREFIX and the Redis credentials.`);
+  process.exit(1);
+}
 
 const boards = {};
 let members = 0;
