@@ -21,9 +21,11 @@ export default function GuessMapPanel({
   regionCode,
   expanded,
   onExpandedChange,
-  hasGuess,
+  guess,
+  viewKey,
   onMapClick,
 }) {
+  const hasGuess = Boolean(guess);
   const mapRef = useRef(null);
   // Mirrored into state so the search box renders once the map exists.
   const [mapInstance, setMapInstance] = useState(null);
@@ -113,6 +115,8 @@ export default function GuessMapPanel({
           zoom={10}
           // The search box owns the top-left corner on every breakpoint.
           zoomPosition="bottomleft"
+          marker={guess}
+          viewKey={viewKey}
           onMapClick={onMapClick}
           onReady={handleMapReady}
           className="w-full h-full"

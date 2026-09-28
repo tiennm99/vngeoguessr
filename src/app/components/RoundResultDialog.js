@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertCircle, Check, ChevronDown, ExternalLink, Share2 } from 'lucide-react';
+import { ChevronDown, ExternalLink } from 'lucide-react';
 import { formatDistance, SCORE_BANDS } from '../../lib/game';
 import { useCountUp } from '../../lib/use-count-up';
 import { regionSlug } from '../../lib/regions';
-import { buildShareText, buildDailyShareText, shareText } from '../../lib/share';
+import { buildShareText, buildDailyShareText } from '../../lib/share';
+import ShareButton from './ShareButton';
 import ResultMap, { MARKER_COLORS } from './ResultMap';
 
 // Why a round was not recorded, in the player's terms. The server names the
@@ -44,15 +44,6 @@ function hitCopy(hit, resolvedPath) {
   }
   return 'Wrong province';
 }
-
-// What the share button did, for the screen reader; the visible label carries
-// the same word so nothing depends on colour or an icon alone.
-const SHARE_STATUS = {
-  shared: 'Shared.',
-  copied: 'Copied to the clipboard.',
-  failed: 'Sharing failed. Try again.',
-  cancelled: '',
-};
 
 // Background and text move together: the semantic tokens flip to lighter
 // fills with dark text in dark mode, so a hardcoded text-white cannot ride
@@ -112,18 +103,11 @@ export default function RoundResultDialog({
   // rather than arriving already finished.
   const shownScore = useCountUp(score, open);
 
-  // The share outcome ('shared' | 'copied' | 'failed'), remembered against
-  // the result it belongs to, so a new round's dialog opens with a fresh
-  // button without an effect resetting state on open.
-  const [shareOutcome, setShareOutcome] = useState({ result: null, state: null });
-  const shareState = shareOutcome.result === result ? shareOutcome.state : null;
-
-  const handleShare = async () => {
+  const getShareText = () => {
     const distance = formatDistance(result.distance);
-    const text = daily
+    return daily
       ? buildDailyShareText(daily.number, score, distance, daily.streak, `${window.location.origin}/daily`)
       : buildShareText(regionName, score, distance, `${window.location.origin}/game/${regionSlug(regionCode)}`);
-    setShareOutcome({ result, state: await shareText(text) });
   };
 
   const failureCopy = FAILURE_COPY[result?.reason] ?? FAILURE_COPY.default;
@@ -132,8 +116,6 @@ export default function RoundResultDialog({
   // line earns its place under 3 points, where the ladder says only "beyond".
   const hitLine =
     result && !result.failed && score < 3 && result.hit ? hitCopy(result.hit, result.resolvedPath) : null;
-  const shareLabel = shareState === 'copied' ? 'Copied' : shareState === 'failed' ? 'Retry' : 'Share';
-  const ShareIcon = shareState === 'copied' ? Check : shareState === 'failed' ? AlertCircle : Share2;
 
   const hasScoreLevels = (result?.scoreLevels?.length ?? 0) > 0;
   const hasDistanceLevels = result?.distanceLevels?.some((entry) => entry.rank) ?? false;
@@ -379,16 +361,15 @@ export default function RoundResultDialog({
             {daily ? 'Done' : 'Next Round'}
           </Button>
           {result && !result.failed && (
-            <Button
-              onClick={handleShare}
-              variant="outline"
+            // Unmounted between rounds (result is reset), so each result
+            // starts with a fresh button.
+            <ShareButton
+              getText={getShareText}
               size="lg"
               title="Share this result"
               className="shrink-0 px-3 sm:px-5"
-            >
-              <ShareIcon className="size-4" aria-hidden="true" />
-              <span className="sr-only sm:not-sr-only">{shareLabel}</span>
-            </Button>
+              labelClassName="sr-only sm:not-sr-only"
+            />
           )}
           {!daily && (
             <Button onClick={onMenu} variant="ghost" size="lg" className="min-w-0 flex-1 px-3">
@@ -396,10 +377,6 @@ export default function RoundResultDialog({
             </Button>
           )}
         </div>
-        {/* Announced once per outcome; visually the button label already says it. */}
-        <p role="status" aria-live="polite" className="sr-only">
-          {SHARE_STATUS[shareState] ?? ''}
-        </p>
       </DialogContent>
     </Dialog>
   );

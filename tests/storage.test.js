@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readItem, writeItem, watchItem } from '../src/lib/storage.js';
 import { getUsername, setUsername } from '../src/lib/username.js';
 import { getStoredTheme, DEFAULT_THEME } from '../src/lib/theme.js';
@@ -18,5 +18,26 @@ describe('browser storage without a browser', () => {
     expect(() => setUsername('mai')).not.toThrow();
     expect(getStoredTheme()).toBe(DEFAULT_THEME);
     expect(getDailyProgress()).toBeNull();
+  });
+});
+
+// A private window or blocked site data: every access throws.
+describe('browser storage that refuses access', () => {
+  it('keeps a refused write for the rest of the visit', async () => {
+    vi.resetModules();
+    const blocked = () => { throw new Error('blocked'); };
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('localStorage', { getItem: blocked, setItem: blocked, removeItem: blocked });
+    try {
+      const storage = await import('../src/lib/storage.js');
+      expect(storage.readItem('k')).toBeNull();
+      storage.writeItem('k', 'v');
+      expect(storage.readItem('k')).toBe('v');
+      storage.writeItem('k', null);
+      expect(storage.readItem('k')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
+    }
   });
 });

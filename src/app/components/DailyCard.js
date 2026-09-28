@@ -1,17 +1,16 @@
 "use client";
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowRight, Calendar, Check, Share2 } from 'lucide-react';
+import { ArrowRight, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { dailyDay, dailyNumber } from '../../lib/daily-calendar';
 import { getDailyProgress, watchDailyProgress, currentStreak } from '../../lib/daily-progress';
 import { useStoredValue } from '../../lib/use-stored-value';
-import { buildDailyShareText, shareText } from '../../lib/share';
+import { buildDailyShareText, scoreLine } from '../../lib/share';
 import { formatDistance } from '../../lib/game';
-
-const MAX_POINTS = 5;
+import ShareButton from './ShareButton';
+import PlayLink from './PlayLink';
 
 // The day never changes under an open page in a way worth subscribing to; a
 // reload at midnight is the refresh.
@@ -27,8 +26,6 @@ const subscribeNothing = () => () => {};
  * @param {Function} props.onPlayClick Same interception hook as the region rows.
  */
 export default function DailyCard({ onPlayClick }) {
-  const [shareState, setShareState] = useState(null);
-
   // Today's day is browser-only knowledge: the page is prerendered, and a day
   // computed at build time would be frozen into the HTML and disagree with
   // the client on every later day. Read through the same store hook as the
@@ -40,30 +37,14 @@ export default function DailyCard({ onPlayClick }) {
   const number = today ? dailyNumber(today) : null;
   const played = today && progress?.day === today ? progress : null;
   const streak = today ? currentStreak(progress, today) : 0;
-  const shareLabel = shareState === 'copied' ? 'Copied' : shareState === 'failed' ? 'Retry' : 'Share';
-  const ShareIcon = shareState === 'copied' ? Check : shareState === 'failed' ? AlertCircle : Share2;
-  const shareStatus =
-    shareState === 'copied' ? 'Copied to the clipboard.'
-      : shareState === 'shared' ? 'Shared.'
-        : shareState === 'failed' ? 'Sharing failed. Try again.'
-          : '';
-
-  const handleShare = async () => {
-    const outcome = await shareText(
-      buildDailyShareText(
-        played.number,
-        played.result.score,
-        formatDistance(played.result.distance),
-        played.streak,
-        `${window.location.origin}/daily`
-      )
+  const getShareText = () =>
+    buildDailyShareText(
+      played.number,
+      played.result.score,
+      formatDistance(played.result.distance),
+      played.streak,
+      `${window.location.origin}/daily`
     );
-    setShareState(outcome);
-  };
-
-  const squares = played
-    ? '🟩'.repeat(played.result.score) + '⬜'.repeat(MAX_POINTS - played.result.score)
-    : '';
 
   return (
     <Card className="city-card-accent border-border bg-card shadow-sm">
@@ -84,7 +65,7 @@ export default function DailyCard({ onPlayClick }) {
             </p>
             <p className="text-sm text-muted-foreground">
               {played
-                ? `Played today: ${squares} ${played.result.score}/${MAX_POINTS} · ${formatDistance(played.result.distance)} away`
+                ? `Played today: ${scoreLine(played.result.score)} · ${formatDistance(played.result.distance)} away`
                 : 'One street view, one guess, the same for everyone. New at midnight, Vietnam time.'}
             </p>
           </div>
@@ -92,27 +73,20 @@ export default function DailyCard({ onPlayClick }) {
 
         {played ? (
           <div className="flex items-center gap-2">
-            <Button onClick={handleShare} variant="outline" title="Share today's result">
-              <ShareIcon className="size-4" aria-hidden="true" />
-              {shareLabel}
-            </Button>
+            <ShareButton getText={getShareText} title="Share today's result" />
             <Button asChild variant="ghost">
               <Link href="/daily">See result</Link>
             </Button>
-            <p role="status" aria-live="polite" className="sr-only">{shareStatus}</p>
           </div>
         ) : (
-          <Link
+          <PlayLink
             href="/daily"
-            onClick={(e) => {
-              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-              if (onPlayClick && onPlayClick('/daily')) e.preventDefault();
-            }}
+            onPlayClick={onPlayClick}
             className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
           >
             Play today&apos;s challenge
             <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
+          </PlayLink>
         )}
       </CardContent>
     </Card>

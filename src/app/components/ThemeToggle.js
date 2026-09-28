@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import {
   THEMES,
@@ -8,8 +7,6 @@ import {
   getStoredTheme,
   setStoredTheme,
   watchStoredTheme,
-  applyTheme,
-  watchSystemTheme,
 } from '../../lib/theme';
 import { useStoredValue } from '../../lib/use-stored-value';
 
@@ -35,15 +32,8 @@ export default function ThemeToggle({ className = '', compact = false }) {
   // server marks nothing selected rather than guessing.
   const theme = useStoredValue(getStoredTheme, watchStoredTheme, null);
 
-  useEffect(() => {
-    if (theme === null) return undefined;
-    applyTheme(theme);
-    if (theme !== 'system') return undefined;
-    // Only while following the system does an OS change mean anything.
-    return watchSystemTheme(() => applyTheme('system'));
-  }, [theme]);
-
-  // Writing storage is the whole update: every mounted toggle re-reads.
+  // Writing storage is the whole update: every mounted toggle re-reads, and
+  // ThemeSync in the root layout applies it to the document.
   const handleSelect = (choice) => setStoredTheme(choice);
 
   const groupClass = `inline-flex h-11 items-center rounded-lg border border-border bg-card ${className}`;

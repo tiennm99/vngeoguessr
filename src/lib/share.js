@@ -8,6 +8,16 @@
 const MAX_POINTS = 5;
 
 /**
+ * A score as squares and a fraction, clamped to the ladder: '🟩🟩🟩⬜⬜ 3/5'.
+ * @param {number} score Points earned, 0-5.
+ * @returns {string}
+ */
+export function scoreLine(score) {
+  const points = Math.min(Math.max(Math.trunc(score) || 0, 0), MAX_POINTS);
+  return `${'🟩'.repeat(points)}${'⬜'.repeat(MAX_POINTS - points)} ${points}/${MAX_POINTS}`;
+}
+
+/**
  * Build the share text for one round.
  * @param {string} regionName Region the player picked, e.g. 'Ha Noi'.
  * @param {number} score Points earned, 0-5.
@@ -16,9 +26,7 @@ const MAX_POINTS = 5;
  * @returns {string}
  */
 export function buildShareText(regionName, score, distanceLabel, url) {
-  const points = Math.min(Math.max(Math.trunc(score) || 0, 0), MAX_POINTS);
-  const squares = '🟩'.repeat(points) + '⬜'.repeat(MAX_POINTS - points);
-  return `VNGeoGuessr · ${regionName}\n${squares} ${points}/${MAX_POINTS} · ${distanceLabel} away\n${url}`;
+  return `VNGeoGuessr · ${regionName}\n${scoreLine(score)} · ${distanceLabel} away\n${url}`;
 }
 
 /**
@@ -31,10 +39,8 @@ export function buildShareText(regionName, score, distanceLabel, url) {
  * @returns {string}
  */
 export function buildDailyShareText(number, score, distanceLabel, streak, url) {
-  const points = Math.min(Math.max(Math.trunc(score) || 0, 0), MAX_POINTS);
-  const squares = '🟩'.repeat(points) + '⬜'.repeat(MAX_POINTS - points);
   const streakLine = streak > 1 ? ` · 🔥 ${streak} days` : '';
-  return `VNGeoGuessr Daily #${number}\n${squares} ${points}/${MAX_POINTS} · ${distanceLabel} away${streakLine}\n${url}`;
+  return `VNGeoGuessr Daily #${number}\n${scoreLine(score)} · ${distanceLabel} away${streakLine}\n${url}`;
 }
 
 /**

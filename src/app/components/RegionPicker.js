@@ -1,6 +1,6 @@
 "use client";
 
-import Link from 'next/link';
+import PlayLink from './PlayLink';
 
 import { ArrowRight } from 'lucide-react';
 import { getLastRegion, watchLastRegion } from '../../lib/last-region';
@@ -56,15 +56,9 @@ function PlayRow({ code, label, emphasis, onPlayClick }) {
   const href = `/game/${regionSlug(code)}`;
 
   return (
-    <Link
+    <PlayLink
       href={href}
-      onClick={(e) => {
-        // Modified clicks (new tab, new window) keep native behavior: the
-        // deep-linked game page can name the player itself, so hijacking the
-        // gesture would cost more than the prompt is worth.
-        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-        if (onPlayClick && onPlayClick(href)) e.preventDefault();
-      }}
+      onPlayClick={onPlayClick}
       className={`group flex min-h-14 items-center justify-between gap-3 rounded-xl border p-4 shadow-xs transition-all duration-150 hover:border-brand/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
         emphasis ? 'city-card-accent border-border bg-card' : 'border-border/60 bg-card/60'
       }`}
@@ -94,7 +88,7 @@ function PlayRow({ code, label, emphasis, onPlayClick }) {
           <ArrowRight className="size-4" aria-hidden="true" />
         </span>
       </span>
-    </Link>
+    </PlayLink>
   );
 }
 

@@ -73,56 +73,55 @@ function UsernameForm({ initialValue, hasExistingName, onSubmit, onSecondary }) 
 
   return (
     <>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="username" className="text-sm font-medium">
+            Username <span className="text-destructive" aria-hidden="true">*</span>
+          </Label>
+          <Input
+            id="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Your username"
+            maxLength={20}
+            autoFocus
+            required
+            autoComplete="username"
+            aria-describedby="username-help"
+            aria-invalid={error ? true : undefined}
+            className="h-11"
+          />
+          <p id="username-help" className="text-xs text-muted-foreground">
+            2-20 characters. Letters, numbers, hyphens and underscores.
+          </p>
+          {error && (
+            <Alert variant="destructive" className="py-2" role="alert" aria-live="assertive">
+              <AlertDescription className="text-xs">{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username" className="text-sm font-medium">
-              Username <span className="text-destructive" aria-hidden="true">*</span>
-            </Label>
-            <Input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Your username"
-              maxLength={20}
-              autoFocus
-              required
-              autoComplete="username"
-              aria-describedby="username-help"
-              aria-invalid={error ? true : undefined}
-              className="h-11"
-            />
-            <p id="username-help" className="text-xs text-muted-foreground">
-              2-20 characters. Letters, numbers, hyphens and underscores.
-            </p>
-            {error && (
-              <Alert variant="destructive" className="py-2" role="alert" aria-live="assertive">
-                <AlertDescription className="text-xs">{error}</AlertDescription>
-              </Alert>
-            )}
-          </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onSecondary}
+            className="flex-1"
+          >
+            {hasExistingName ? 'Cancel' : 'Skip — random name'}
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1"
+          >
+            Save name
+          </Button>
+        </div>
+      </form>
 
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onSecondary}
-              className="flex-1"
-            >
-              {hasExistingName ? 'Cancel' : 'Skip — random name'}
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1"
-            >
-              Save name
-            </Button>
-          </div>
-        </form>
-
-        <p className="text-xs text-muted-foreground text-center">
-          Displayed on the leaderboard
-        </p>
+      <p className="text-xs text-muted-foreground text-center">
+        Displayed on the leaderboard
+      </p>
     </>
   );
 }

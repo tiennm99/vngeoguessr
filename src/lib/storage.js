@@ -9,6 +9,10 @@
 // Reads and writes are guarded because storage is not always there: private
 // windows, blocked site data and thumbnail renderers all throw on access, and
 // a preference that cannot be remembered must never take the page down.
+// A write the browser refuses is kept in memory instead, so it still holds
+// for the rest of the visit: every value is read back through this module,
+// and a name or theme that silently reverts leaves the page unusable (the
+// name prompt would reopen forever).
 //
 // Change notification covers both tabs and this one. The browser's `storage`
 // event fires only in OTHER tabs, so a same-tab write also dispatches on a
@@ -16,6 +20,8 @@
 // pair, one hidden) stay in step that way.
 
 const local = typeof EventTarget === 'undefined' ? null : new EventTarget();
+// key -> value (or null for removed) for writes storage refused.
+const refused = new Map();
 
 /**
  * Read a raw string, or null when absent or unreadable.
@@ -24,6 +30,7 @@ const local = typeof EventTarget === 'undefined' ? null : new EventTarget();
  */
 export function readItem(key) {
   if (typeof window === 'undefined') return null;
+  if (refused.has(key)) return refused.get(key);
   try {
     return localStorage.getItem(key);
   } catch {
@@ -42,8 +49,9 @@ export function writeItem(key, value) {
   try {
     if (value === null) localStorage.removeItem(key);
     else localStorage.setItem(key, value);
+    refused.delete(key);
   } catch {
-    // Best effort: the caller's in-memory state still applies for this visit.
+    refused.set(key, value);
   }
   local?.dispatchEvent(new CustomEvent('change', { detail: key }));
 }

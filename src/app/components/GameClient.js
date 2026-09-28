@@ -48,19 +48,11 @@ function resultSound(score) {
  * Ask the server for a new round. Throws on failure; touches no state, so the
  * result-screen prefetch can call it without disturbing the round on screen.
  * @param {string} locationCode Region to play.
- * @param {string|null} currentSessionId Session id to reuse, or null for a new one.
  * @param {boolean} daily True for today's daily challenge instead of a region draw.
  * @returns {Promise<Object>} The /api/new-game or /api/daily payload.
  */
-async function fetchNewRound(locationCode, currentSessionId, daily) {
-  let url = '/api/daily';
-  if (!daily) {
-    // Encoded: an unencoded value carrying its own '&sessionId=' would let a
-    // shared link choose the session key a victim's round is stored under.
-    const params = new URLSearchParams({ region: locationCode });
-    if (currentSessionId) params.set('sessionId', currentSessionId);
-    url = `/api/new-game?${params.toString()}`;
-  }
+async function fetchNewRound(locationCode, daily) {
+  const url = daily ? '/api/daily' : `/api/new-game?${new URLSearchParams({ region: locationCode })}`;
 
   // A ceiling on the wait: the server gives itself eight seconds to draw a
   // round, so a request still open after fifteen is not coming back, and the
@@ -112,7 +104,6 @@ export default function GameClient({ region, daily = false }) {
   // A failed round fetch, shown in place with a retry. Never an alert(): that
   // left an empty screen whose only way out was the browser back button.
   const [loadError, setLoadError] = useState(null);
-  const [initialized, setInitialized] = useState(false);
   const [guessCoordinatesState, setGuessCoordinates] = useState(null);
   const [showResultState, setShowResult] = useState(false);
   // Everything a submitted round produced, in one object set in exactly one
@@ -163,7 +154,10 @@ export default function GameClient({ region, daily = false }) {
   // in state painted one frame of Ho Chi Minh on every other region.
   const mapCenter = pickedRegion?.center ?? [10.8231, 106.6297];
 
-  const initializingRef = useRef(false);
+  // Set once the first round fetch has been started. A ref, not state:
+  // StrictMode replays the mount effect before any state update lands, and a
+  // second first-load would mint a second session.
+  const startedRef = useRef(false);
   // The next round, fetched while the result dialog is open so Next Round can
   // swap it in without a wait. Holds a promise; consumed exactly once.
   const prefetchRef = useRef(null);
@@ -177,9 +171,14 @@ export default function GameClient({ region, daily = false }) {
   // Back stays live while a guess is in flight, so a submit can resolve after
   // the player has already left for the menu. State updates after that are
   // harmless no-ops; a victory jingle over the home screen is not.
+  // Set in the effect as well as cleared in its cleanup: StrictMode unmounts
+  // and remounts once, and a flag only ever cleared stays false for good.
   const mountedRef = useRef(true);
 
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const applyRound = useCallback((data) => {
     if (data.day) {
@@ -206,9 +205,11 @@ export default function GameClient({ region, daily = false }) {
     setLoadError(null);
   }, []);
 
-  const loadRound = useCallback(async (locationCode, currentSessionId, epoch) => {
+  // Never throws. On failure it shows the error panel and ends roundLoading
+  // itself, so every caller is just "start a load under this epoch".
+  const loadRound = useCallback(async (locationCode, epoch) => {
     try {
-      const data = await fetchNewRound(locationCode, currentSessionId, daily);
+      const data = await fetchNewRound(locationCode, daily);
       // Superseded while in flight: the newer action owns the screen and the
       // roundLoading flag, so touch nothing and report nothing to clear.
       if (epoch !== roundEpochRef.current) return true;
@@ -220,6 +221,7 @@ export default function GameClient({ region, daily = false }) {
       setImageData(null);
       setSessionId(null);
       setLoadError(error.message || 'No images found');
+      setRoundLoading(false);
       return false;
     }
   }, [applyRound, daily]);
@@ -227,31 +229,27 @@ export default function GameClient({ region, daily = false }) {
   // initialLoading starts true and nothing here touches it before the first
   // await, so this can run from the mount effect without a synchronous
   // setState.
-  const loadLibrariesAndInitialize = useCallback(async (locationCode) => {
-    if (initializingRef.current) return;
-    initializingRef.current = true;
-
-    try {
-      const code = locationCode.toUpperCase();
-      roundEpochRef.current += 1;
-      const loaded = await loadRound(locationCode, null, roundEpochRef.current);
-      // Only a region that actually served a round is worth offering as
-      // "Continue in ..." on the home page.
-      if (loaded && !daily && isRegion(code)) setLastRegion(code);
-      setInitialized(true);
-    } catch (error) {
-      console.error('Failed to initialize:', error);
-    } finally {
-      initializingRef.current = false;
-      setInitialLoading(false);
-    }
+  const loadFirstRound = useCallback(async (locationCode) => {
+    roundEpochRef.current += 1;
+    const loaded = await loadRound(locationCode, roundEpochRef.current);
+    // Only a region that actually served a round is worth offering as
+    // "Continue in ..." on the home page.
+    if (loaded && !daily && isRegion(locationCode)) setLastRegion(locationCode);
+    setInitialLoading(false);
   }, [loadRound, daily]);
 
   useEffect(() => {
+    if (startedRef.current) return;
     // Already played today: the stored round is on screen, nothing to fetch.
-    if (initialized || replay) return;
-    loadLibrariesAndInitialize(region);
-  }, [region, loadLibrariesAndInitialize, initialized, replay]);
+    // Read from storage, not from `replay`: on a hydrated load this first
+    // commit still sees the server snapshot (null), and its effects run
+    // before the re-render that would show the stored record.
+    if (daily && getDailyProgress()?.day === dailyDay()) return;
+    startedRef.current = true;
+    loadFirstRound(region);
+    // `replay` is a dependency so a record cleared from another tab starts a
+    // round instead of leaving the loading screen up.
+  }, [region, daily, loadFirstRound, replay]);
 
   const submitGameResult = async (guessCoords) => {
     if (!guessCoords || !sessionId) return null;
@@ -323,8 +321,8 @@ export default function GameClient({ region, daily = false }) {
   // Start fetching the next round while the player reads the result, and warm
   // the browser cache with its image. The wasted lookup when they leave from
   // the dialog is one API call and one self-expiring session.
-  const startPrefetch = (locationCode, currentSessionId) => {
-    const promise = fetchNewRound(locationCode, currentSessionId).then((data) => {
+  const startPrefetch = (locationCode) => {
+    const promise = fetchNewRound(locationCode, false).then((data) => {
       if (typeof window !== 'undefined' && data.imageData?.url) {
         const image = new window.Image();
         image.src = data.imageData.url;
@@ -342,7 +340,6 @@ export default function GameClient({ region, daily = false }) {
     // After the guard: a blocked submit stays silent.
     playSound('submit');
     setSubmitting(true);
-    const currentSession = sessionId;
 
     try {
       const submitted = await submitGameResult(guessCoordinates);
@@ -391,8 +388,9 @@ export default function GameClient({ region, daily = false }) {
 
     setSubmitting(false);
     setShowResult(true);
-    // One round a day: there is no next one to fetch.
-    if (!daily) startPrefetch(region, currentSession);
+    // One round a day: there is no next one to fetch. Nor is there once the
+    // player has left for the menu.
+    if (!daily && mountedRef.current) startPrefetch(region);
   };
 
   // Everything a round accumulates. Both Next Round and Skip come through here,
@@ -418,7 +416,6 @@ export default function GameClient({ region, daily = false }) {
     const epoch = roundEpochRef.current;
     setShowResult(false);
     resetRoundState();
-    const currentSession = sessionId;
     setSessionId(null);
     const prefetched = prefetchRef.current;
     prefetchRef.current = null;
@@ -439,8 +436,15 @@ export default function GameClient({ region, daily = false }) {
       }
     }
 
-    const loaded = await loadRound(region, currentSession, epoch);
-    if (!loaded) setRoundLoading(false);
+    await loadRound(region, epoch);
+  };
+
+  // Start a fresh round load that supersedes whatever is in flight.
+  const reloadRound = () => {
+    setLoadError(null);
+    setRoundLoading(true);
+    roundEpochRef.current += 1;
+    return loadRound(region, roundEpochRef.current);
   };
 
   const handleSkipGuess = async () => {
@@ -461,26 +465,14 @@ export default function GameClient({ region, daily = false }) {
 
     resetRoundState();
     prefetchRef.current = null;
-    roundEpochRef.current += 1;
     setSessionId(null);
-    // Skip is also the way out of the error panel; leaving the error up would
-    // suppress the spinner and read as a hang while the new round loads.
-    setLoadError(null);
-    setRoundLoading(true);
-    // A fresh id, never the one just skipped: the DEL above is still in
-    // flight, and reusing the id let it land after the new round's write and
-    // delete a live session.
-    const loaded = await loadRound(region, null, roundEpochRef.current);
-    if (!loaded) setRoundLoading(false);
+    // Skip is also the way out of the error panel (reloadRound clears it).
+    // The server mints a fresh session id every round, so the DEL above can
+    // land after the new round's write without touching it.
+    await reloadRound();
   };
 
-  const handleRetryLoad = async () => {
-    setLoadError(null);
-    roundEpochRef.current += 1;
-    setRoundLoading(true);
-    const loaded = await loadRound(region, null, roundEpochRef.current);
-    if (!loaded) setRoundLoading(false);
-  };
+  const handleRetryLoad = reloadRound;
 
   const handleGoBack = () => {
     playSound('click');
@@ -579,7 +571,8 @@ export default function GameClient({ region, daily = false }) {
             regionCode={pickedRegion?.code ?? 'VN'}
             expanded={mapExpanded}
             onExpandedChange={setMapExpanded}
-            hasGuess={Boolean(guessCoordinates)}
+            guess={guessCoordinates}
+            viewKey={roundKey}
             onMapClick={handleMapClick}
           />
 

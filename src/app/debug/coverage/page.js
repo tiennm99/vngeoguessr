@@ -51,8 +51,8 @@ export default function CoveragePage() {
   // than they come back, and an older one landing last would redraw stale dots.
   const requestIdRef = useRef(0);
   // Which region a response is allowed to draw for. The boundary is applied on
-  // this rather than on request order -- see load(). Kept current by the effect
-  // that switches region, which is the only thing that changes it.
+  // this rather than on request order -- see load(). Kept current by
+  // selectRegion, which is the only thing that changes it.
   const regionRef = useRef(region);
 
   const load = useCallback(async (regionCode, viewport) => {
@@ -111,7 +111,11 @@ export default function CoveragePage() {
     setCounts(null);
     setGeneratedAt(null);
     setSelected(null);
+    // Orphan any pano lookup still in flight for the old region.
+    panoRequestRef.current += 1;
     setPano(null);
+    setPanoError(null);
+    setPanoLoading(false);
     load(code, null);
   }, [load]);
 
