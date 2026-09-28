@@ -58,7 +58,9 @@ fires, so the daily row in `npm run stats` stays inflatable — cosmetic, not a 
 **How to apply:** whenever a mode makes the answer repeatable (daily, replay,
 shared link), check what it credits before accepting a client-side attempt limit.
 
-`src/lib/daily.js` is server-only and holds the day's answer, but it is NOT in the
-`FORBIDDEN` list of the client-safety walk in `tests/regions.test.js` (still only
-data/panos, pano-index, pano-db, pano-history, data/boundaries). The walk guards
-only what is named in it — check the list on any new server-only module.
+Update 2026-09-28: `lib/daily.js` IS now on the `FORBIDDEN` list, and both
+`/api/debug/*` routes are gated by `src/lib/debug-access.js` (404 in production
+without `DEBUG_ACCESS_KEY`; always open on Vercel preview and dev). The remaining
+open questions are whether preview deployments share production Redis/Neon, and
+that `/api/new-game` still reuses a client-supplied `sessionId` (already caused
+one skip-DEL race, patched client-side only).

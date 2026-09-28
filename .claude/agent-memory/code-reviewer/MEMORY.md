@@ -1,5 +1,6 @@
-- [Anti-cheat invariant and its known bypass](project-anti-cheat-invariant.md) — pano coords are the answers; the import-walk test does not cover the debug API that leaks them.
+- [Anti-cheat invariant and its known bypass](project-anti-cheat-invariant.md) — pano coords are the answers; debug API now prod-gated, preview envs and sessionId reuse still open.
 - [Quality gate blind spots](project-quality-gates-blind-spots.md) — no-undef is now on, but no gate checks React prop/state contracts, e2e stub drift, or whether /docs matches the code.
 - [Scoring ladder vs leaderboard boards](project-scoring-ladder-and-boards.md) — one frozen ladder again, and the top-200 trim permanently resets anyone outside the window.
 - [Free-tier budgets are the real ceiling](project-free-tier-budgets.md) — ~27 Redis commands per round against 500K/month, and nothing counts them.
 - [Bundled Next docs are unreadable](project-nextdocs-blocked.md) — node_modules is hook-blocked, so check Next 16 conventions on nextjs.org (middleware.js is now proxy.js).
+- [PGlite hook-timeout flake](project-pglite-hook-timeout.md) — ~7s PGlite init per file vs 10s default hookTimeout; files FAIL with tests skipped.
