@@ -47,9 +47,9 @@ describe('POST /api/guess', () => {
   });
 
   it('credits the district on the session, its province and the country', async () => {
-    await seedSession('s1');
+    await seedSession('00000000-0000-4000-8000-000000000001');
     const body = await (
-      await guess({ username: 'mai', sessionId: 's1', guessLat: HCMC.lat, guessLng: HCMC.lng })
+      await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000001', guessLat: HCMC.lat, guessLng: HCMC.lng })
     ).json();
 
     expect(body.success).toBe(true);
@@ -63,10 +63,10 @@ describe('POST /api/guess', () => {
 
   it('ignores a region supplied in the request body', async () => {
     // The anti-cheat property. A client naming DL must not move DL's board.
-    await seedSession('s2');
+    await seedSession('00000000-0000-4000-8000-000000000002');
     await guess({
       username: 'mai',
-      sessionId: 's2',
+      sessionId: '00000000-0000-4000-8000-000000000002',
       guessLat: HCMC.lat,
       guessLng: HCMC.lng,
       regionCode: 'DL',
@@ -78,9 +78,9 @@ describe('POST /api/guess', () => {
   });
 
   it('reveals where the panorama was, but only in the result', async () => {
-    await seedSession('s3');
+    await seedSession('00000000-0000-4000-8000-000000000003');
     const body = await (
-      await guess({ username: 'mai', sessionId: 's3', guessLat: HCMC.lat, guessLng: HCMC.lng })
+      await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000003', guessLat: HCMC.lat, guessLng: HCMC.lng })
     ).json();
     expect(body.gameResult.region.path).toEqual(['Vietnam', 'Hồ Chí Minh', 'Quận 7']);
   });
@@ -89,14 +89,14 @@ describe('POST /api/guess', () => {
     // The session is consumed before the writes, so a retry finds nothing. A
     // live session would let a mid-fan-out failure be re-submitted and credit
     // every level that already succeeded a second time.
-    await seedSession('s4');
+    await seedSession('00000000-0000-4000-8000-000000000004');
     const first = await guess({
-      username: 'mai', sessionId: 's4', guessLat: HCMC.lat, guessLng: HCMC.lng,
+      username: 'mai', sessionId: '00000000-0000-4000-8000-000000000004', guessLat: HCMC.lat, guessLng: HCMC.lng,
     });
     expect((await first.json()).success).toBe(true);
 
     const replay = await guess({
-      username: 'mai', sessionId: 's4', guessLat: HCMC.lat, guessLng: HCMC.lng,
+      username: 'mai', sessionId: '00000000-0000-4000-8000-000000000004', guessLat: HCMC.lat, guessLng: HCMC.lng,
     });
     expect((await replay.json()).success).toBe(false);
 
@@ -108,9 +108,9 @@ describe('POST /api/guess', () => {
     // Read-then-delete is not a guard: ten requests all read a live session,
     // all delete it, and all write. DEL is atomic, so gating on its count is
     // what actually makes consumption exclusive.
-    await seedSession('s6');
+    await seedSession('00000000-0000-4000-8000-000000000006');
     const submissions = Array.from({ length: 10 }, () =>
-      guess({ username: 'mai', sessionId: 's6', guessLat: HCMC.lat, guessLng: HCMC.lng })
+      guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000006', guessLat: HCMC.lat, guessLng: HCMC.lng })
     );
     const bodies = await Promise.all(
       (await Promise.all(submissions)).map((response) => response.json())
@@ -129,10 +129,10 @@ describe('POST /api/guess', () => {
   it('scores every level on the one ladder, whatever region was picked', async () => {
     // The session was created for a province round, but the picked region no
     // longer bends the ladder: 2.2km is a zero everywhere, on every board.
-    await seedSession('s7');
+    await seedSession('00000000-0000-4000-8000-000000000007');
     const guessLat = HCMC.lat + 0.02; // roughly 2.2km north
     const body = await (
-      await guess({ username: 'mai', sessionId: 's7', guessLat, guessLng: HCMC.lng })
+      await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000007', guessLat, guessLng: HCMC.lng })
     ).json();
 
     const distance = calculateDistance(guessLat, HCMC.lng, HCMC.lat, HCMC.lng);
@@ -149,7 +149,7 @@ describe('POST /api/guess', () => {
   });
 
   it('rejects an expired or unknown session, and says which', async () => {
-    const response = await guess({ username: 'mai', sessionId: 'gone', guessLat: 10, guessLng: 106 });
+    const response = await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000999', guessLat: 10, guessLng: 106 });
     const body = await response.json();
     expect(response.status).toBe(400);
     expect(body.success).toBe(false);
@@ -157,13 +157,21 @@ describe('POST /api/guess', () => {
     expect(body.reason).toBe('session-expired');
   });
 
+  it('rejects a session id the server could not have minted', async () => {
+    for (const sessionId of ['session:*', { id: 1 }]) {
+      const response = await guess({ username: 'mai', sessionId, guessLat: 10, guessLng: 106 });
+      expect(response.status).toBe(400);
+      expect((await response.json()).reason).toBe('invalid-request');
+    }
+  });
+
   it('names the losers of a concurrent double submit as already submitted', async () => {
     // Only a race can see this reason: a later sequential re-submit finds no
     // session at all and is reported as expired, which is what it looks like.
-    await seedSession('s8');
+    await seedSession('00000000-0000-4000-8000-000000000008');
     const bodies = await Promise.all(
       (await Promise.all(Array.from({ length: 3 }, () =>
-        guess({ username: 'mai', sessionId: 's8', guessLat: HCMC.lat, guessLng: HCMC.lng })
+        guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000008', guessLat: HCMC.lat, guessLng: HCMC.lng })
       ))).map((response) => response.json())
     );
     const losers = bodies.filter((body) => !body.success);
@@ -181,11 +189,11 @@ describe('POST /api/guess', () => {
     // Math.abs(NaN) > 90 is false, so a range check alone let "abc" through;
     // and the check must come before the session is consumed, or the player
     // loses the round to a typo.
-    await seedSession('s9');
-    const response = await guess({ username: 'mai', sessionId: 's9', ...coords });
+    await seedSession('00000000-0000-4000-8000-000000000009');
+    const response = await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000009', ...coords });
     expect(response.status).toBe(400);
     expect((await response.json()).reason).toBe('invalid-guess');
-    expect(await getGameSession('s9')).not.toBeNull();
+    expect(await getGameSession('00000000-0000-4000-8000-000000000009')).not.toBeNull();
   });
 
   it.each([
@@ -193,11 +201,11 @@ describe('POST /api/guess', () => {
     ['a colon, which the distance member packing splits on', 'mai:5'],
     ['too long a name', 'x'.repeat(21)],
   ])('rejects %s as a username before touching the session', async (_label, username) => {
-    await seedSession('s10');
-    const response = await guess({ username, sessionId: 's10', guessLat: HCMC.lat, guessLng: HCMC.lng });
+    await seedSession('00000000-0000-4000-8000-000000000010');
+    const response = await guess({ username, sessionId: '00000000-0000-4000-8000-000000000010', guessLat: HCMC.lat, guessLng: HCMC.lng });
     expect(response.status).toBe(400);
     expect((await response.json()).reason).toBe('invalid-username');
-    expect(await getGameSession('s10')).not.toBeNull();
+    expect(await getGameSession('00000000-0000-4000-8000-000000000010')).not.toBeNull();
     expect(await storedKeys()).not.toContain('vngeoguessr:leaderboard:vietnam');
   });
 
@@ -212,27 +220,27 @@ describe('POST /api/guess', () => {
     // Display only: no board changes. A guess in Q7 against a Q7 panorama is
     // a district hit; one across the river in Q1 keeps the province; Ha Noi
     // shares nothing.
-    await seedSession('s11');
-    const q7 = await (await guess({ username: 'mai', sessionId: 's11', guessLat: 10.7340, guessLng: 106.7220 })).json();
+    await seedSession('00000000-0000-4000-8000-000000000011');
+    const q7 = await (await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000011', guessLat: 10.7340, guessLng: 106.7220 })).json();
     expect(q7.gameResult.hit).toBe('district');
     expect(q7.gameResult.guessedRegion.code).toBe('TPHCM-Q7');
 
-    await seedSession('s12');
-    const q1 = await (await guess({ username: 'mai', sessionId: 's12', guessLat: 10.7769, guessLng: 106.7009 })).json();
+    await seedSession('00000000-0000-4000-8000-000000000012');
+    const q1 = await (await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000012', guessLat: 10.7769, guessLng: 106.7009 })).json();
     expect(q1.gameResult.hit).toBe('province');
 
-    await seedSession('s13');
-    const hanoi = await (await guess({ username: 'mai', sessionId: 's13', guessLat: 21.0285, guessLng: 105.8542 })).json();
+    await seedSession('00000000-0000-4000-8000-000000000013');
+    const hanoi = await (await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000013', guessLat: 21.0285, guessLng: 105.8542 })).json();
     expect(hanoi.gameResult.hit).toBe('none');
   });
 
   it('counts the round in the daily statistics by the picked level', async () => {
-    await seedSession('s14', { pickedRegion: 'VN' });
+    await seedSession('00000000-0000-4000-8000-000000000014', { pickedRegion: 'VN' });
     await POST(
       new Request('http://localhost/api/guess', {
         method: 'POST',
         headers: { cookie: 'vng_pid=0f4ee9e6-4a0b-4c1e-9a8a-1c2d3e4f5a6b' },
-        body: JSON.stringify({ username: 'mai', sessionId: 's14', guessLat: HCMC.lat, guessLng: HCMC.lng }),
+        body: JSON.stringify({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000014', guessLat: HCMC.lat, guessLng: HCMC.lng }),
       })
     );
     const today = await readDay(statsDay());
@@ -244,9 +252,9 @@ describe('POST /api/guess', () => {
   it('does not repeat the guess or the answer in its response envelope beyond gameResult', async () => {
     // The log used to carry username plus both coordinate pairs; the response
     // still must carry the answer (the round is over), but nothing else does.
-    await seedSession('s15');
+    await seedSession('00000000-0000-4000-8000-000000000015');
     const body = await (
-      await guess({ username: 'mai', sessionId: 's15', guessLat: HCMC.lat, guessLng: HCMC.lng })
+      await guess({ username: 'mai', sessionId: '00000000-0000-4000-8000-000000000015', guessLat: HCMC.lat, guessLng: HCMC.lng })
     ).json();
     expect(body.gameResult.exactLocation).toEqual(HCMC);
   });

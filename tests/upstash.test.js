@@ -15,6 +15,8 @@ import {
   zRank,
   zRevRank,
   zRemRangeByRank,
+  scanKeys,
+  putJsonIfAbsent,
 } from '../src/lib/upstash.js';
 import { fakeOnly, resetStore, storedKeys, ttlOf, writeRaw } from './redis-harness.js';
 
@@ -189,6 +191,55 @@ describe('upstash adapter', () => {
       await seed(h);
       expect(await zRemRangeByRank(h, 'lb', 0, -201)).toBe(0);
       expect(await zRangeWithScores(h, 'lb', 0, -1, false)).toHaveLength(3);
+    });
+  });
+
+  describe('scanKeys', () => {
+    // A hand-rolled client, so the cursor loop and the prefix filter can be
+    // driven directly: the fake answers every scan in one page.
+    function pagedHandle(pages, prefix = 'vngeoguessr:') {
+      const calls = [];
+      const client = {
+        async scan(cursor, opts) {
+          calls.push({ cursor, match: opts.match });
+          const index = Number(cursor);
+          return [index + 1 < pages.length ? String(index + 1) : '0', pages[index]];
+        },
+      };
+      return { handle: { client, prefix }, calls };
+    }
+
+    it('follows the cursor to the end, de-duplicating repeats', async () => {
+      const { handle, calls } = pagedHandle([
+        ['vngeoguessr:leaderboard:VN', 'vngeoguessr:leaderboard:HN'],
+        ['vngeoguessr:leaderboard:HN'],
+        ['vngeoguessr:leaderboard:TPHCM'],
+      ]);
+      const keys = await scanKeys(handle, 'leaderboard:*');
+      expect(keys.sort()).toEqual(['leaderboard:HN', 'leaderboard:TPHCM', 'leaderboard:VN']);
+      expect(calls.map((call) => call.cursor)).toEqual(['0', '1', '2']);
+      expect(calls[0].match).toBe('vngeoguessr:leaderboard:*');
+    });
+
+    it("never hands back another tenant's keys", async () => {
+      const { handle } = pagedHandle([['other:leaderboard:VN', 'vngeoguessr:leaderboard:VN']]);
+      expect(await scanKeys(handle, 'leaderboard:*')).toEqual(['leaderboard:VN']);
+    });
+
+    it('finds keys written through the adapter', async () => {
+      const h = getUpstash();
+      await putJson(h, 'daily:2026-09-21', { id: 'a' }, 60);
+      await putJson(h, 'session:x', { id: 'b' }, 60);
+      expect(await scanKeys(h, 'daily:*')).toEqual(['daily:2026-09-21']);
+    });
+  });
+
+  describe('putJsonIfAbsent', () => {
+    it('writes once and refuses to overwrite', async () => {
+      const h = getUpstash();
+      expect(await putJsonIfAbsent(h, 'nx', { v: 1 }, 60)).toBe(true);
+      expect(await putJsonIfAbsent(h, 'nx', { v: 2 }, 60)).toBe(false);
+      expect(await getJson(h, 'nx')).toEqual({ v: 1 });
     });
   });
 });

@@ -6,7 +6,7 @@ import { publicRegion } from '../../../lib/region-request.js';
 import { validateUsername } from '../../../lib/username.js';
 import { locateRegion, regionHit } from '../../../lib/region-locate.js';
 import { getRegion, isRegion } from '../../../lib/regions.js';
-import { readPlayerId } from '../../../lib/player-id.js';
+import { readPlayerId, isUuid } from '../../../lib/player-id.js';
 import { recordRound } from '../../../lib/stats.js';
 
 /** A 400 with a machine-readable reason the client can turn into the right copy. */
@@ -65,6 +65,9 @@ export async function POST(request) {
     if (!sessionId || guessLat === undefined || guessLng === undefined) {
       return reject('Missing required fields: username, sessionId, guess coordinates', 'invalid-request');
     }
+    // Only an id this server could have minted reaches the keyspace, as in
+    // /api/skip.
+    if (!isUuid(sessionId)) return reject('Invalid session id', 'invalid-request');
 
     // The same rule the name prompt enforces, applied where it counts: this
     // string becomes a sorted-set member on every board it touches.
@@ -133,28 +136,30 @@ export async function POST(request) {
     // five points on three permanent boards for two requests, all day long.
     // The daily is scored and counted, never credited.
     const isDaily = session.mode === 'daily';
+
+    // Counted by the level the player chose to play, which is what decides how
+    // hard the round was. A daily round is a country round everyone plays;
+    // counted apart so the two are not confused in the zero-score share.
+    const statsLevel = isDaily
+      ? 'daily'
+      : isRegion(session.pickedRegion) ? getRegion(session.pickedRegion).level : 'country';
+    // Best-effort and on disjoint keys, so it runs alongside the boards
+    // rather than adding its round trips after them.
+    const counted = recordRoundOrIgnore(statsLevel, finalScore, readPlayerId(request));
+
     const [leaderboardResult, distanceResult] = isDaily
       ? [{ levels: [], partial: false }, null]
       : await Promise.all([
           submitRoundScore(username, distance, scoringRegion),
           distanceOrNone(username, distance, scoringRegion),
         ]);
+    await counted;
 
     // Where the guess landed, against where the panorama was. Display only:
     // it changes no score, but it turns "0 points" into "right province,
     // wrong district" for a round the ladder cannot grade.
     const guessedRegion = locateRegion(numGuessLat, numGuessLng);
     const hit = regionHit(guessedRegion, scoringRegion);
-
-    // Counted by the level the player chose to play, which is what decides how
-    // hard the round was.
-    const pickedLevel = isRegion(session.pickedRegion)
-      ? getRegion(session.pickedRegion).level
-      : 'country';
-    // A daily round is a country round everyone plays; counted apart so the
-    // two are not confused in the zero-score share.
-    const statsLevel = isDaily ? 'daily' : pickedLevel;
-    await recordRoundOrIgnore(statsLevel, finalScore, readPlayerId(request));
 
     // For monitoring. Deliberately without the name or either coordinate pair:
     // the logs are not a second copy of who guessed where.
@@ -196,7 +201,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: false,
       error: 'Failed to process game result',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? String(error?.message ?? error) : undefined
     }, { status: 500 });
   }
 }

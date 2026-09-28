@@ -15,6 +15,8 @@
 // panorama index, so the boundary that matters is that the value is httpOnly
 // and the client has no reason to read it.
 
+import { cookieValues } from './cookies.js';
+
 export const PLAYER_COOKIE = 'vng_pid';
 
 // Longer than the history's own TTL on purpose. The cookie is refreshed on
@@ -43,34 +45,15 @@ export function isUuid(value) {
 }
 
 /**
- * Read the player id off a request, if it has a valid one.
- *
- * Parses the Cookie header by hand rather than reading NextRequest.cookies or
- * next/headers. Route handlers are driven by a plain Request in the tests, and
- * a plain Request has no .cookies -- header parsing is the one form that works
- * against both that and the NextRequest the framework really passes.
+ * Read the player id off a request, if it has a valid one. Skips a value that
+ * fails validation rather than giving up: one stale or crafted duplicate must
+ * not disable the history for that browser permanently, with nothing anywhere
+ * reporting it.
  * @param {Request} request The incoming request.
  * @returns {string|null} The id, or null when absent or malformed.
  */
 export function readPlayerId(request) {
-  const header = request.headers.get('cookie');
-  if (!header) return null;
-
-  for (const part of header.split(';')) {
-    // Split on the first '=' only: a cookie value may legitimately contain
-    // more of them, and slicing on the last would mangle the name.
-    const eq = part.indexOf('=');
-    if (eq === -1) continue;
-    if (part.slice(0, eq).trim() !== PLAYER_COOKIE) continue;
-    const value = part.slice(eq + 1).trim();
-    // Keep scanning past a value that fails validation rather than giving up.
-    // A browser may legitimately send the name twice -- one cookie scoped to a
-    // path, another to '.domain' -- and stopping at the first bad one would let
-    // a single stale or crafted duplicate disable the history for that browser
-    // permanently, with nothing anywhere reporting it.
-    if (isUuid(value)) return value;
-  }
-  return null;
+  return cookieValues(request, PLAYER_COOKIE).find(isUuid) ?? null;
 }
 
 /**

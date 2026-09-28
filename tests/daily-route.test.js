@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 vi.mock('@upstash/redis', async (importOriginal) => {
   const { upstashModule } = await import('./mock-upstash.js');
   return upstashModule(importOriginal);
@@ -17,15 +17,25 @@ import { dailyDay } from '../src/lib/daily-calendar.js';
 import { readDay, statsDay } from '../src/lib/stats.js';
 import { resetStore, storedKeys, ttlOf } from './redis-harness.js';
 import { getLeaderboard } from '../src/lib/leaderboard.js';
+import { getUpstash, putJsonIfAbsent } from '../src/lib/upstash.js';
 import { seedPanoFixtures } from './pano-fixtures.js';
+import { stubMapillary } from './mapillary-stub.js';
 
 // The daily is the same panorama for everyone, chosen from the day alone and
 // cached so the lookup happens once a day rather than once a player.
 
-const ORIGINAL_TOKEN = process.env.MAPILLARY_ACCESS_TOKEN;
 let mapillaryCalls = 0;
 // Ids the Mapillary stub refuses, to simulate images deleted upstream.
 const deadIds = new Set();
+// Ids the stub answers with a 503, to simulate Mapillary having a bad moment.
+const flakyIds = new Set();
+
+stubMapillary((id) => {
+  mapillaryCalls += 1;
+  if (deadIds.has(id)) return new Response('gone', { status: 404 });
+  if (flakyIds.has(id)) return new Response('busy', { status: 503 });
+  return undefined;
+});
 
 beforeAll(async () => {
   await seedPanoFixtures(false);
@@ -35,29 +45,7 @@ beforeEach(async () => {
   await resetStore();
   mapillaryCalls = 0;
   deadIds.clear();
-  process.env.MAPILLARY_ACCESS_TOKEN = 'test-token';
-  const realFetch = globalThis.fetch;
-  vi.stubGlobal('fetch', async (url, init) => {
-    if (!String(url).includes('graph.mapillary.com')) return realFetch(url, init);
-    mapillaryCalls += 1;
-    const id = String(url).split('/').pop().split('?')[0];
-    if (deadIds.has(id)) return new Response('gone', { status: 404 });
-    return new Response(
-      JSON.stringify({
-        id,
-        thumb_2048_url: `https://example.invalid/${id}.jpg`,
-        is_pano: true,
-        geometry: { coordinates: [106.7, 10.77] },
-      }),
-      { status: 200 }
-    );
-  });
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  if (ORIGINAL_TOKEN === undefined) delete process.env.MAPILLARY_ACCESS_TOKEN;
-  else process.env.MAPILLARY_ACCESS_TOKEN = ORIGINAL_TOKEN;
+  flakyIds.clear();
 });
 
 describe('pickPanoBySeed', () => {
@@ -99,6 +87,23 @@ describe('getDailyRound', () => {
     expect(replacement.id).not.toBe(first.id);
     // And the replacement is what the day now serves.
     expect((await getDailyRound('2026-09-22')).id).toBe(replacement.id);
+  });
+
+  // A blip is no evidence the image is gone. Re-picking on one would give
+  // players either side of it different rounds under the same number.
+  it('keeps the cached pick through a transient upstream failure', async () => {
+    const first = await getDailyRound('2026-09-24');
+    flakyIds.add(first.id);
+    await expect(getDailyRound('2026-09-24')).rejects.toThrow(/503/);
+    flakyIds.clear();
+    expect((await getDailyRound('2026-09-24')).id).toBe(first.id);
+  });
+
+  it('never overwrites a pick another instance cached first', async () => {
+    const winner = await getDailyRound('2026-09-25');
+    const h = getUpstash();
+    expect(await putJsonIfAbsent(h, 'daily:2026-09-25', { id: 'other' }, 60)).toBe(false);
+    expect((await getDailyRound('2026-09-25')).id).toBe(winner.id);
   });
 
   it('gives up on the day when every seeded candidate fails', async () => {
@@ -143,12 +148,12 @@ describe('GET /api/daily', () => {
     expect(a.sessionId).not.toBe(b.sessionId);
   });
 
-  it('answers 500 when the day has no loadable panorama', async () => {
+  it('answers 502 when the day has no loadable panorama', async () => {
     for (let attempt = 0; attempt < 4; attempt++) {
       deadIds.add((await pickPanoBySeed(`${dailyDay()}:${attempt}`)).id);
     }
     const response = await request();
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(502);
     expect((await response.json()).success).toBe(false);
   });
 

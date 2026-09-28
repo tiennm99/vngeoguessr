@@ -81,6 +81,19 @@ export async function putJson(h, key, value, ttlSeconds) {
 }
 
 /**
+ * Store a JSON value only if the key is absent (SET NX).
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} key Logical key (unprefixed).
+ * @param {unknown} value
+ * @param {number} ttlSeconds
+ * @returns {Promise<boolean>} True when this call wrote the value.
+ */
+export async function putJsonIfAbsent(h, key, value, ttlSeconds) {
+  const reply = await h.client.set(pkey(h, key), JSON.stringify(value), { nx: true, ex: ttlSeconds });
+  return reply === 'OK';
+}
+
+/**
  * Delete a key, reporting whether it was actually there.
  *
  * The count matters: DEL is atomic, so exactly one of N racing callers gets 1

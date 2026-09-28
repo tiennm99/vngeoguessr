@@ -30,15 +30,28 @@ export class UpstreamError extends Error {
   /**
    * @param {'auth'|'timeout'|'network'|'http'} code What went wrong.
    * @param {string} message Detail for the logs.
+   * @param {number|null} [status] The HTTP status, for code 'http'.
    */
-  constructor(code, message) {
+  constructor(code, message, status = null) {
     super(message);
     this.name = 'UpstreamError';
     this.code = code;
+    this.status = status;
   }
 }
 
 /** True for an authentication failure, which retrying cannot fix. */
 export function isAuthFailure(error) {
   return error instanceof UpstreamError && error.code === 'auth';
+}
+
+/**
+ * True for a failure that says nothing about the thing asked for: the service
+ * was slow, unreachable, overloaded or rate-limiting. The same request may
+ * well succeed a moment later, so it is no evidence the image is gone.
+ */
+export function isTransient(error) {
+  if (!(error instanceof UpstreamError)) return false;
+  if (error.code === 'timeout' || error.code === 'network') return true;
+  return error.code === 'http' && (error.status >= 500 || error.status === 429);
 }

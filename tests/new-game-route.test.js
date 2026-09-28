@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 vi.mock('@upstash/redis', async (importOriginal) => {
   const { upstashModule } = await import('./mock-upstash.js');
   return upstashModule(importOriginal);
@@ -15,48 +15,24 @@ import { PLAYER_COOKIE } from '../src/lib/player-id.js';
 import { getRegion, provinceOf } from '../src/lib/regions.js';
 import { resetStore } from './redis-harness.js';
 import { seedPanoFixtures } from './pano-fixtures.js';
+import { stubMapillary } from './mapillary-stub.js';
 
 // The district a panorama sits in is the answer to the round. It is resolved
 // server-side and stored on the session, and no response before the guess may
 // contain it -- naming it collapses a country-wide round to one district.
 
-const ORIGINAL_TOKEN = process.env.MAPILLARY_ACCESS_TOKEN;
-
 const request = (query) => new Request(`http://localhost/api/new-game?${query}`);
 
 // The panorama pool behind the Neon mock. Fully district-assigned on purpose:
 // these tests assert that province and country draws resolve to a district.
+stubMapillary();
+
 beforeAll(async () => {
   await seedPanoFixtures(false);
 });
 
 beforeEach(async () => {
   await resetStore();
-  process.env.MAPILLARY_ACCESS_TOKEN = 'test-token';
-  // Any Mapillary image id resolves; the point under test is which region gets
-  // stored. Everything else passes through -- against a real Redis the Upstash
-  // client speaks over fetch too, and swallowing its calls would fail every
-  // session write rather than exercising the route.
-  const realFetch = globalThis.fetch;
-  vi.stubGlobal('fetch', async (url, init) => {
-    if (!String(url).includes('graph.mapillary.com')) return realFetch(url, init);
-    const id = String(url).split('/').pop().split('?')[0];
-    return new Response(
-      JSON.stringify({
-        id,
-        thumb_2048_url: `https://example.invalid/${id}.jpg`,
-        is_pano: true,
-        geometry: { coordinates: [106.7, 10.77] },
-      }),
-      { status: 200 }
-    );
-  });
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  if (ORIGINAL_TOKEN === undefined) delete process.env.MAPILLARY_ACCESS_TOKEN;
-  else process.env.MAPILLARY_ACCESS_TOKEN = ORIGINAL_TOKEN;
 });
 
 describe('GET /api/new-game', () => {
@@ -220,13 +196,15 @@ describe('GET /api/new-game and the recent-location history', () => {
 });
 
 describe('GET /api/new-game session ids', () => {
-  it('replaces a session id it could not have minted rather than keying on it', async () => {
-    // The value becomes `session:<value>` in Redis as-is. A glob, a colon or a
-    // long string must not get there; the client loses nothing by being handed
-    // a fresh id instead.
-    const body = await (await GET(request('region=HN&sessionId=not-a-uuid*'))).json();
-    expect(body.success).toBe(true);
-    expect(body.sessionId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(body.sessionId).not.toBe('not-a-uuid*');
+  it('mints every session id itself and ignores one the client offers', async () => {
+    // A reused id let a new round overwrite a session an in-flight guess had
+    // read but not yet claimed; a made-up one would become a Redis key as-is.
+    const offered = crypto.randomUUID();
+    for (const value of [offered, 'not-a-uuid*']) {
+      const body = await (await GET(request(`region=HN&sessionId=${value}`))).json();
+      expect(body.success).toBe(true);
+      expect(body.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(body.sessionId).not.toBe(value);
+    }
   });
 });

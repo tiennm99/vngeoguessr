@@ -32,7 +32,7 @@ export async function GET(request) {
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch leaderboard',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? String(error?.message ?? error) : undefined
     }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@ import { dailyDay, dailyNumber } from '../../../lib/daily-calendar.js';
 import { storeGameSession } from '../../../lib/session.js';
 import { publicRegion } from '../../../lib/region-request.js';
 import { COUNTRY_CODE } from '../../../lib/regions.js';
+import { DryPoolError, UpstreamError } from '../../../lib/errors.js';
 import {
   PLAYER_COOKIE,
   readPlayerId,
@@ -47,10 +48,15 @@ export async function GET(request) {
     return response;
   } catch (error) {
     console.error(`Daily challenge ${day} failed:`, error);
+    // The same mapping as /api/new-game: nothing to draw from is a 404, an
+    // upstream that did not answer is a 502, anything else is ours.
+    let status = 500;
+    if (error instanceof DryPoolError) status = 404;
+    else if (error instanceof UpstreamError) status = 502;
     return NextResponse.json({
       success: false,
       error: "Today's challenge could not be loaded. Please try again.",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    }, { status: 500 });
+      details: process.env.NODE_ENV === 'development' ? String(error?.message ?? error) : undefined,
+    }, { status });
   }
 }

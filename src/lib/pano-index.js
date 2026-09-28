@@ -159,6 +159,8 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
      WHERE ${where} AND NOT (id = ANY($2::text[])) ORDER BY id OFFSET $3 LIMIT 1`,
     [code, ids, offset]
   );
+  // A reseed can shrink the region between the count and this read.
+  if (rows.length === 0) throw new DryPoolError(code);
   return toChoice(rows[0], code, level);
 }
 
@@ -191,7 +193,7 @@ function hash32(text) {
  */
 export async function pickPanoBySeed(seed) {
   const provinces = childrenOf('VN').filter((child) => isPlayable(child)).sort();
-  if (provinces.length === 0) throw new Error('No playable province for a seeded pick');
+  if (provinces.length === 0) throw new DryPoolError('VN');
 
   // Start at the hashed province and walk on from there, so a province whose
   // table is empty (mid-reseed) is skipped deterministically rather than
@@ -215,7 +217,7 @@ export async function pickPanoBySeed(seed) {
     }
     return toChoice(rows[0], province, 'province');
   }
-  throw new Error('No panoramas anywhere for a seeded pick');
+  throw new DryPoolError('VN');
 }
 
 /**

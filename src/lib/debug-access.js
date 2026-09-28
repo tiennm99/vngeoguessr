@@ -8,20 +8,10 @@
 // caller holding DEBUG_ACCESS_KEY, sent as the `x-debug-key` header or the
 // `vng_debug` cookie; with no key configured they are closed.
 
+import { cookieValues } from './cookies.js';
+
 const DEBUG_HEADER = 'x-debug-key';
 const DEBUG_COOKIE = 'vng_debug';
-
-/** The value of one cookie on a request, or null. */
-function readCookie(request, name) {
-  const header = request.headers.get('cookie');
-  if (!header) return null;
-  for (const part of header.split(';')) {
-    const eq = part.indexOf('=');
-    if (eq === -1) continue;
-    if (part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
-  }
-  return null;
-}
 
 /**
  * Whether a request may use the debug API.
@@ -32,7 +22,7 @@ export function debugAccessAllowed(request) {
   if (!isProduction()) return true;
   const key = process.env.DEBUG_ACCESS_KEY;
   if (!key) return false;
-  return request.headers.get(DEBUG_HEADER) === key || readCookie(request, DEBUG_COOKIE) === key;
+  return request.headers.get(DEBUG_HEADER) === key || cookieValues(request, DEBUG_COOKIE).includes(key);
 }
 
 /** Production means Vercel says so, or a production build with no Vercel at all. */

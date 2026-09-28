@@ -57,8 +57,9 @@ export async function recordRound(level, score, playerId, now = Date.now()) {
   const count = await hIncrBy(h, statsKey(day), field, 1);
   // A count of 1 means this field did not exist a moment ago: either the day
   // just began, or a level/score pair is appearing for the first time today. Set
-  // the TTL on both keys then. Each day has at most 18 distinct fields, so this
-  // is at most 18 extra commands a day rather than two more per round.
+  // the TTL on both keys then. Each day has at most 24 distinct fields (four
+  // levels, counting the daily, by six scores), so this is at most 24 extra
+  // commands a day rather than two more per round.
   if (count === 1) {
     await expire(h, statsKey(day), STATS_TTL_SECONDS);
   }

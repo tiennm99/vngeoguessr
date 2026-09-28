@@ -112,10 +112,8 @@ export async function stubGameApis(page, username) {
   let round = 0;
   await page.route('**/api/new-game**', async (route) => {
     round += 1;
-    // Echo a requested sessionId exactly as the real route does -- production
-    // reuses one id across a player's consecutive rounds.
-    const requested = new URL(route.request().url()).searchParams.get('sessionId');
-    await route.fulfill({ json: newGameResponse(requested || `e2e-session-${round}`, round) });
+    // A fresh id every round, as the real route mints one.
+    await route.fulfill({ json: newGameResponse(`e2e-session-${round}`, round) });
   });
   await page.route('**/api/guess', async (route) => {
     await route.fulfill({ json: guessResponse(username) });

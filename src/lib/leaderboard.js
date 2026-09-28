@@ -154,14 +154,14 @@ async function creditScore(h, regionCode, points, username) {
 }
 
 /**
- * Credit every level above a region, each by its own point value.
+ * Credit the same points to every level above a region.
  * @param {Object} h Upstash handle.
  * @param {string} username Trimmed player name.
  * @param {string} regionCode Leaf region the panorama was in.
- * @param {Function} pointsFor Region code -> points to add at that level.
- * @returns {Promise<Object>} Per-level results with named aliases.
+ * @param {number} points Points to add at every level.
+ * @returns {Promise<{levels: Object[], partial: boolean}>} What landed.
  */
-async function fanOutScore(h, username, regionCode, pointsFor) {
+async function fanOutScore(h, username, regionCode, points) {
   // In parallel: the levels are independent keys and no level reads another's
   // state, so serialising them would add two round trips of latency to every
   // guess for nothing. The calls WITHIN a level stay ordered.
@@ -172,7 +172,7 @@ async function fanOutScore(h, username, regionCode, pointsFor) {
   // round that is partly on the boards. Only when nothing landed is it one.
   const codes = ancestorsOf(regionCode);
   const settled = await Promise.allSettled(
-    codes.map((code) => creditScore(h, code, pointsFor(code), username))
+    codes.map((code) => creditScore(h, code, points, username))
   );
   const levels = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
   const failures = settled.filter((r) => r.status === 'rejected');
@@ -201,24 +201,17 @@ async function fanOutScore(h, username, regionCode, pointsFor) {
  * @returns {Promise<Object>} Per-level results, each with the points added.
  */
 export async function submitRoundScore(username, distance, regionCode) {
-  try {
-    const h = getUpstash();
-
-    if (!username || distance === undefined || !regionCode) {
-      throw new Error('Missing required fields: username, distance, regionCode');
-    }
-    requireRegion(regionCode);
-
-    // Rejected, not coerced: Number(null) and Number('') are 0, and a
-    // 0-metre distance is a maximum-score fan-out to every board.
-    if (typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0) {
-      throw new Error(`Invalid distance: ${distance}`);
-    }
-    return await fanOutScore(h, username.trim(), regionCode, () => calculateScore(distance));
-  } catch (error) {
-    console.error('Error submitting round score:', error);
-    throw new Error(error.message || 'Failed to submit round score');
+  if (!username || distance === undefined || !regionCode) {
+    throw new Error('Missing required fields: username, distance, regionCode');
   }
+  requireRegion(regionCode);
+
+  // Rejected, not coerced: Number(null) and Number('') are 0, and a
+  // 0-metre distance is a maximum-score fan-out to every board.
+  if (typeof distance !== 'number' || !Number.isFinite(distance) || distance < 0) {
+    throw new Error(`Invalid distance: ${distance}`);
+  }
+  return fanOutScore(getUpstash(), username.trim(), regionCode, calculateScore(distance));
 }
 
 /**
@@ -256,35 +249,27 @@ async function creditDistance(h, regionCode, distance, entryId, username) {
  * @returns {Promise<Object>} Per-level results.
  */
 export async function submitDistanceRecord(username, distance, regionCode) {
-  try {
-    const h = getUpstash();
-
-    if (!username || distance === undefined || !regionCode) {
-      throw new Error('Missing required fields: username, distance, regionCode');
-    }
-    requireRegion(regionCode);
-
-    const trimmedUsername = username.trim();
-    const numDistance = Number(distance);
-    // The same rule the score path applies, for the same reason: Number(null)
-    // is a 0-metre record on every board.
-    if (!Number.isFinite(numDistance) || numDistance < 0) {
-      throw new Error(`Invalid distance: ${distance}`);
-    }
-
-    // One id for all levels, so the same record is recognisable as one attempt
-    // wherever it appears rather than looking like three separate guesses.
-    const entryId = `${trimmedUsername}:${numDistance}:${Date.now()}`;
-
-    const levels = await Promise.all(
-      ancestorsOf(regionCode).map((code) =>
-        creditDistance(h, code, numDistance, entryId, trimmedUsername)
-      )
-    );
-
-    return { levels };
-  } catch (error) {
-    console.error('Error submitting distance record:', error);
-    throw new Error(error.message || 'Failed to submit distance record');
+  if (!username || distance === undefined || !regionCode) {
+    throw new Error('Missing required fields: username, distance, regionCode');
   }
+  requireRegion(regionCode);
+
+  const trimmedUsername = username.trim();
+  const numDistance = Number(distance);
+  // The same rule the score path applies, for the same reason: Number(null)
+  // is a 0-metre record on every board.
+  if (!Number.isFinite(numDistance) || numDistance < 0) {
+    throw new Error(`Invalid distance: ${distance}`);
+  }
+
+  // One id for all levels, so the same record is recognisable as one attempt
+  // wherever it appears rather than looking like three separate guesses.
+  const entryId = `${trimmedUsername}:${numDistance}:${Date.now()}`;
+  const h = getUpstash();
+  const levels = await Promise.all(
+    ancestorsOf(regionCode).map((code) =>
+      creditDistance(h, code, numDistance, entryId, trimmedUsername)
+    )
+  );
+  return { levels };
 }

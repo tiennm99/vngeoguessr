@@ -59,7 +59,7 @@ async function fetchImage(imageId, accessToken) {
   if (response.status === 401) throw new UpstreamError('auth', 'Mapillary authentication failed');
   if (!response.ok) {
     const body = await response.text().catch(() => '<unreadable>');
-    throw new UpstreamError('http', `Mapillary ${imageId}: ${response.status}: ${body.slice(0, 200)}`);
+    throw new UpstreamError('http', `Mapillary ${imageId}: ${response.status}: ${body.slice(0, 200)}`, response.status);
   }
   return await response.json();
 }

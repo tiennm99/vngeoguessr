@@ -48,11 +48,13 @@ export async function getRecentPanoIds(playerId) {
  * never expires while an idle one's clears itself after three days.
  * @param {string} playerId Anonymous player id.
  * @param {string} panoId The panorama that was just shown.
+ * @param {string[]|null} [recent] The history as the caller just read it,
+ *   saving a second GET; read here when omitted.
  * @returns {Promise<void>}
  */
-export async function recordPanoId(playerId, panoId) {
+export async function recordPanoId(playerId, panoId, recent = null) {
   const h = getUpstash();
-  const recent = await getRecentPanoIds(playerId);
+  recent ??= await getRecentPanoIds(playerId);
   // Drop any existing copy before prepending. A repeat that got through the
   // exclusion -- the fallback path deliberately allows one when a pool is
   // exhausted -- should move to the front, not hold two of the fifty slots.

@@ -74,6 +74,7 @@ export class FakeRedis {
   }
 
   async set(key, value, opts) {
+    if (opts?.nx && (await this.get(key)) !== null) return null;
     const expireAt = opts?.ex != null ? Date.now() + opts.ex * 1000 : null;
     this.strings.set(key, { value, expireAt });
     return 'OK';

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 vi.mock('@upstash/redis', async (importOriginal) => {
   const { upstashModule } = await import('./mock-upstash.js');
   return upstashModule(importOriginal);
@@ -26,13 +26,14 @@ import { getGameSession } from '../src/lib/session.js';
 import { getRecentPanoIds, recordPanoId } from '../src/lib/pano-history.js';
 import { resetStore } from './redis-harness.js';
 import { seedPanoFixtures } from './pano-fixtures.js';
+import { stubMapillary } from './mapillary-stub.js';
 
 // The recent-location history is a convenience. The session write next to it is
 // not. Redis trouble on the history side must cost a player a repeated
 // panorama, never their round -- so the round has to survive both a failed
 // lookup and a failed record.
 
-const ORIGINAL_TOKEN = process.env.MAPILLARY_ACCESS_TOKEN;
+stubMapillary();
 
 beforeAll(async () => {
   await seedPanoFixtures(false);
@@ -40,27 +41,6 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await resetStore();
-  process.env.MAPILLARY_ACCESS_TOKEN = 'test-token';
-  const realFetch = globalThis.fetch;
-  vi.stubGlobal('fetch', async (url, init) => {
-    if (!String(url).includes('graph.mapillary.com')) return realFetch(url, init);
-    const id = String(url).split('/').pop().split('?')[0];
-    return new Response(
-      JSON.stringify({
-        id,
-        thumb_2048_url: `https://example.invalid/${id}.jpg`,
-        is_pano: true,
-        geometry: { coordinates: [106.7, 10.77] },
-      }),
-      { status: 200 }
-    );
-  });
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  if (ORIGINAL_TOKEN === undefined) delete process.env.MAPILLARY_ACCESS_TOKEN;
-  else process.env.MAPILLARY_ACCESS_TOKEN = ORIGINAL_TOKEN;
 });
 
 describe('GET /api/new-game with an unavailable history store', () => {

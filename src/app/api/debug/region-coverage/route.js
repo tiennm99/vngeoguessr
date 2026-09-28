@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { REGION_BOUNDARIES } from '../../../../data/boundaries/index.js';
-import { getRegionPanoSample, countPanos, getProvinceMeta } from '../../../../lib/pano-index.js';
+import { getRegionPanoSample, getProvinceMeta } from '../../../../lib/pano-index.js';
 import { getRegion, isRegion, provinceOf } from '../../../../lib/regions.js';
 import { debugAccessAllowed, debugForbidden } from '../../../../lib/debug-access.js';
 
@@ -76,7 +76,7 @@ export async function GET(request) {
       // sparse-looking district can be told apart from a stale snapshot.
       generatedAt: meta?.generatedAt ?? null,
       counts: {
-        total: await countPanos(code),
+        total: sample.total,
         inView: sample.inView,
         shown: sample.panos.length,
         // True when the viewport holds more points than were sent, so the page

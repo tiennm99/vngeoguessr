@@ -10,13 +10,7 @@ import {
   readPlayerId,
   newPlayerId,
   playerCookieOptions,
-  isUuid,
 } from '../../../lib/player-id.js';
-
-// Generate a unique session ID
-function generateSessionId() {
-  return crypto.randomUUID();
-}
 
 // The recent-location history is a convenience, unlike the session write below
 // it, which is load-bearing and must keep throwing. These two wrappers are what
@@ -42,11 +36,12 @@ async function recentPanoIdsOrNone(playerId) {
  * Record a panorama as seen, tolerating a store that is unavailable.
  * @param {string} playerId Anonymous player id.
  * @param {string} panoId The panorama just shown.
+ * @param {string[]} recentIds The history read at the start of this request.
  * @returns {Promise<void>}
  */
-async function recordPanoOrIgnore(playerId, panoId) {
+async function recordPanoOrIgnore(playerId, panoId, recentIds) {
   try {
-    await recordPanoId(playerId, panoId);
+    await recordPanoId(playerId, panoId, recentIds);
   } catch (error) {
     console.error('Recent-location record failed:', error);
   }
@@ -54,7 +49,6 @@ async function recordPanoOrIgnore(playerId, panoId) {
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const sessionId = searchParams.get('sessionId');
 
   // Accepts ?region= at any level, and ?city= for links made before the tree.
   const resolved = resolvePlayableRegion(searchParams);
@@ -96,30 +90,19 @@ export async function GET(request) {
     }
 
     const selectedImage = imageResult.data;
-
-    // The district the panorama actually sits in, resolved server-side from the
-    // panorama index. Scoring fans out from this, so an absent value is a bug
-    // rather than something to paper over with the picked region -- that would
-    // silently leave every district board empty forever.
-    if (!selectedImage.regionCode) {
-      throw new Error('Panorama came back without a resolved region');
-    }
-
     const exactLocation = { lat: selectedImage.lat, lng: selectedImage.lng };
-    const imageUrl = selectedImage.url;
 
-    // Reuse the caller's id only when it is one this server could have minted.
-    // The value becomes a Redis key as-is; the player cookie gets the same test
-    // for the same reason, and a made-up id is simply replaced rather than
-    // rejected, because the client loses nothing by getting a fresh one.
-    const currentSessionId = isUuid(sessionId) ? sessionId : generateSessionId();
+    // Always a fresh id, never one the client offers. Reusing an id let a new
+    // round overwrite a session a guess had read but not yet claimed: the
+    // guess scored the old answer and its claim deleted the new round.
+    const currentSessionId = crypto.randomUUID();
     await storeGameSession(currentSessionId, {
       sessionId: currentSessionId,
       // What the player chose. Safe to echo back.
       pickedRegion,
       // SECRET, alongside exactLocation: this names the district the answer is
-      // in. Revealing it before the guess turns a country-wide round into a
-      // 35 km2 one.
+      // in (always set: the index resolves every row to one). Revealing it
+      // before the guess turns a country-wide round into a 35 km2 one.
       regionCode: selectedImage.regionCode,
       exactLocation,
       imageId: selectedImage.id,
@@ -129,7 +112,7 @@ export async function GET(request) {
     // Recorded at round creation, not at guess time, so a round the player
     // skips still counts as seen -- skipping is exactly how someone says they
     // do not want this location again.
-    await recordPanoOrIgnore(playerId, selectedImage.id);
+    await recordPanoOrIgnore(playerId, selectedImage.id, recentIds);
 
     // Deliberately without the resolved district: that is the answer, and the
     // session store is the only place it should be written before the guess.
@@ -143,7 +126,7 @@ export async function GET(request) {
       // The pano id stays server-side in the session: with it a player could
       // look the panorama up on Mapillary and read the answer coordinates.
       imageData: {
-        url: imageUrl,
+        url: selectedImage.url,
         isPano: selectedImage.isPano
       }
     });
@@ -161,13 +144,9 @@ export async function GET(request) {
     // `error` may not be an Error: a rejected promise can carry anything, and
     // a handler that reads `.message.includes` off it would itself throw.
     const detail = String(error?.message ?? error);
-    let errorMessage = 'Failed to fetch street view images. Please try again.';
-    if (detail.includes('without a resolved region')) {
-      errorMessage = 'Panorama index is missing its district assignments. ' +
-        'Run scripts/assign-pano-districts.mjs.';
-    } else if (isAuthFailure(error)) {
-      errorMessage = 'Mapillary authentication failed. Please check API token.';
-    }
+    const errorMessage = isAuthFailure(error)
+      ? 'Mapillary authentication failed. Please check API token.'
+      : 'Failed to fetch street view images. Please try again.';
 
     return NextResponse.json({
       success: false,

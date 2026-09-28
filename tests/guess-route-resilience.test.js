@@ -67,8 +67,8 @@ describe('POST /api/guess after the session is consumed', () => {
 
   it('reports the levels that landed when one level fails to write', async () => {
     failingKeys.add('leaderboard:vietnam');
-    await seedSession('p1');
-    const response = await guess('p1');
+    await seedSession('00000000-0000-4000-8000-000000000101');
+    const response = await guess('00000000-0000-4000-8000-000000000101');
     const body = await response.json();
 
     // The round scored on two boards; saying "nothing was scored" would be
@@ -79,23 +79,23 @@ describe('POST /api/guess after the session is consumed', () => {
     expect(body.gameResult.levels.map((l) => l.code).sort()).toEqual(['TPHCM', 'TPHCM-Q7']);
     expect((await getLeaderboard('TPHCM-Q7'))[0].score).toBe(5);
     expect(await getLeaderboard('VN')).toEqual([]);
-    expect(await getGameSession('p1')).toBeNull();
+    expect(await getGameSession('00000000-0000-4000-8000-000000000101')).toBeNull();
   });
 
   it('fails the round only when no level could be written', async () => {
     for (const key of ['leaderboard:city:tphcm-q7', 'leaderboard:city:tphcm', 'leaderboard:vietnam']) {
       failingKeys.add(key);
     }
-    await seedSession('p2');
-    const response = await guess('p2');
+    await seedSession('00000000-0000-4000-8000-000000000102');
+    const response = await guess('00000000-0000-4000-8000-000000000102');
     expect(response.status).toBe(500);
     expect((await response.json()).success).toBe(false);
   });
 
   it('scores the round when the statistics store is down', async () => {
     statsDown = true;
-    await seedSession('p3');
-    const body = await (await guess('p3')).json();
+    await seedSession('00000000-0000-4000-8000-000000000103');
+    const body = await (await guess('00000000-0000-4000-8000-000000000103')).json();
     expect(body.success).toBe(true);
     expect(body.gameResult.partial).toBe(false);
     expect((await getLeaderboard('VN'))[0].score).toBe(5);

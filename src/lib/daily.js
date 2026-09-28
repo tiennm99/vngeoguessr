@@ -1,7 +1,7 @@
-import { getUpstash, getJson, putJson, del } from './upstash.js';
+import { getUpstash, getJson, putJsonIfAbsent, del } from './upstash.js';
 import { pickPanoBySeed } from './pano-index.js';
 import { fetchPanoramaById } from './mapillary.js';
-import { isAuthFailure } from './errors.js';
+import { UpstreamError, isAuthFailure, isTransient } from './errors.js';
 
 // The daily challenge: one panorama, the same for everyone, for one day.
 //
@@ -27,6 +27,18 @@ const DAILY_TTL_SECONDS = 48 * 60 * 60;
 const MAX_ATTEMPTS = 4;
 
 /**
+ * Whether a failed lookup proves the image unusable, as opposed to Mapillary
+ * being slow or down. Only proof may move the day to another panorama: a
+ * timeout that re-picked would hand players before and after the blip
+ * different rounds under the same number.
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+function imageIsGone(error) {
+  return !isAuthFailure(error) && !isTransient(error);
+}
+
+/**
  * The panorama for a day, resolved to a displayable image.
  * @param {string} day 'YYYY-MM-DD' from daily-calendar.js.
  * @returns {Promise<{id: string, lat: number, lng: number, regionCode: string, url: string, isPano: boolean}>}
@@ -40,7 +52,7 @@ export async function getDailyRound(day) {
     try {
       return withImage(cached, await fetchPanoramaById(cached.id));
     } catch (error) {
-      if (isAuthFailure(error)) throw error;
+      if (!imageIsGone(error)) throw error;
       // The day's pick no longer resolves. Forget it and choose again, skipping
       // this id, so the day recovers instead of failing until the cache expires.
       console.error(`Daily ${day} cached panorama ${cached.id} failed: ${error.message}`);
@@ -61,15 +73,19 @@ export async function getDailyRound(day) {
         lng: image.lng ?? candidate.lng,
         regionCode: candidate.regionCode,
       };
-      await putJson(h, key, pick, DAILY_TTL_SECONDS);
-      return withImage(pick, image);
+      // First writer wins. Two instances whose draws disagree (a warm one
+      // still holding pre-reseed counts) must still serve one panorama.
+      if (await putJsonIfAbsent(h, key, pick, DAILY_TTL_SECONDS)) return withImage(pick, image);
+      const winner = await getJson(h, key);
+      if (!winner || winner.id === pick.id) return withImage(pick, image);
+      return withImage(winner, await fetchPanoramaById(winner.id));
     } catch (error) {
-      if (isAuthFailure(error)) throw error;
+      if (!imageIsGone(error)) throw error;
       lastError = error.message;
       console.error(`Daily ${day} candidate ${candidate.id} failed (${attempt + 1}/${MAX_ATTEMPTS}): ${lastError}`);
     }
   }
-  throw new Error(`No daily panorama could be loaded for ${day} (last: ${lastError})`);
+  throw new UpstreamError('http', `No daily panorama could be loaded for ${day} (last: ${lastError})`);
 }
 
 /** The cached pick plus the image just resolved for it. */
