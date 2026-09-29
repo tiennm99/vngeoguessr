@@ -46,7 +46,9 @@ are the shape the code has and new code should keep.
 - **Failure kinds are classes, not message prefixes**: `DryPoolError` and
   `UpstreamError` in `src/lib/errors.js`. A route maps them to statuses (404
   for a dry pool, 502 for an upstream failure); nothing string-matches an
-  error message.
+  error message. `UpstreamError.code` tells a fact about the image (`'gone'`)
+  from a fact about the service (`'timeout'`, `'network'`, `'http'`,
+  `'auth'`); only the former may change which panorama a daily serves.
 - **Claim before write.** A session is consumed with an atomic `DEL` before any
   board is written, and the fan-out after it settles per level rather than
   all-or-nothing, because nothing after the claim can be retried.

@@ -20,8 +20,9 @@ const FIELDS = 'id,thumb_2048_url,thumb_original_url,geometry,is_pano';
 // since the index was built, so allow a couple of alternates.
 const MAX_ATTEMPTS = 3;
 const REQUEST_TIMEOUT_MS = 5000;
-// The whole draw, all attempts included, stops retrying past this: a Vercel
-// function has ten seconds, and a player waiting longer has already left.
+// The whole draw, all attempts included, stops retrying past this. The
+// platform is not the limit (Vercel Hobby allows 300 s); the browser gives
+// the request fifteen seconds, and a player waiting longer has already left.
 const DRAW_BUDGET_MS = 8000;
 
 /**
@@ -40,15 +41,18 @@ function requireAccessToken() {
  * Look up one image by id.
  * @param {string} imageId Mapillary image id.
  * @param {string} accessToken Mapillary access token.
+ * @param {number} timeoutMs How long to wait for the answer.
  * @returns {Promise<Object>} The image record.
  */
-async function fetchImage(imageId, accessToken) {
-  const url = `${GRAPH_API}/${imageId}?access_token=${accessToken}&fields=${FIELDS}`;
+async function fetchImage(imageId, accessToken, timeoutMs) {
+  const url = `${GRAPH_API}/${imageId}?fields=${FIELDS}`;
   let response;
   try {
     response = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      // The token travels in a header, not the query string, so it stays out
+      // of request logs and error messages that quote the URL.
+      headers: { Accept: 'application/json', Authorization: `OAuth ${accessToken}` },
+      signal: AbortSignal.timeout(timeoutMs),
       next: { revalidate: 0 },
     });
   } catch (error) {
@@ -59,22 +63,35 @@ async function fetchImage(imageId, accessToken) {
   if (response.status === 401) throw new UpstreamError('auth', 'Mapillary authentication failed');
   if (!response.ok) {
     const body = await response.text().catch(() => '<unreadable>');
-    throw new UpstreamError('http', `Mapillary ${imageId}: ${response.status}: ${body.slice(0, 200)}`, response.status);
+    const detail = `Mapillary ${imageId}: ${response.status}: ${body.slice(0, 200)}`;
+    // The Graph API answers an unknown or deleted object id with 400 or 404:
+    // a fact about the image, not about the service. Anything else (403 for
+    // a token missing a scope, 429, 5xx) says nothing about the image and
+    // must not be read as it being gone.
+    const gone = response.status === 400 || response.status === 404;
+    throw new UpstreamError(gone ? 'gone' : 'http', detail, response.status);
   }
-  return await response.json();
+  try {
+    return await response.json();
+  } catch (error) {
+    // A 200 that is not JSON is a proxy or error page on the way, so a
+    // transient failure of the path, not an answer about the image.
+    throw new UpstreamError('network', `Mapillary ${imageId}: malformed response body: ${error?.message ?? error}`);
+  }
 }
 
 /**
  * Resolve one panorama id to something the viewer can display.
  * @param {string} imageId Mapillary image id.
+ * @param {number} [timeoutMs] How long to wait for Mapillary, at most.
  * @returns {Promise<{id: string, url: string, isPano: boolean, lat: number, lng: number}>}
  */
-export async function fetchPanoramaById(imageId) {
-  const image = await fetchImage(imageId, requireAccessToken());
+export async function fetchPanoramaById(imageId, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const image = await fetchImage(imageId, requireAccessToken(), timeoutMs);
   // The original is often 4-8 MP; the 2048px derivative is the one the viewer
   // should load on a phone.
   const url = image.thumb_2048_url || image.thumb_original_url;
-  if (!url) throw new Error('image has no usable thumbnail');
+  if (!url) throw new UpstreamError('gone', `Mapillary ${imageId}: image has no usable thumbnail`);
 
   return {
     id: String(image.id),
@@ -160,8 +177,14 @@ export async function fetchRegionPanorama(regionCode, recentIds = new Set()) {
     if (!candidate) return { success: false, kind: 'dry', error: dryMessage };
     tried.add(candidate.id);
 
+    // The lookup gets the per-request timeout or whatever is left of the
+    // draw budget, whichever is shorter: the budget caps the whole draw, so it
+    // has to cap the request in flight too, not only whether there is a next.
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+
     try {
-      const image = await fetchPanoramaById(candidate.id);
+      const image = await fetchPanoramaById(candidate.id, Math.min(REQUEST_TIMEOUT_MS, remainingMs));
       // The API's coordinates win for scoring, but the district was resolved
       // from the index's copy of the same image. The two differ by metres at
       // most, so the only way they disagree is a panorama sitting within metres
@@ -181,8 +204,6 @@ export async function fetchRegionPanorama(regionCode, recentIds = new Set()) {
       lastError = error.message;
       if (isAuthFailure(error)) throw error;
       console.error(`Mapillary lookup ${candidate.id} failed (${attempt}/${MAX_ATTEMPTS}): ${lastError}`);
-      // Out of time: another attempt would outlive the request.
-      if (Date.now() >= deadline) break;
     }
   }
 

@@ -14,6 +14,7 @@ import { getDailyRound } from '../src/lib/daily.js';
 import { pickPanoBySeed } from '../src/lib/pano-index.js';
 import { getGameSession } from '../src/lib/session.js';
 import { dailyDay } from '../src/lib/daily-calendar.js';
+import { isRegion } from '../src/lib/regions.js';
 import { readDay, statsDay } from '../src/lib/stats.js';
 import { resetStore, storedKeys, ttlOf } from './redis-harness.js';
 import { getLeaderboard } from '../src/lib/leaderboard.js';
@@ -29,11 +30,21 @@ let mapillaryCalls = 0;
 const deadIds = new Set();
 // Ids the stub answers with a 503, to simulate Mapillary having a bad moment.
 const flakyIds = new Set();
+// Ids the stub answers with a 403: the token lacks a scope, which says nothing
+// about the image.
+const forbiddenIds = new Set();
+// Ids the stub answers with a 200 whose body is an HTML page, not JSON: a
+// proxy in the way.
+const garbledIds = new Set();
 
 stubMapillary((id) => {
   mapillaryCalls += 1;
-  if (deadIds.has(id)) return new Response('gone', { status: 404 });
+  // The Graph API reports an unknown object as a 400 with an error body at
+  // least as often as a 404; both are proof the image is gone.
+  if (deadIds.has(id)) return new Response(JSON.stringify({ error: { code: 100 } }), { status: 400 });
   if (flakyIds.has(id)) return new Response('busy', { status: 503 });
+  if (forbiddenIds.has(id)) return new Response('forbidden', { status: 403 });
+  if (garbledIds.has(id)) return new Response('<html>gateway</html>', { status: 200 });
   return undefined;
 });
 
@@ -46,6 +57,8 @@ beforeEach(async () => {
   mapillaryCalls = 0;
   deadIds.clear();
   flakyIds.clear();
+  forbiddenIds.clear();
+  garbledIds.clear();
 });
 
 describe('pickPanoBySeed', () => {
@@ -54,6 +67,14 @@ describe('pickPanoBySeed', () => {
     const second = await pickPanoBySeed('2026-09-21:0');
     expect(second).toEqual(first);
     expect(first.regionCode).toMatch(/-|^DL$|^DH$/);
+  });
+
+  it('always resolves to a district or a province, never the country', async () => {
+    for (let i = 0; i < 12; i++) {
+      const pick = await pickPanoBySeed(`region-${i}`);
+      expect(isRegion(pick.regionCode)).toBe(true);
+      expect(pick.regionCode).not.toBe('VN');
+    }
   });
 
   it('varies with the seed', async () => {
@@ -97,6 +118,31 @@ describe('getDailyRound', () => {
     await expect(getDailyRound('2026-09-24')).rejects.toThrow(/503/);
     flakyIds.clear();
     expect((await getDailyRound('2026-09-24')).id).toBe(first.id);
+  });
+
+  // Neither of these is proof the image is gone: a 403 is about the token and
+  // a non-JSON 200 is about the path. Both used to re-pick the day.
+  it('keeps the cached pick through a 403 and through a malformed answer', async () => {
+    const first = await getDailyRound('2026-09-26');
+    forbiddenIds.add(first.id);
+    await expect(getDailyRound('2026-09-26')).rejects.toThrow(/403/);
+    forbiddenIds.clear();
+    garbledIds.add(first.id);
+    await expect(getDailyRound('2026-09-26')).rejects.toThrow(/malformed/);
+    garbledIds.clear();
+    expect((await getDailyRound('2026-09-26')).id).toBe(first.id);
+    expect((await storedKeys()).some((k) => k.endsWith('daily:2026-09-26'))).toBe(true);
+  });
+
+  it('does not settle the day on a blip, and serves the same candidate once it passes', async () => {
+    const expected = (await pickPanoBySeed('2026-09-27:0')).id;
+    flakyIds.add(expected);
+    await expect(getDailyRound('2026-09-27')).rejects.toThrow(/503/);
+    // Nothing cached: the next request must try the same candidate again
+    // rather than move on to attempt 1 for everyone after the blip.
+    expect((await storedKeys()).some((k) => k.endsWith('daily:2026-09-27'))).toBe(false);
+    flakyIds.clear();
+    expect((await getDailyRound('2026-09-27')).id).toBe(expected);
   });
 
   it('never overwrites a pick another instance cached first', async () => {

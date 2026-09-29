@@ -24,11 +24,12 @@ export class DryPoolError extends Error {
  *
  * `code` says how, so a route can choose the status and the copy: 'auth' is
  * a misconfiguration that no retry fixes, 'timeout' and 'network' are the
- * service or the path to it, 'http' is an answer that was an error.
+ * service or the path to it, 'http' is an answer that was an error, and 'gone'
+ * is the service saying the image asked for does not exist or cannot be shown.
  */
 export class UpstreamError extends Error {
   /**
-   * @param {'auth'|'timeout'|'network'|'http'} code What went wrong.
+   * @param {'auth'|'timeout'|'network'|'http'|'gone'} code What went wrong.
    * @param {string} message Detail for the logs.
    * @param {number|null} [status] The HTTP status, for code 'http'.
    */
@@ -54,4 +55,15 @@ export function isTransient(error) {
   if (!(error instanceof UpstreamError)) return false;
   if (error.code === 'timeout' || error.code === 'network') return true;
   return error.code === 'http' && (error.status >= 500 || error.status === 429);
+}
+
+/**
+ * True when the service answered and said the image is not there to show:
+ * deleted, never existed, or missing a displayable rendition. This is proof
+ * about the image, unlike a transient failure, and the only kind of failure
+ * that justifies choosing a different panorama for a round that must stay the
+ * same for everyone.
+ */
+export function isImageGone(error) {
+  return error instanceof UpstreamError && error.code === 'gone';
 }

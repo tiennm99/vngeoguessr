@@ -14,8 +14,8 @@ import {
 
 // Start today's daily challenge: one country-wide round whose panorama is the
 // same for every player today. The round is an ordinary session, scored by
-// /api/guess like any other, so it credits the boards once and counts in the
-// statistics under its own level.
+// /api/guess like any other, except that it credits no leaderboard (the answer
+// is public all day) and is counted in the statistics under its own level.
 export async function GET(request) {
   const day = dailyDay();
   const playerId = readPlayerId(request) ?? newPlayerId();

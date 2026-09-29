@@ -103,6 +103,20 @@ describe('fetchRegionPanorama', () => {
     expect(result.data.regionCode).toBe('DL');
   });
 
+  it('sends the token in a header, never in the URL', async () => {
+    const seen = [];
+    vi.stubGlobal('fetch', async (url, init) => {
+      seen.push({ url: String(url), auth: init?.headers?.Authorization });
+      const id = String(url).split('/').pop().split('?')[0];
+      return new Response(JSON.stringify(imageBody(id)), { status: 200 });
+    });
+
+    expect((await fetchRegionPanorama('DL')).success).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].url).not.toContain('test-token');
+    expect(seen[0].auth).toBe('OAuth test-token');
+  });
+
   it('resolves a country draw to a district, never to the country', async () => {
     vi.stubGlobal('fetch', async (url) => {
       const id = String(url).split('/').pop().split('?')[0];

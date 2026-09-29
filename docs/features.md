@@ -189,8 +189,10 @@ renaming it would orphan every score already recorded under it.
   for 48 hours, so the Postgres draw happens once a day. The image URL is
   resolved from Mapillary on every request, as every round does, so a signed
   URL that stops working never breaks the day; a pick deleted upstream is
-  forgotten and the next seeded candidate takes over. A timeout or 5xx is not
-  proof of deletion and keeps the pick (the request fails with a 502), so a
+  forgotten and the next seeded candidate takes over. Only proof counts as
+  deletion: a Mapillary 400 or 404, or an image with no thumbnail
+  (`isImageGone` in `src/lib/errors.js`). A timeout, a 5xx, a 403 or a
+  malformed answer keeps the pick (the request fails with a 502), so a
   Mapillary blip cannot give one day two panoramas. The pick is written with
   `SET NX`, so two instances that draw differently still serve the first one
 - **Days roll over at midnight Vietnam time** (`src/lib/daily-calendar.js`),
