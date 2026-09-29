@@ -8,6 +8,7 @@
 // caller holding DEBUG_ACCESS_KEY, sent as the `x-debug-key` header or the
 // `vng_debug` cookie; with no key configured they are closed.
 
+import { timingSafeEqual } from 'node:crypto';
 import { cookieValues } from './cookies.js';
 
 const DEBUG_HEADER = 'x-debug-key';
@@ -22,7 +23,22 @@ export function debugAccessAllowed(request) {
   if (!isProduction()) return true;
   const key = process.env.DEBUG_ACCESS_KEY;
   if (!key) return false;
-  return request.headers.get(DEBUG_HEADER) === key || cookieValues(request, DEBUG_COOKIE).includes(key);
+  const offered = [request.headers.get(DEBUG_HEADER), ...cookieValues(request, DEBUG_COOKIE)];
+  return offered.some((value) => sameSecret(value, key));
+}
+
+/**
+ * Compare a caller's value to the key in constant time, so the comparison
+ * itself cannot say how much of the key was right.
+ * @param {string|null} offered
+ * @param {string} key
+ * @returns {boolean}
+ */
+function sameSecret(offered, key) {
+  if (typeof offered !== 'string') return false;
+  const a = Buffer.from(offered);
+  const b = Buffer.from(key);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /** Production means Vercel says so, or a production build with no Vercel at all. */

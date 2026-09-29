@@ -45,11 +45,10 @@ const RETRY_BACKOFF_MS = 2000;
 // locations: Da Lat's 4,309 panoramas fall in only 86 cells at 165m.
 // ~0.0003 degrees is roughly 33m, far enough apart to look like a new place.
 const GRID_DEG = 0.0003;
-// No cap: the index keeps every distinct location Mapillary has inside the
-// city. Capping was only ever a file-size measure, and it did not affect
-// coverage -- the cells that hold imagery are saturated, so a sample and the
-// full set reach the same places. It did cost density.
-const MAX_PER_CITY = Infinity;
+// No cap on rows per city: the index keeps every distinct location Mapillary
+// has inside it. Capping was only ever a file-size measure, and it did not
+// affect coverage -- the cells that hold imagery are saturated, so a sample
+// and the full set reach the same places. It did cost density.
 
 function loadToken() {
   const env = loadEnvFile();
@@ -211,16 +210,6 @@ async function buildCity(code, token) {
 
   let panos = thinToGrid(inside);
   console.log(`  ${panos.length} after grid thinning at ${GRID_DEG} deg`);
-
-  if (panos.length > MAX_PER_CITY) {
-    // Shuffle before truncating, so a cap does not bias towards one corner.
-    for (let i = panos.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [panos[i], panos[j]] = [panos[j], panos[i]];
-    }
-    panos = panos.slice(0, MAX_PER_CITY);
-    console.log(`  capped to ${MAX_PER_CITY}`);
-  }
 
   if (panos.length === 0) throw new Error(`${code}: no panoramas found`);
 

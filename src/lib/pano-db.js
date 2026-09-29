@@ -14,6 +14,7 @@ import { neon } from '@neondatabase/serverless';
 // process is safe in serverless the same way the Upstash REST client is.
 
 let handle = null;
+const QUERY_TIMEOUT_MS = 8000;
 
 /**
  * Get the global Neon handle (singleton).
@@ -37,5 +38,10 @@ export function getPanoDb() {
  * @returns {Promise<Object[]>} Rows.
  */
 export async function query(h, text, params) {
-  return await h.sql.query(text, params ?? []);
+  // A deadline per query. Neon Free scales to zero and a cold start can take
+  // a few seconds, so this is generous; a query that has not answered by
+  // then would only outlive the browser's fifteen-second wait anyway.
+  return await h.sql.query(text, params ?? [], {
+    fetchOptions: { signal: AbortSignal.timeout(QUERY_TIMEOUT_MS) },
+  });
 }

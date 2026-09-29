@@ -43,7 +43,11 @@ export function validateUsername(raw) {
   if (typeof raw !== 'string') {
     return { ok: false, value: '', error: 'Please enter a username' };
   }
-  const value = raw.trim();
+  // Composed form first: some keyboards and IMEs type a Vietnamese tone mark
+  // as a combining character after the letter, which the letter class in the
+  // pattern rejects, and which would make two spellings of one name two
+  // members on every board.
+  const value = raw.normalize('NFC').trim();
   if (!value) return { ok: false, value, error: 'Please enter a username' };
   if (value.length < USERNAME_MIN_LENGTH) {
     return { ok: false, value, error: `Username must be at least ${USERNAME_MIN_LENGTH} characters` };

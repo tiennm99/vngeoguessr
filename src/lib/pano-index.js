@@ -13,7 +13,7 @@
 // tests/regions.test.js enforces that boundary.
 
 import { getPanoDb, query } from './pano-db.js';
-import { getRegion, childrenOf, isPlayable } from './regions.js';
+import { getRegion, childrenOf, isPlayable, isRegion } from './regions.js';
 import { DryPoolError } from './errors.js';
 
 /**
@@ -36,17 +36,12 @@ function regionPredicate(code) {
 const countCache = new Map();
 
 /**
- * How many panoramas a region holds.
- * @param {string} code Region code at any level.
+ * How many panoramas a province or district holds. Country draws walk the
+ * provinces instead, so there is no country count.
+ * @param {string} code Province or district code.
  * @returns {Promise<number>} Count.
  */
 export async function countPanos(code) {
-  const { level } = getRegion(code);
-  if (level === 'country') {
-    let total = 0;
-    for (const child of childrenOf(code)) total += await countPanos(child);
-    return total;
-  }
   if (countCache.has(code)) return countCache.get(code);
   const rows = await query(
     getPanoDb(),
@@ -71,12 +66,15 @@ export async function countPanos(code) {
  * @returns {{id: string, lat: number, lng: number, regionCode: string}}
  */
 function toChoice(row, code, level) {
-  return {
-    id: row.id,
-    lat: Number(row.lat),
-    lng: Number(row.lng),
-    regionCode: level === 'district' ? code : row.district ?? code,
-  };
+  const regionCode = level === 'district' ? code : row.district ?? code;
+  // A district the tree no longer knows (renamed, merged, or a table seeded
+  // ahead of the code) must fail here, before a session is written with it.
+  // Left to /api/guess, it would fail after the session is consumed, which
+  // cannot be retried, for every round drawn in that district.
+  if (!isRegion(regionCode)) {
+    throw new Error(`Panorama ${row.id} resolves to unknown region ${regionCode}`);
+  }
+  return { id: row.id, lat: Number(row.lat), lng: Number(row.lng), regionCode };
 }
 
 /**

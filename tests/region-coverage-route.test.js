@@ -69,7 +69,9 @@ describe('GET debug coverage', () => {
     // Returning it with each pan gave the client a new object every time, which
     // made the map refit and cancel whatever the user had zoomed into.
     const first = await (await GET(request('region=DN'))).json();
-    expect(first.boundary).toBeTruthy();
+    expect(first.boundary.type).toBe('Feature');
+    expect(['Polygon', 'MultiPolygon']).toContain(first.boundary.geometry.type);
+    expect(first.boundary.geometry.coordinates.length).toBeGreaterThan(0);
 
     const panned = await (await GET(request('region=DN&bbox=108.1,16.0,108.3,16.1'))).json();
     expect(panned.boundary).toBeUndefined();

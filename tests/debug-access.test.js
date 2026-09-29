@@ -50,6 +50,8 @@ describe('debugAccessAllowed', () => {
     process.env.DEBUG_ACCESS_KEY = 'secret-key';
     expect(debugAccessAllowed(request())).toBe(false);
     expect(debugAccessAllowed(request({ 'x-debug-key': 'wrong' }))).toBe(false);
+    expect(debugAccessAllowed(request({ 'x-debug-key': 'secret-ke' }))).toBe(false);
+    expect(debugAccessAllowed(request({ 'x-debug-key': 'secret-key-and-more' }))).toBe(false);
     expect(debugAccessAllowed(request({ 'x-debug-key': 'secret-key' }))).toBe(true);
     expect(debugAccessAllowed(request({ cookie: 'theme=dark; vng_debug=secret-key' }))).toBe(true);
   });

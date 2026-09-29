@@ -12,6 +12,7 @@ import {
 } from '../src/lib/pano-index.js';
 import { getRegion, childrenOf, provinceOf, coverageOf, isPlayable, playableRegions } from '../src/lib/regions.js';
 import { seedPanoFixtures, FIXTURE_PANOS, UNASSIGNED_PANO, fixtureIds, GENERATED_AT } from './pano-fixtures.js';
+import { getFakeDb } from './fake-neon.js';
 
 // These tests pin the query behavior of pano-index.js against the PGlite fake.
 // The data-quality invariants that used to run here against the real JSON
@@ -44,15 +45,28 @@ describe('countPanos', () => {
     expect(await countPanos('DN')).toBe(sum + 1);
   });
 
-  it('counts the country as the sum of provinces', async () => {
-    let sum = 0;
-    for (const code of ['HN', 'TPHCM', 'DN', 'LD', 'LA']) sum += await countPanos(code);
-    expect(await countPanos('VN')).toBe(sum);
-    expect(await countPanos('VN')).toBe(FIXTURE_PANOS.length + 1);
+  it('has no country count: country draws walk the provinces', async () => {
+    await expect(countPanos('VN')).rejects.toThrow(/country/);
   });
 });
 
 describe('pickRandomPano', () => {
+  it('refuses a row whose district the tree does not know', async () => {
+    // Sorted first among the DN rows, so offset 0 is this one.
+    const db = getFakeDb();
+    await db.query(
+      `INSERT INTO panoramas (id, province, district, lat, lng) VALUES ($1, 'DN', 'DN-GONE', 16.05, 108.2)`,
+      ['a-unknown-district']
+    );
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      await expect(pickRandomPano('DN')).rejects.toThrow(/unknown region DN-GONE/);
+    } finally {
+      random.mockRestore();
+      await db.query('DELETE FROM panoramas WHERE id = $1', ['a-unknown-district']);
+    }
+  });
+
   it('returns an entry from the province', async () => {
     const chosen = await pickRandomPano('LD');
     expect(fixtureIds('LD')).toContain(chosen.id);

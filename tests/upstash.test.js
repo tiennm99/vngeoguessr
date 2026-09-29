@@ -30,6 +30,14 @@ describe('upstash adapter', () => {
       expect(getUpstash()).toBe(getUpstash());
     });
 
+    it('gives every command a deadline', () => {
+      // The client retries a hung connection with exponential backoff; the
+      // signal caps the whole call so a Redis outage fails the request
+      // inside the browser's timeout instead of after it.
+      const signal = getUpstash().client.config.signal();
+      expect(signal).toBeInstanceOf(AbortSignal);
+    });
+
     it('carries the default key prefix', () => {
       expect(getUpstash().prefix).toBe('vngeoguessr:');
     });

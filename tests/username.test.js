@@ -31,6 +31,15 @@ describe('validateUsername', () => {
     expect(validateUsername('Nguyễn-Văn').ok).toBe(true);
   });
 
+  it('composes a name typed with combining tone marks into the same member', () => {
+    // 'ả' as a plain 'a' followed by U+0309 HOOK ABOVE, which is what some
+    // Vietnamese keyboards and IMEs produce.
+    const decomposed = 'Tra\u0309n_ok';
+    const composed = 'Trản_ok';
+    expect(decomposed).not.toBe(composed);
+    expect(validateUsername(decomposed)).toEqual({ ok: true, value: composed, error: null });
+  });
+
   it.each([
     ['not a string', 123],
     ['empty', '   '],

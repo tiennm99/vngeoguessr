@@ -24,6 +24,12 @@ import { Redis } from '@upstash/redis';
 // callers never see it.
 
 const DEFAULT_KEY_PREFIX = 'vngeoguessr:';
+// Deadline for one command, retries included. The client would otherwise
+// retry a hung connection five times with exponential backoff, ten seconds
+// and more, while the browser gives the whole request fifteen. Upstash
+// answers in well under a second from the function's region; a command that
+// has not answered in this long is an outage, and the route should say so.
+const COMMAND_TIMEOUT_MS = 5000;
 
 let handle = null;
 
@@ -39,7 +45,7 @@ export function getUpstash() {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
   if (!url) throw new Error('UPSTASH_REDIS_REST_URL or KV_REST_API_URL is required');
   if (!token) throw new Error('UPSTASH_REDIS_REST_TOKEN or KV_REST_API_TOKEN is required');
-  const client = new Redis({ url, token });
+  const client = new Redis({ url, token, signal: () => AbortSignal.timeout(COMMAND_TIMEOUT_MS) });
   // `??` would accept KEY_PREFIX= (set but empty), which removes the only thing
   // keeping this project's keys apart from every other project sharing the
   // Upstash database. That was harmless while the adapter only touched keys it
