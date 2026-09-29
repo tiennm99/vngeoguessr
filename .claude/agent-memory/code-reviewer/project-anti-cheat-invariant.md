@@ -61,6 +61,10 @@ shared link), check what it credits before accepting a client-side attempt limit
 Update 2026-09-28: `lib/daily.js` IS now on the `FORBIDDEN` list, and both
 `/api/debug/*` routes are gated by `src/lib/debug-access.js` (404 in production
 without `DEBUG_ACCESS_KEY`; always open on Vercel preview and dev). The remaining
-open questions are whether preview deployments share production Redis/Neon, and
-that `/api/new-game` still reuses a client-supplied `sessionId` (already caused
-one skip-DEL race, patched client-side only).
+open question is whether preview deployments share production Redis/Neon.
+
+Update 2026-09-29: `/api/new-game` and `/api/daily` both mint the session id
+server-side (`crypto.randomUUID()`); the client can no longer name one. The
+debug key is compared in constant time. The daily re-picks only on an
+`UpstreamError` with code `'gone'` (Mapillary 400/404 or no thumbnail);
+every other failure is thrown so the day's panorama never changes on a blip.
