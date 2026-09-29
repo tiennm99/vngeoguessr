@@ -44,6 +44,19 @@ function resultSound(score) {
   return score > 0 ? 'good' : 'poor';
 }
 
+// Rounds expire server-side after 30 minutes; a prefetch older than this is
+// not worth risking.
+const PREFETCH_MAX_AGE_MS = 20 * 60 * 1000;
+
+/**
+ * The prefetched round's promise, or null when there is none or it is too old.
+ * @param {{promise: Promise<Object>, startedAt: number}|null} held
+ * @returns {Promise<Object>|null}
+ */
+function freshPrefetch(held) {
+  return held && Date.now() - held.startedAt < PREFETCH_MAX_AGE_MS ? held.promise : null;
+}
+
 /**
  * Ask the server for a new round. Throws on failure; touches no state, so the
  * result-screen prefetch can call it without disturbing the round on screen.
@@ -64,7 +77,14 @@ async function fetchNewRound(locationCode, daily) {
     if (error?.name === 'TimeoutError') throw new Error('The round took too long to load. Please try again.');
     throw new Error('Network error. Please check your connection.');
   }
-  const data = await response.json();
+  // A gateway timeout page is HTML; the player gets a sentence, not the
+  // parser's message.
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('The server sent an unexpected reply. Please try again.');
+  }
   if (!data.success) {
     throw new Error(data.error || 'No images found');
   }
@@ -332,7 +352,7 @@ export default function GameClient({ region, daily = false }) {
     // Consumed (and error-handled) in handleNextRound; this keeps an abandoned
     // prefetch from surfacing as an unhandled rejection.
     promise.catch(() => {});
-    prefetchRef.current = promise;
+    prefetchRef.current = { promise, startedAt: Date.now() };
   };
 
   const handleSubmitGuess = async () => {
@@ -417,8 +437,11 @@ export default function GameClient({ region, daily = false }) {
     setShowResult(false);
     resetRoundState();
     setSessionId(null);
-    const prefetched = prefetchRef.current;
+    const held = prefetchRef.current;
     prefetchRef.current = null;
+    // The round's session lives 30 minutes server-side from when it was
+    // drawn, so one that waited too long is dropped for a fresh fetch.
+    const prefetched = freshPrefetch(held);
     setRoundLoading(true);
 
     if (prefetched) {
@@ -451,16 +474,12 @@ export default function GameClient({ region, daily = false }) {
     if (!imageData && !loadError) return;
     playSound('skip');
 
-    try {
-      if (sessionId) {
-        fetch('/api/skip', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId })
-        }).catch(error => console.error('Error cleaning up session:', error));
-      }
-    } catch (error) {
-      console.error('Error cleaning up session:', error);
+    if (sessionId) {
+      fetch('/api/skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId })
+      }).catch(error => console.error('Error cleaning up session:', error));
     }
 
     resetRoundState();
@@ -471,8 +490,6 @@ export default function GameClient({ region, daily = false }) {
     // land after the new round's write without touching it.
     await reloadRound();
   };
-
-  const handleRetryLoad = reloadRound;
 
   const handleGoBack = () => {
     playSound('click');
@@ -520,7 +537,7 @@ export default function GameClient({ region, daily = false }) {
                 </p>
                 <p className="text-neutral-400 text-sm">{loadError}</p>
                 <div className="flex justify-center gap-3">
-                  <Button onClick={handleRetryLoad} disabled={roundLoading}>
+                  <Button onClick={reloadRound} disabled={roundLoading}>
                     Try again
                   </Button>
                   <Button onClick={handleGoBack} variant="outline">

@@ -25,6 +25,15 @@ export function useCountUp(value, active) {
   // The frames of the current animation, keyed by what they animate towards
   // so a stale run for a previous value is never shown against a new one.
   const [frame, setFrame] = useState({ target: null, shown: 0 });
+  // Switching on starts a new run. Without the reset, two rounds that score
+  // the same would flash the old final number before counting from zero,
+  // because frame.target still equals value. Adjusting state during render
+  // is the accepted way to reset on a change.
+  const [prevActive, setPrevActive] = useState(active);
+  if (prevActive !== active) {
+    setPrevActive(active);
+    if (active) setFrame({ target: null, shown: 0 });
+  }
 
   useEffect(() => {
     if (!active || !value || prefersReducedMotion()) return undefined;

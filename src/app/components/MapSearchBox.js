@@ -90,6 +90,9 @@ export default function MapSearchBox({ map, rootCode, expanded }) {
 
   const handleKeyDown = (event) => {
     if (event.key === 'Escape') {
+      // With the list open, the first Escape only closes it; the expanded
+      // map underneath collapses on the next.
+      if (showList) event.stopPropagation();
       setOpen(false);
       inputRef.current?.blur();
       return;

@@ -68,6 +68,7 @@ function PanoramaViewer({ imageUrl, onReady, onError, topBarSlot }) {
           console.error('Panorama failed to render, falling back to a flat image:', event);
           showFallbackImage();
           emitReady();
+          emitError(event);
         });
       } catch (error) {
         console.error('Could not create the panorama viewer:', error);

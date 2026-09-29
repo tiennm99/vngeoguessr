@@ -6,6 +6,8 @@
 // Playback never throws into a caller. A missing file, a decode failure or a
 // browser without Web Audio all mean the same thing to the game: silence.
 
+import { readItem, writeItem } from './storage.js';
+
 export const MUSIC_STORAGE_KEY = 'vngeoguessr_music';
 export const SFX_STORAGE_KEY = 'vngeoguessr_sfx';
 
@@ -52,14 +54,10 @@ let sfxEnabled = null;
  * @returns {boolean} True unless the stored value is exactly 'off'.
  */
 function readEnabled(key) {
-  if (typeof window === 'undefined') return true;
-  try {
-    return localStorage.getItem(key) !== 'off';
-  } catch {
-    // Private browsing and blocked site data both throw here; sound on is the
-    // right answer when the choice cannot be read.
-    return true;
-  }
+  // Unreadable storage (private browsing, blocked site data, server render)
+  // reads as null, and sound on is the right answer when the choice cannot be
+  // read.
+  return readItem(key) !== 'off';
 }
 
 /**
@@ -69,13 +67,9 @@ function readEnabled(key) {
  * @returns {void}
  */
 function writeEnabled(key, enabled) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, enabled ? 'on' : 'off');
-  } catch {
-    // The choice will not survive a reload, but it still applies to this
-    // session -- the in-memory flag above is what playback actually reads.
-  }
+  // A refused write is kept in memory by storage.js, and the flag above is
+  // what playback reads, so the choice still applies to this visit.
+  writeItem(key, enabled ? 'on' : 'off');
 }
 
 /**

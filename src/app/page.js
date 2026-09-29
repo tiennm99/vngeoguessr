@@ -177,7 +177,7 @@ export default function Home() {
                       <span key={row}>{row}</span>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground/80">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     The same distances everywhere — a district round and a
                     whole-country round are scored on this one ladder.
                   </p>
@@ -198,7 +198,7 @@ export default function Home() {
 
           {/* Data attribution. The build-stamp footer is now its own in-flow
               strip below the page, so no clearance margin is needed. */}
-          <p className="mt-10 text-center text-xs text-muted-foreground/80">
+          <p className="mt-10 text-center text-xs text-muted-foreground">
             Imagery ©{' '}
             <a href="https://www.mapillary.com/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
               Mapillary

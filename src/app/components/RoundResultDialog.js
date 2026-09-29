@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { ChevronDown, ExternalLink, TriangleAlert } from 'lucide-react';
 import { formatDistance, SCORE_BANDS } from '../../lib/game';
 import { useCountUp } from '../../lib/use-count-up';
 import { regionSlug } from '../../lib/regions';
@@ -258,6 +258,19 @@ export default function RoundResultDialog({
                 </div>
               )}
 
+              {/* Outside the details: when every board write failed there is no
+                  section to open, and this is the only sign of it. */}
+              {result.partial && (
+                <p
+                  role="status"
+                  className="flex items-start gap-2 text-sm font-medium text-foreground"
+                >
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+                  Some boards could not be updated this round.
+                  {hasLeaderboardSection ? ' The ones listed below were.' : ''}
+                </p>
+              )}
+
               {hasLeaderboardSection && (
                 <details className="group rounded-lg border border-border">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
@@ -335,12 +348,6 @@ export default function RoundResultDialog({
                             ))}
                         </div>
                       </div>
-                    )}
-
-                    {result.partial && (
-                      <p className="text-sm text-warning-foreground font-medium">
-                        Some boards could not be updated this round. The ones above were.
-                      </p>
                     )}
                   </div>
                 </details>

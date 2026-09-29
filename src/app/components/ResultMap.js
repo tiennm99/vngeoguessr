@@ -29,6 +29,7 @@ export default function ResultMap({ guessCoordinates, exactLocation }) {
     if (!guessCoordinates) return undefined;
 
     let disposed = false;
+    const resizeTimers = [];
 
     const initializeMap = async () => {
       if (disposed || !containerRef.current) return;
@@ -93,8 +94,10 @@ export default function ResultMap({ guessCoordinates, exactLocation }) {
 
         // The dialog is still animating open when the map is built, so remeasure
         // once the transition should have settled (and once more for slow frames).
-        setTimeout(() => map.invalidateSize(), 100);
-        setTimeout(() => map.invalidateSize(), 500);
+        resizeTimers.push(
+          setTimeout(() => map.invalidateSize(), 100),
+          setTimeout(() => map.invalidateSize(), 500),
+        );
 
         mapRef.current = map;
       } catch (error) {
@@ -108,6 +111,7 @@ export default function ResultMap({ guessCoordinates, exactLocation }) {
     return () => {
       disposed = true;
       clearTimeout(timer);
+      resizeTimers.forEach(clearTimeout);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
