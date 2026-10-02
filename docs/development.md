@@ -139,8 +139,8 @@ artifact for 90 days. It needs the repository secrets `KV_REST_API_URL`,
 `BACKUP_PASSPHRASE`; until they are set the job fails harmlessly. The
 artifact is encrypted because the repository is public, any signed-in GitHub
 user can download an artifact, and the boards list every player name.
-Restore with
-`openssl enc -d -aes-256-cbc -pbkdf2 -in leaderboard-backup.json.enc -out leaderboard-backup.json`.
+What the backup covers, how to decrypt it and how to restore it:
+[Leaderboard Backup and Restore](leaderboard-backup.md).
 
 ### Testing & Completion
 

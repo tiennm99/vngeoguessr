@@ -127,6 +127,17 @@ export async function zAdd(h, key, score, member) {
 }
 
 /**
+ * Set many members' scores in one sorted set with a single ZADD.
+ * @param {{ client: Redis, prefix: string }} h
+ * @param {string} key
+ * @param {Array<{score: number, member: string}>} entries Must not be empty.
+ * @returns {Promise<void>}
+ */
+export async function zAddMany(h, key, entries) {
+  await h.client.zadd(pkey(h, key), ...entries);
+}
+
+/**
  * Add to a member's score, creating it at zero, and return the new score.
  *
  * One command where a read-then-write took two, and atomic where that pair was

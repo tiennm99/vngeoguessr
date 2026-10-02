@@ -12,6 +12,7 @@ For detailed information about this project, refer to the documentation files in
 - **[Development Guidelines](/docs/development.md)** - Development commands, coding standards, and best practices
 - **[Game Flow](/docs/game-flow.md)** - Complete gameplay flow from start to finish
 - **[Project Structure](/docs/project-structure.md)** - Directory organization and file purposes
+- **[Leaderboard Backup](/docs/leaderboard-backup.md)** - Weekly backup, decrypting it, and restoring the boards
 
 ## Quick Reference
 

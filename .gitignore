@@ -54,7 +54,8 @@ next-env.d.ts
 .env*.local
 
 # leaderboard migration backups -- contain player names and scores
-leaderboard-backup-*.json
+leaderboard-backup*.json
+leaderboard-backup*.json.enc
 
 # playwright
 /playwright-report/

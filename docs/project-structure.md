@@ -185,9 +185,12 @@ Each carries a header comment with its flags and its cost.
 - `stats.mjs` - Print the daily play statistics from Redis (`npm run stats`)
 - `export-leaderboards.mjs` - Dump every board to JSON for backup
   (`npm run leaderboard:export`; run weekly by a GitHub Actions workflow)
+- `import-leaderboards.mjs` - Write a backup back to Redis
+  (`npm run leaderboard:import`; dry run unless `--apply`)
 - `lib/assign-districts.mjs` - District assignment shared by the two pano scripts
 - `lib/pano-schema.mjs` - Panorama table DDL shared by the seed and the tests
 - `lib/env.mjs` - The `.env` parser and loader every script shares
+- `lib/leaderboard-restore.mjs` - Backup validation and the board writes behind the import
 - `lib/region-config.mjs` - The hand-edited region configuration the boundary
   builder reads (input data, distinct from the generated tree)
 - `lib/barrel.mjs`, `lib/paths.mjs` - Barrel writer and output paths

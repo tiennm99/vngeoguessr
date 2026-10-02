@@ -9,7 +9,8 @@
 # encrypted with the passphrase before upload: on a public repository any
 # signed-in GitHub user can download an artifact, and the boards list every
 # player name.
-# Restore with: openssl enc -d -aes-256-cbc -pbkdf2 -in <file>.enc -out <file>
+# Decrypt with: openssl enc -d -aes-256-cbc -pbkdf2 -in <file>.enc -out <file>
+# then restore with npm run leaderboard:import (see docs/leaderboard-backup.md).
 name: Leaderboard backup
 
 on:

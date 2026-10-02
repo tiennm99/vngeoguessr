@@ -22,6 +22,7 @@
     "data:refresh": "npm run data:boundaries && npm run data:panos && npm run data:districts && npm run data:seed",
     "stats": "node scripts/stats.mjs",
     "leaderboard:export": "node scripts/export-leaderboards.mjs",
+    "leaderboard:import": "node scripts/import-leaderboards.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

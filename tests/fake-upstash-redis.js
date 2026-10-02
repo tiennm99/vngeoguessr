@@ -201,15 +201,18 @@ export class FakeRedis {
     return Boolean(expireAt && expireAt <= Date.now());
   }
 
-  async zadd(key, { score, member }) {
+  async zadd(key, ...entries) {
     let zset = this.zsets.get(key);
     if (!zset) {
       zset = new Map();
       this.zsets.set(key, zset);
     }
-    const isNew = !zset.has(member);
-    zset.set(member, score);
-    return isNew ? 1 : 0;
+    let added = 0;
+    for (const { score, member } of entries) {
+      if (!zset.has(member)) added += 1;
+      zset.set(member, score);
+    }
+    return added;
   }
 
   async zincrby(key, increment, member) {
