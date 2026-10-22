@@ -6,8 +6,10 @@
 //   node scripts/seed-pano-db.mjs --province=DN   # reseed one province in place
 //   node scripts/seed-pano-db.mjs --check         # validate artifacts only, no DB
 //
-// Needs DATABASE_URL (or POSTGRES_URL) in .env or the environment. Costs no
-// Mapillary requests -- it only uploads what build-pano-index.mjs and
+// Needs DATABASE_URL (or POSTGRES_URL) in .env or the environment. Tables go
+// in the PG_SCHEMA schema (default `vngeoguessr`), created if missing, so a
+// database shared with other projects never has its `public` tables touched.
+// Costs no Mapillary requests -- it only uploads what build-pano-index.mjs and
 // assign-pano-districts.mjs already wrote.
 //
 // The full run builds `panoramas_next`, verifies it row-for-row against the
@@ -25,7 +27,8 @@ import { neon } from '@neondatabase/serverless';
 import { REGIONS } from '../src/data/regions/index.js';
 import { REGION_COUNTS } from '../src/data/regions/counts.js';
 import { PANO_DIR } from './lib/paths.mjs';
-import { panoramasDdl, PANO_PROVINCES_DDL } from './lib/pano-schema.mjs';
+import { panoramasDdl, panoProvincesDdl } from './lib/pano-schema.mjs';
+import { resolvePgSchema } from '../src/lib/pg-schema.js';
 import { validatePanoArtifact } from './lib/pano-artifacts.mjs';
 import { loadEnvFile } from './lib/env.mjs';
 
@@ -37,6 +40,15 @@ function databaseUrl() {
     process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? env.DATABASE_URL ?? env.POSTGRES_URL;
   if (!url) throw new Error('DATABASE_URL or POSTGRES_URL missing from .env and the environment');
   return url;
+}
+
+/**
+ * The schema to seed, from the environment or .env, validated by the same
+ * resolver the app reads it with. `||`, not `??`: an empty value is unset.
+ * @returns {string} Schema name.
+ */
+function pgSchema() {
+  return resolvePgSchema(process.env.PG_SCHEMA || loadEnvFile().PG_SCHEMA);
 }
 
 const PROVINCES = Object.keys(REGIONS).filter((code) => REGIONS[code].level === 'province');
@@ -72,7 +84,7 @@ function loadArtifact(code) {
   return index;
 }
 
-/** Insert one province's rows into a table in unnest batches. */
+/** Insert one province's rows into a schema-qualified table in unnest batches. */
 async function insertProvince(sql, table, code, index) {
   for (let start = 0; start < index.panos.length; start += BATCH_SIZE) {
     const batch = index.panos.slice(start, start + BATCH_SIZE);
@@ -105,9 +117,9 @@ async function verifyProvince(sql, table, code, index) {
 }
 
 /** Upsert the per-province metadata row. */
-async function recordProvince(sql, code, index) {
+async function recordProvince(sql, schema, code, index) {
   await sql.query(
-    `INSERT INTO pano_provinces (code, count, generated_at, assigned_at)
+    `INSERT INTO ${schema}.pano_provinces (code, count, generated_at, assigned_at)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (code) DO UPDATE SET count = $2, generated_at = $3, assigned_at = $4`,
     [code, index.panos.length, index.generatedAt ?? null, index.assignedAt ?? null]
@@ -120,10 +132,16 @@ async function recordProvince(sql, code, index) {
  * Load-bearing, not cosmetic: a later --province run re-issues
  * `CREATE INDEX IF NOT EXISTS panoramas_*` and would silently build duplicate
  * indexes if the live table's indexes still carried their staging names.
+ *
+ * Indexes live in their table's schema, so the old name is qualified to find
+ * it; the new name must not be, because RENAME TO keeps the schema.
  */
-async function renameIndexes(sql, from, to) {
+async function renameIndexes(sql, schema, from, to) {
   for (const suffix of ['pkey', 'province_id_idx', 'district_id_idx']) {
-    await sql.query(`ALTER INDEX IF EXISTS ${from}_${suffix} RENAME TO ${to}_${suffix}`, []);
+    await sql.query(
+      `ALTER INDEX IF EXISTS ${schema}.${from}_${suffix} RENAME TO ${to}_${suffix}`,
+      []
+    );
   }
 }
 
@@ -162,45 +180,51 @@ if (checkOnly) {
 }
 
 const sql = neon(databaseUrl());
-for (const statement of PANO_PROVINCES_DDL) await sql.query(statement, []);
+const schema = pgSchema();
+const live = `${schema}.panoramas`;
+// Before any DDL: every statement below names its tables inside this schema.
+await sql.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`, []);
+for (const statement of panoProvincesDdl(schema)) await sql.query(statement, []);
 
 if (provinceArg) {
   // In-place refresh of one province. Brief window where the province is
   // partially loaded; the other provinces are untouched throughout.
   const index = artifacts.get(provinceArg);
-  for (const statement of panoramasDdl('panoramas')) await sql.query(statement, []);
-  await sql.query('DELETE FROM panoramas WHERE province = $1', [provinceArg]);
-  await insertProvince(sql, 'panoramas', provinceArg, index);
-  await verifyProvince(sql, 'panoramas', provinceArg, index);
-  await recordProvince(sql, provinceArg, index);
-  console.log(`reseeded ${provinceArg} in place`);
+  for (const statement of panoramasDdl(schema, 'panoramas')) await sql.query(statement, []);
+  await sql.query(`DELETE FROM ${live} WHERE province = $1`, [provinceArg]);
+  await insertProvince(sql, live, provinceArg, index);
+  await verifyProvince(sql, live, provinceArg, index);
+  await recordProvince(sql, schema, provinceArg, index);
+  console.log(`reseeded ${provinceArg} in place in schema ${schema}`);
 } else {
   // Full load into a staging table, verified, then renamed into place.
-  await sql.query('DROP TABLE IF EXISTS panoramas_next', []);
+  const staging = `${schema}.panoramas_next`;
+  await sql.query(`DROP TABLE IF EXISTS ${staging}`, []);
   // The previous backup makes way for the current live table to become the
   // backup. Two generations back is gone from here on.
-  await sql.query('DROP TABLE IF EXISTS panoramas_old', []);
-  for (const statement of panoramasDdl('panoramas_next')) await sql.query(statement, []);
+  await sql.query(`DROP TABLE IF EXISTS ${schema}.panoramas_old`, []);
+  for (const statement of panoramasDdl(schema, 'panoramas_next')) await sql.query(statement, []);
 
   for (const [code, index] of artifacts) {
-    await insertProvince(sql, 'panoramas_next', code, index);
-    await verifyProvince(sql, 'panoramas_next', code, index);
+    await insertProvince(sql, staging, code, index);
+    await verifyProvince(sql, staging, code, index);
     console.log(`uploaded ${code}`);
   }
 
   // Both table renames in ONE transaction: the HTTP driver runs each plain
   // query in its own implicit transaction, and doing these as two calls left a
   // window with no `panoramas` relation at all. Index renames can trail -- a
-  // reader never names an index.
+  // reader never names an index. RENAME TO takes a bare name and keeps the
+  // table in its schema; a qualified target is a syntax error.
   await sql.transaction([
-    sql.query('ALTER TABLE IF EXISTS panoramas RENAME TO panoramas_old'),
-    sql.query('ALTER TABLE panoramas_next RENAME TO panoramas'),
+    sql.query(`ALTER TABLE IF EXISTS ${live} RENAME TO panoramas_old`),
+    sql.query(`ALTER TABLE ${staging} RENAME TO panoramas`),
   ]);
-  await renameIndexes(sql, 'panoramas', 'panoramas_old');
-  await renameIndexes(sql, 'panoramas_next', 'panoramas');
-  for (const [code, index] of artifacts) await recordProvince(sql, code, index);
-  console.log('swapped panoramas into place; previous generation kept as panoramas_old');
+  await renameIndexes(sql, schema, 'panoramas', 'panoramas_old');
+  await renameIndexes(sql, schema, 'panoramas_next', 'panoramas');
+  for (const [code, index] of artifacts) await recordProvince(sql, schema, code, index);
+  console.log(`swapped ${live} into place; previous generation kept as ${schema}.panoramas_old`);
 }
 
-const totals = await sql.query('SELECT count(*)::int AS n FROM panoramas', []);
-console.log(`done: panoramas now holds ${totals[0].n} rows`);
+const totals = await sql.query(`SELECT count(*)::int AS n FROM ${live}`, []);
+console.log(`done: ${live} now holds ${totals[0].n} rows`);

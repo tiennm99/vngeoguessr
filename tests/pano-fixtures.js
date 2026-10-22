@@ -10,7 +10,8 @@
 // flake by drawing it.
 
 import { getFakeDb } from './fake-neon.js';
-import { panoramasDdl, PANO_PROVINCES_DDL } from '../scripts/lib/pano-schema.mjs';
+import { panoramasDdl, panoProvincesDdl } from '../scripts/lib/pano-schema.mjs';
+import { resolvePgSchema } from '../src/lib/pg-schema.js';
 
 export const GENERATED_AT = '2026-08-30T04:25:42.000Z';
 
@@ -47,7 +48,17 @@ export const FIXTURE_PANOS = [
 export const UNASSIGNED_PANO = ['dn-loose-1', 'DN', null, 16.2, 108.3];
 
 /**
- * Create the tables and load the fixture set into the PGlite fake.
+ * Schema-qualified table name, resolved the way src/lib/pano-db.js resolves
+ * it, for tests that write rows directly.
+ * @param {string} table Unqualified table name.
+ * @returns {string} e.g. 'vngeoguessr.panoramas'.
+ */
+export function fixtureTable(table) {
+  return `${resolvePgSchema(process.env.PG_SCHEMA)}.${table}`;
+}
+
+/**
+ * Create the schema and tables, and load the fixture set into the PGlite fake.
  *
  * Seed once per test file, before any query: pano-index.js caches counts for
  * the life of the process, so rows added after a count was read stay
@@ -56,13 +67,17 @@ export const UNASSIGNED_PANO = ['dn-loose-1', 'DN', null, 16.2, 108.3];
  */
 export async function seedPanoFixtures(includeUnassigned) {
   const db = getFakeDb();
-  for (const statement of panoramasDdl('panoramas')) await db.query(statement);
-  for (const statement of PANO_PROVINCES_DDL) await db.query(statement);
+  // Only the schema, never `public`: a query that forgot to qualify its table
+  // finds no relation and fails, instead of passing against the wrong one.
+  const schema = resolvePgSchema(process.env.PG_SCHEMA);
+  await db.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`);
+  for (const statement of panoramasDdl(schema, 'panoramas')) await db.query(statement);
+  for (const statement of panoProvincesDdl(schema)) await db.query(statement);
 
   const rows = includeUnassigned ? [...FIXTURE_PANOS, UNASSIGNED_PANO] : FIXTURE_PANOS;
   for (const [id, province, district, lat, lng] of rows) {
     await db.query(
-      `INSERT INTO panoramas (id, province, district, lat, lng)
+      `INSERT INTO ${schema}.panoramas (id, province, district, lat, lng)
        VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
       [id, province, district, lat, lng]
     );
@@ -74,7 +89,7 @@ export async function seedPanoFixtures(includeUnassigned) {
   }
   for (const [code, count] of perProvince) {
     await db.query(
-      `INSERT INTO pano_provinces (code, count, generated_at, assigned_at)
+      `INSERT INTO ${schema}.pano_provinces (code, count, generated_at, assigned_at)
        VALUES ($1, $2, $3, $3) ON CONFLICT (code) DO UPDATE SET count = $2`,
       [code, count, GENERATED_AT]
     );

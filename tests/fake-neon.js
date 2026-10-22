@@ -5,6 +5,10 @@
 //
 // PGlite is real Postgres semantics, which is the point: the queries the app
 // ships are exercised verbatim, not against a hand-written SQL interpreter.
+//
+// The database starts empty, `public` included. tests/pano-fixtures.js creates
+// the PG_SCHEMA schema and its tables, and nothing else, so an unqualified
+// table name in the app fails here exactly as it would against a fresh Neon.
 
 import { PGlite } from '@electric-sql/pglite';
 

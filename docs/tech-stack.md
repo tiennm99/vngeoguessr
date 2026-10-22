@@ -44,6 +44,12 @@
   per process. Seeded by `scripts/seed-pano-db.mjs`, which stages into
   `panoramas_next`, verifies, then renames into place, keeping the previous
   generation as `panoramas_old`
+- **Multi-tenant Postgres Schema**: Every panorama table lives in the
+  `PG_SCHEMA` schema (default `vngeoguessr`) instead of `public`, so the
+  Vercel-managed Neon database can be shared with other projects without the
+  seed's drops and renames touching theirs. Resolved and validated centrally in
+  `src/lib/pg-schema.js`; queries qualify tables through `panoTable()` in
+  `src/lib/pano-db.js`
 - **Upstash Redis (REST)**: Session and leaderboard storage via `@upstash/redis` SDK (REST client, no sockets)
 - **Credential Flexibility**: Accepts `UPSTASH_REDIS_REST_URL`+`UPSTASH_REDIS_REST_TOKEN` (vanilla Upstash) or `KV_REST_API_URL`+`KV_REST_API_TOKEN` (Vercel Marketplace aliases)
 - **Multi-tenant Key Prefix**: All physical keys carry `KEY_PREFIX` (default `vngeoguessr:`) to safely share Upstash DB with other Vercel projects. Prefix applied centrally in `src/lib/upstash.js`; callers use logical keys only.

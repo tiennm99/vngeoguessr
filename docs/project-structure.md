@@ -124,7 +124,9 @@ generated region data* in [development.md](development.md).
 
 The panorama index itself is not in the repo: the pipeline writes artifacts to
 `data-build/panos/` (gitignored) and `scripts/seed-pano-db.mjs` uploads them to
-Neon Postgres, which is what the app queries at runtime.
+Neon Postgres, which is what the app queries at runtime. The tables
+(`panoramas`, `pano_provinces`) live in the `PG_SCHEMA` schema (default
+`vngeoguessr`), never `public`.
 
 ### Utility Libraries (`src/lib/`)
 - `utils.js` - Utility functions including `cn()` for class name merging
@@ -134,7 +136,10 @@ Neon Postgres, which is what the app queries at runtime.
   `NEXT_PUBLIC_GEOAPIFY_KEY` is set at build time, OSM public server otherwise
 - `pano-index.js` - **Server-side only.** Picks a panorama for a region from
   Postgres and reports which district it landed in
-- `pano-db.js` - **Server-side only.** Neon HTTP adapter behind pano-index.js
+- `pano-db.js` - **Server-side only.** Neon HTTP adapter behind pano-index.js;
+  `panoTable()` schema-qualifies every table name it queries
+- `pg-schema.js` - Resolves and validates `PG_SCHEMA` (default `vngeoguessr`),
+  the Postgres schema holding the panorama tables; shared with the seed script
 - `region-request.js` - Resolves and validates a region code from a request
 - `game.js` - Scoring ladder, distance, formatting
 - `username.js` - Player name in localStorage, the random-name generator, and
@@ -180,7 +185,8 @@ Each carries a header comment with its flags and its cost.
 - `build-region-boundaries.mjs` - OSM/Nominatim to boundaries and the region tree
 - `build-pano-index.mjs` - Mapillary z14 tiles to per-province panorama artifacts
 - `assign-pano-districts.mjs` - Clips and partitions panoramas by district
-- `seed-pano-db.mjs` - Validates the artifacts and uploads them to Neon
+- `seed-pano-db.mjs` - Validates the artifacts, creates the `PG_SCHEMA`
+  schema if missing, and uploads them to Neon
 - `build-check.mjs` - Production build into `.next-check`
 - `stats.mjs` - Print the daily play statistics from Redis (`npm run stats`)
 - `export-leaderboards.mjs` - Dump every board to JSON for backup
@@ -188,7 +194,8 @@ Each carries a header comment with its flags and its cost.
 - `import-leaderboards.mjs` - Write a backup back to Redis
   (`npm run leaderboard:import`; dry run unless `--apply`)
 - `lib/assign-districts.mjs` - District assignment shared by the two pano scripts
-- `lib/pano-schema.mjs` - Panorama table DDL shared by the seed and the tests
+- `lib/pano-schema.mjs` - Schema-qualified panorama table DDL shared by the seed
+  and the tests
 - `lib/env.mjs` - The `.env` parser and loader every script shares
 - `lib/leaderboard-restore.mjs` - Backup validation and the board writes behind the import
 - `lib/region-config.mjs` - The hand-edited region configuration the boundary
@@ -203,7 +210,8 @@ and `debug/pano` routes have no dedicated test file; their underlying
 `wait-for-srh.js` are the shared harness that lets the same files run against
 either the in-memory fake or a real Redis. `fake-neon.js`, `mock-neon.js` and
 `pano-fixtures.js` are the equivalent for the panorama store: PGlite behind the
-Neon SDK boundary, loaded with small synthetic rows. `mapillary-stub.js`
+Neon SDK boundary, loaded with small synthetic rows into the `PG_SCHEMA`
+schema only, so a query that forgets to qualify its table fails. `mapillary-stub.js`
 stubs the Mapillary Graph API around every test of a file that calls
 `stubMapillary()`.
 

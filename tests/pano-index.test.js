@@ -11,7 +11,14 @@ import {
   getProvinceMeta,
 } from '../src/lib/pano-index.js';
 import { getRegion, childrenOf, provinceOf, coverageOf, isPlayable, playableRegions } from '../src/lib/regions.js';
-import { seedPanoFixtures, FIXTURE_PANOS, UNASSIGNED_PANO, fixtureIds, GENERATED_AT } from './pano-fixtures.js';
+import {
+  seedPanoFixtures,
+  FIXTURE_PANOS,
+  UNASSIGNED_PANO,
+  fixtureIds,
+  fixtureTable,
+  GENERATED_AT,
+} from './pano-fixtures.js';
 import { getFakeDb } from './fake-neon.js';
 
 // These tests pin the query behavior of pano-index.js against the PGlite fake.
@@ -55,7 +62,8 @@ describe('pickRandomPano', () => {
     // Sorted first among the DN rows, so offset 0 is this one.
     const db = getFakeDb();
     await db.query(
-      `INSERT INTO panoramas (id, province, district, lat, lng) VALUES ($1, 'DN', 'DN-GONE', 16.05, 108.2)`,
+      `INSERT INTO ${fixtureTable('panoramas')} (id, province, district, lat, lng)
+       VALUES ($1, 'DN', 'DN-GONE', 16.05, 108.2)`,
       ['a-unknown-district']
     );
     const random = vi.spyOn(Math, 'random').mockReturnValue(0);
@@ -63,7 +71,9 @@ describe('pickRandomPano', () => {
       await expect(pickRandomPano('DN')).rejects.toThrow(/unknown region DN-GONE/);
     } finally {
       random.mockRestore();
-      await db.query('DELETE FROM panoramas WHERE id = $1', ['a-unknown-district']);
+      await db.query(`DELETE FROM ${fixtureTable('panoramas')} WHERE id = $1`, [
+        'a-unknown-district',
+      ]);
     }
   });
 
@@ -190,6 +200,19 @@ describe('province metadata', () => {
 
   it('returns null for a province never seeded', async () => {
     expect(await getProvinceMeta('NOPE')).toBeNull();
+  });
+
+  it("never reads a co-tenant's same-named table in public", async () => {
+    // The database may be shared, and Neon's default search_path is public:
+    // an unqualified query would answer from this decoy instead.
+    const db = getFakeDb();
+    await db.query('CREATE TABLE public.pano_provinces (code text PRIMARY KEY, count integer)');
+    try {
+      await db.query(`INSERT INTO public.pano_provinces VALUES ('NOPE', 99)`);
+      expect(await getProvinceMeta('NOPE')).toBeNull();
+    } finally {
+      await db.query('DROP TABLE public.pano_provinces');
+    }
   });
 });
 

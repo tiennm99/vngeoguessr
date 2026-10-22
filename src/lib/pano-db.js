@@ -1,9 +1,12 @@
 import { neon } from '@neondatabase/serverless';
+import { resolvePgSchema } from './pg-schema.js';
 
 // Neon Postgres adapter (HTTP driver).
 //
 // Holds the panorama index: table `panoramas` (id, province, district, lat,
-// lng) and `pano_provinces` (per-province metadata). Seeded offline by
+// lng) and `pano_provinces` (per-province metadata), both in the PG_SCHEMA
+// schema (default `vngeoguessr`, see pg-schema.js) rather than `public`, so
+// the database can be shared with other projects. Seeded offline by
 // scripts/seed-pano-db.mjs from the pipeline artifacts; the app only reads.
 //
 // SERVER-SIDE ONLY. The rows are exact round answers, same as the old JSON
@@ -28,6 +31,19 @@ export function getPanoDb() {
   if (!url) throw new Error('DATABASE_URL or POSTGRES_URL is required');
   handle = { sql: neon(url) };
   return handle;
+}
+
+/**
+ * Schema-qualify a panorama table name for interpolation into SQL.
+ *
+ * Every query names its tables through this rather than relying on
+ * search_path: Neon's default path is `public`, where a co-tenant's table of
+ * the same name could otherwise answer in place of ours.
+ * @param {string} table Unqualified table name, e.g. 'panoramas'.
+ * @returns {string} e.g. 'vngeoguessr.panoramas'.
+ */
+export function panoTable(table) {
+  return `${resolvePgSchema(process.env.PG_SCHEMA)}.${table}`;
 }
 
 /**

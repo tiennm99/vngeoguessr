@@ -12,7 +12,7 @@
 // region tree and imports nothing from here or pano-db.js --
 // tests/regions.test.js enforces that boundary.
 
-import { getPanoDb, query } from './pano-db.js';
+import { getPanoDb, panoTable, query } from './pano-db.js';
 import { getRegion, childrenOf, isPlayable, isRegion } from './regions.js';
 import { DryPoolError } from './errors.js';
 
@@ -45,7 +45,7 @@ export async function countPanos(code) {
   if (countCache.has(code)) return countCache.get(code);
   const rows = await query(
     getPanoDb(),
-    `SELECT count(*)::int AS n FROM panoramas WHERE ${regionPredicate(code)}`,
+    `SELECT count(*)::int AS n FROM ${panoTable('panoramas')} WHERE ${regionPredicate(code)}`,
     [code]
   );
   const n = rows[0].n;
@@ -123,7 +123,7 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
     const offset = Math.floor(Math.random() * total);
     const rows = await query(
       getPanoDb(),
-      `SELECT id, lat, lng, district FROM panoramas
+      `SELECT id, lat, lng, district FROM ${panoTable('panoramas')}
        WHERE ${where} ORDER BY id OFFSET $2 LIMIT 1`,
       [code, offset]
     );
@@ -144,7 +144,7 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
   const ids = [...excludeIds];
   const usableRows = await query(
     getPanoDb(),
-    `SELECT count(*)::int AS n FROM panoramas
+    `SELECT count(*)::int AS n FROM ${panoTable('panoramas')}
      WHERE ${where} AND NOT (id = ANY($2::text[]))`,
     [code, ids]
   );
@@ -153,7 +153,7 @@ export async function pickRandomPano(code, excludeIds = new Set()) {
   const offset = Math.floor(Math.random() * usable);
   const rows = await query(
     getPanoDb(),
-    `SELECT id, lat, lng, district FROM panoramas
+    `SELECT id, lat, lng, district FROM ${panoTable('panoramas')}
      WHERE ${where} AND NOT (id = ANY($2::text[])) ORDER BY id OFFSET $3 LIMIT 1`,
     [code, ids, offset]
   );
@@ -204,7 +204,7 @@ export async function pickPanoBySeed(seed) {
     const offset = hash32(`${seed}:${province}:offset`) % total;
     const rows = await query(
       getPanoDb(),
-      `SELECT id, lat, lng, district FROM panoramas
+      `SELECT id, lat, lng, district FROM ${panoTable('panoramas')}
        WHERE ${regionPredicate(province)} ORDER BY id OFFSET $2 LIMIT 1`,
       [province, offset]
     );
@@ -244,7 +244,7 @@ export async function getRegionPanoSample(code, west, south, east, north, limit)
   const inViewRows = hasBbox
     ? await query(
         getPanoDb(),
-        `SELECT count(*)::int AS n FROM panoramas WHERE ${where}${bboxClause}`,
+        `SELECT count(*)::int AS n FROM ${panoTable('panoramas')} WHERE ${where}${bboxClause}`,
         params
       )
     : null;
@@ -259,7 +259,7 @@ export async function getRegionPanoSample(code, west, south, east, north, limit)
     getPanoDb(),
     `SELECT id, lat, lng FROM (
        SELECT id, lat, lng, row_number() OVER (ORDER BY lat, id) AS rn
-       FROM panoramas WHERE ${where}${bboxClause}
+       FROM ${panoTable('panoramas')} WHERE ${where}${bboxClause}
      ) striped WHERE (rn - 1) % $${params.length + 1} = 0
      ORDER BY rn LIMIT $${params.length + 2}`,
     [...params, stride, limit]
@@ -280,7 +280,7 @@ export async function getRegionPanoSample(code, west, south, east, north, limit)
 export async function getProvinceMeta(provinceCode) {
   const rows = await query(
     getPanoDb(),
-    'SELECT code, count, generated_at, assigned_at FROM pano_provinces WHERE code = $1',
+    `SELECT code, count, generated_at, assigned_at FROM ${panoTable('pano_provinces')} WHERE code = $1`,
     [provinceCode]
   );
   if (rows.length === 0) return null;

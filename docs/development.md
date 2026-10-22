@@ -101,6 +101,17 @@ reads, with placeholders only. The sections below explain each one.
 - `DATABASE_URL` (or the `POSTGRES_URL` alias) - Neon connection string holding
   the panorama index. Provision Neon from the Vercel Marketplace and pull the
   vars with `vercel env pull`, then seed with `npm run data:seed`
+- Optional: `PG_SCHEMA` (default: `vngeoguessr`) - the Postgres schema holding
+  the panorama tables, so the database can be shared with other projects the
+  way `KEY_PREFIX` shares Redis. The app and the seed script resolve it through
+  one function, `src/lib/pg-schema.js`, which treats an empty value as unset
+  and throws on anything but a lowercase identifier (`[a-z_][a-z0-9_]*`, at
+  most 63 characters), since it is interpolated into SQL unquoted. It also
+  throws on reserved Postgres keywords (`user`, `order`, ...), on the `pg_`
+  system prefix, and on `public` and `information_schema`, where a full seed
+  would drop and rename other tenants' tables. Other projects
+  sharing the database must stay out of this schema; Neon storage and compute
+  limits stay shared across the Neon project either way
 
 **Mapillary (required)**:
 - `MAPILLARY_ACCESS_TOKEN` - Mapillary API token for image fetching
@@ -259,12 +270,90 @@ before running. Two things worth knowing up front:
 - `npm run data:panos` spends Mapillary tile requests against a 50,000/day cap.
   `npm run data:districts` spends none -- it only re-partitions indexes that
   already exist, and refuses to rewrite `counts.js` on a partial run.
-- `npm run data:seed` spends none either. The full run stages into
-  `panoramas_next`, verifies, and renames into place, keeping the previous
+- `npm run data:seed` spends none either. It first runs
+  `CREATE SCHEMA IF NOT EXISTS` for `PG_SCHEMA`, and every table it creates,
+  drops or renames lives in that schema, never `public`. The full run stages
+  into `panoramas_next`, verifies, and renames into place, keeping the previous
   generation as `panoramas_old`; `-- --province=DN` reseeds one province in
   place; `-- --check` validates the artifacts without touching the database.
-  Deploy the app and the seed in either order: the schema is unchanged, and
+  Once the tables live in `PG_SCHEMA` (see the one-time move below), deploy
+  the app and the seed in either order: the table layout is unchanged, and
   running processes keep serving their cached counts until they recycle.
+
+#### Moving tables out of `public`
+
+Databases seeded before `PG_SCHEMA` existed hold the tables in `public`, where
+the new code no longer looks, while the code they run today reads only
+`public`. Pick one path below. Until it is done, run no seed from the new code
+against the database, not even `--province`: it creates tables in the new
+schema that make the move fail or leave it half done.
+
+1. Back up first: take a Neon branch snapshot of the database.
+2. Check that the new schema holds nothing yet:
+
+   ```sql
+   SELECT to_regclass('vngeoguessr.panoramas'), to_regclass('vngeoguessr.pano_provinces');
+   ```
+
+   Both should be null. If either is not, a new-code seed already ran: drop
+   whatever it left (`DROP SCHEMA vngeoguessr CASCADE`, after checking that
+   nothing else lives there), or take path B, which replaces those tables.
+
+**Path A: move the live tables** (with the default schema). Run it as one
+transaction, right before the new code deploys:
+
+```sql
+BEGIN;
+CREATE SCHEMA IF NOT EXISTS vngeoguessr;
+ALTER TABLE public.panoramas      SET SCHEMA vngeoguessr;
+ALTER TABLE public.pano_provinces SET SCHEMA vngeoguessr;
+-- Keep the old code reading until the new deployment is live.
+CREATE VIEW public.panoramas      AS SELECT * FROM vngeoguessr.panoramas;
+CREATE VIEW public.pano_provinces AS SELECT * FROM vngeoguessr.pano_provinces;
+COMMIT;
+```
+
+`SET SCHEMA` moves each table's indexes with it, so the seed script's index
+renames keep finding them. Without the two views, every instance still on the
+old code fails its queries (and so every round) from the commit until the new
+deployment is promoted, and for good if that deploy fails. Then:
+
+1. Deploy, and confirm the new deployment serves rounds.
+2. Drop the bridge and the leftovers nothing reads any more:
+
+   ```sql
+   DROP VIEW IF EXISTS public.panoramas, public.pano_provinces;
+   DROP TABLE IF EXISTS public.panoramas_old, public.panoramas_next;
+   ```
+
+   `public.panoramas_old` is the previous generation from an earlier full
+   seed, and `public.panoramas_next` the staging table of an aborted one. To
+   keep the old generation as the backup instead, move it with
+   `ALTER TABLE public.panoramas_old SET SCHEMA vngeoguessr`.
+
+To roll back before the views are dropped, undo it in one transaction:
+`DROP VIEW public.panoramas, public.pano_provinces`, then
+`ALTER TABLE vngeoguessr.panoramas SET SCHEMA public` and the same for
+`vngeoguessr.pano_provinces`, and redeploy the old code. Once the views
+are gone, restore from the snapshot instead.
+
+**Path B: reseed into the new schema.** The seed touches only `PG_SCHEMA`, so
+the old code keeps reading `public` while it runs:
+
+1. Free storage first, since Neon storage is shared and bounded: drop
+   `public.panoramas_old` and `public.panoramas_next` if present, which keeps
+   the peak at two copies of the index (`public.panoramas` and the new
+   `vngeoguessr.panoramas_next`).
+2. Run a complete `npm run data:seed` (no `--province`) from the new code
+   before the deploy. Seeding after the deploy works too, but rounds fail
+   until it finishes, because the new schema is empty.
+3. Deploy, and confirm the new deployment serves rounds.
+4. Drop the old tables, so nothing of this project stays in `public`:
+
+   ```sql
+   DROP TABLE IF EXISTS public.panoramas, public.pano_provinces,
+                        public.panoramas_old, public.panoramas_next;
+   ```
 
 ## Styling Conventions
 
